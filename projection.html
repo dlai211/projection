@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projectile Motion Animation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Finger+Paint&display=swap" rel="stylesheet">
+    <style>
+        h1 {
+            color: #FFEEAD;           
+            margin-bottom: 20px;
+            font-family: 'Finger Paint', cursive;
+            font-size: 3.5vh;
+        }
+        body {
+            background-color: #96CEB4;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        canvas {
+            border: 2px solid #A66E38;
+            background-color: #F2E5BF;
+            width: 60vh;
+            height: 50vh;
+        }
+    </style>
+</head>
+<body>
+    <h1>Projectile Motion Animation</h1>
+    <canvas id="projectileCanvas" width="600" height="500"></canvas>
+    <script>
+        // Given parameters
+        const v0 = 20.0; // Initial velocity (m/s)
+        const theta = 35.0; // Launch angle (degrees)
+        const h = 115; // Initial height (m)
+        const g = 9.81; // Acceleration due to gravity (m/s^2)
+
+        // Convert angle to radians
+        const thetaRad = (theta * Math.PI) / 180;
+
+        // Initial velocity components
+        const v0_x = v0 * Math.cos(thetaRad);
+        const v0_y = v0 * Math.sin(thetaRad);
+
+        // Time of flight calculation
+        const tFlight = (v0_y + Math.sqrt(v0_y ** 2 + 2 * g * h)) / g;
+
+        // Generate time values
+        const numPoints = 500;
+        const t = Array.from({ length: numPoints }, (_, i) => (i / (numPoints - 1)) * tFlight);
+
+        // Equations of motion
+        const x = t.map((time) => v0_x * time);
+        const y = t.map((time) => h + v0_y * time - 0.5 * g * time ** 2);
+
+        // Set up the canvas and context
+        const canvas = document.getElementById('projectileCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Set up scaling
+        const maxX = Math.max(...x) * 1.1;
+        const maxY = Math.max(...y) * 1.1;
+
+        // Scale functions to map coordinates to canvas
+        function scaleX(value) {
+            return (value / maxX) * canvas.width;
+        }
+
+        function scaleY(value) {
+            return canvas.height - (value / maxY) * canvas.height;
+        }
+
+        function drawArrow(fromX, fromY, toX, toY, color) {
+            const headLength = 10; // Length of the arrowhead
+            const dx = toX - fromX;
+            const dy = toY - fromY;
+            const angle = Math.atan2(dy, dx);
+
+            // Draw the line
+            ctx.beginPath();
+            ctx.moveTo(fromX, fromY);
+            ctx.lineTo(toX, toY);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Draw the arrowhead
+            ctx.beginPath();
+            ctx.moveTo(toX, toY);
+            ctx.lineTo(toX - headLength * Math.cos(angle - Math.PI / 6), toY - headLength * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(toX - headLength * Math.cos(angle + Math.PI / 6), toY - headLength * Math.sin(angle + Math.PI / 6));
+            ctx.lineTo(toX, toY);
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+
+        // Animation loop
+        let currentFrame = 0;
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw the trajectory line
+            ctx.beginPath();
+            ctx.moveTo(scaleX(x[0]), scaleY(y[0]));
+            for (let i = 1; i <= currentFrame; i++) {
+                ctx.lineTo(scaleX(x[i]), scaleY(y[i]));
+            }
+            ctx.strokeStyle = '#FD8B51';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+
+            // Draw the current point
+            const currentX = scaleX(x[currentFrame]);
+            const currentY = scaleY(y[currentFrame]);
+            ctx.beginPath();
+            ctx.arc(currentX, currentY, 5, 0, 2 * Math.PI);
+            ctx.fillStyle = 'red';
+            ctx.fill();
+
+            // Calculate velocity components at the current frame
+            const vx = v0_x;
+            const vy = v0_y - g * t[currentFrame];
+
+            // Draw velocity vectors
+            const scaleFactor = 1.5; // Scaling factor for vector length
+
+            // Draw vx vector with label
+            const vxEndX = currentX + vx * scaleFactor;
+            drawArrow(currentX, currentY, vxEndX, currentY, 'green');
+            ctx.fillStyle = 'green';
+            ctx.font = '12px Arial';
+            ctx.fillText('Vₓ', vxEndX + 5, currentY - 5);
+
+            // Draw vy vector with label
+            const vyEndY = currentY - vy * scaleFactor;
+            drawArrow(currentX, currentY, currentX, vyEndY, 'orange');
+            ctx.fillStyle = 'orange';
+            ctx.fillText('Vᵧ', currentX + 5, vyEndY - 5);
+
+            currentFrame++;
+            if (currentFrame < t.length) {
+                requestAnimationFrame(animate);
+            }
+        }
+
+        // Start the animation
+        animate();
+    </script>
+</body>
+</html>
