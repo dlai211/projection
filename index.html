@@ -41,14 +41,22 @@
             /* text-shadow: 1px 1px black; */
             cursor: pointer;
         }
+        
+        @media (min-width: 768px) {
+            button, .file-input-label {
+                font-size: 2vh;
+            }
+        }
     </style>
 </head>
 <body>
     <h1>Projectile Motion Animation</h1>
     <canvas id="projectileCanvas" width="600" height="500"></canvas>
     <div id="controls">
+        <button onclick="position()">P</button>
         <button onclick="velocity()">V</button>
         <button onclick="acceleration()">A</button>
+        <button onclick="reset()">R</button>
     </div>
     <script>
         // Given parameters
@@ -117,8 +125,13 @@
         }
 
         // Flags for displaying velocity and acceleration vectors
+        let showPosition = false;
         let showVelocity = false;
         let showAcceleration = false;
+
+        function position() {
+            showPosition = !showPosition;
+        }
 
         function velocity() {
             showVelocity = !showVelocity;
@@ -128,6 +141,13 @@
             showAcceleration = !showAcceleration;
         }
 
+        function reset() {
+            currentFrame = 0;
+            // showPosition = false;
+            // showVelocity = false;
+            // showAcceleration = false;
+            animate();
+        }
         // Animation loop
         let currentFrame = 0;
         function animate() {
@@ -156,9 +176,16 @@
             const vx = v0_x;
             const vy = v0_y - g * t[currentFrame];
 
+            // Draw position label if enabled
+            if (showPosition) {
+                ctx.fillStyle = 'grey';
+                ctx.font = '15px Arial';
+                ctx.fillText(`(${x[currentFrame].toFixed(2)}, ${y[currentFrame].toFixed(2)})`, currentX + 5, currentY - 15);
+            }
+
             // Draw velocity vectors if enabled
             if (showVelocity) {
-                const scaleFactor = 1.5; // Scaling factor for vector length
+                const scaleFactor = 2; // Scaling factor for vector length
 
                 // Draw vx vector with label
                 const vxEndX = currentX + vx * scaleFactor;
