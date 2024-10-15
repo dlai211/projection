@@ -28,11 +28,28 @@
             width: 60vh;
             height: 50vh;
         }
+
+        button, .file-input-label {
+            display: inline-block;
+            background-color: rgb(255, 255, 213);
+            font-size: 2vh;
+            padding: 5px 10px 5px 12px;
+            border: black 1.5px solid;
+            border-radius: 5px;
+            margin: 2vh 2vh 2vh 2vh;
+            font-family: 'Finger Paint', cursive;
+            /* text-shadow: 1px 1px black; */
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
     <h1>Projectile Motion Animation</h1>
     <canvas id="projectileCanvas" width="600" height="500"></canvas>
+    <div id="controls">
+        <button onclick="velocity()">V</button>
+        <button onclick="acceleration()">A</button>
+    </div>
     <script>
         // Given parameters
         const v0 = 20.0; // Initial velocity (m/s)
@@ -99,6 +116,18 @@
             ctx.fill();
         }
 
+        // Flags for displaying velocity and acceleration vectors
+        let showVelocity = false;
+        let showAcceleration = false;
+
+        function velocity() {
+            showVelocity = !showVelocity;
+        }
+
+        function acceleration() {
+            showAcceleration = !showAcceleration;
+        }
+
         // Animation loop
         let currentFrame = 0;
         function animate() {
@@ -127,21 +156,32 @@
             const vx = v0_x;
             const vy = v0_y - g * t[currentFrame];
 
-            // Draw velocity vectors
-            const scaleFactor = 1.5; // Scaling factor for vector length
+            // Draw velocity vectors if enabled
+            if (showVelocity) {
+                const scaleFactor = 1.5; // Scaling factor for vector length
 
-            // Draw vx vector with label
-            const vxEndX = currentX + vx * scaleFactor;
-            drawArrow(currentX, currentY, vxEndX, currentY, 'green');
-            ctx.fillStyle = 'green';
-            ctx.font = '12px Arial';
-            ctx.fillText('Vₓ', vxEndX + 5, currentY - 5);
+                // Draw vx vector with label
+                const vxEndX = currentX + vx * scaleFactor;
+                drawArrow(currentX, currentY, vxEndX, currentY, 'green');
+                ctx.fillStyle = 'green';
+                ctx.font = '12px Arial';
+                ctx.fillText('Vₓ', vxEndX + 5, currentY - 5);
 
-            // Draw vy vector with label
-            const vyEndY = currentY - vy * scaleFactor;
-            drawArrow(currentX, currentY, currentX, vyEndY, 'orange');
-            ctx.fillStyle = 'orange';
-            ctx.fillText('Vᵧ', currentX + 5, vyEndY - 5);
+                // Draw vy vector with label
+                const vyEndY = currentY - vy * scaleFactor;
+                drawArrow(currentX, currentY, currentX, vyEndY, 'orange');
+                ctx.fillStyle = 'orange';
+                ctx.fillText('Vᵧ', currentX + 5, vyEndY - 5);
+            }
+
+            // Draw acceleration vector if enabled
+            if (showAcceleration) {
+                // Acceleration is always downward with magnitude g
+                const ayEndY = currentY + g * 5; // Arbitrary scaling factor for visual representation
+                drawArrow(currentX, currentY, currentX, ayEndY, 'steelblue');
+                ctx.fillStyle = 'steelblue';
+                ctx.fillText('aᵧ', currentX + 5, ayEndY + 15);
+            }
 
             currentFrame++;
             if (currentFrame < t.length) {
@@ -153,4 +193,3 @@
         animate();
     </script>
 </body>
-</html>
