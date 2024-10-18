@@ -121,6 +121,7 @@
         <button onclick="position()">P</button>
         <button onclick="velocity()">V</button>
         <button onclick="acceleration()">A</button>
+        <button onclick="force()">F</button>
         <button onclick="reset()">R</button>
     </div>
     <script>
@@ -137,6 +138,10 @@
         const forceAngleSlider = document.getElementById('forceAngleSlider');
         const forceAngleValue = document.getElementById('forceAngleValue');
 
+        let showPosition = false;
+        let showVelocity = false;
+        let showAcceleration = false;
+        let showForce = false;
 
         let box = {
             x: ctx.canvas.width / 2 - 25,
@@ -146,16 +151,16 @@
             velocityX: 0,
             velocityY: 0
         };
-        const maxX = 80000;
-        const maxY = 60000;
-
-        function scaleX(value) {
-            return value / maxX * canvas.width;
-        }
-
-        function scaleY(value) {
-            return value / maxY * canvas.height;
-        }
+        const Scale = 300;
+        const gravity = -9.81; // m/s^2
+        // const maxX = 80000;
+        // const maxY = 60000;
+        // function scaleX(value) {
+        //     return value / maxX * canvas.width;
+        // }
+        // function scaleY(value) {
+        //     return value / maxY * canvas.height;
+        // }
 
         function drawArrow(fromX, fromY, toX, toY, color) {
             const headLength = 10; // Length of the arrowhead
@@ -188,15 +193,24 @@
             ctx.stroke();
         }
 
-        function drawBox() {
+        function drawBox(angle) {
+            ctx.save();
+            ctx.translate(0, canvas.height / 2);
+
+            const angleRadian = angle * Math.PI / 180;
+            ctx.rotate(-angleRadian);
+
+            ctx.translate(box.x, 0);   
+
             ctx.fillStyle = '#257180';
-            ctx.fillRect(box.x, box.y, box.width, box.height);
+            ctx.fillRect(0, -box.height, box.width, box.height);
+
+            ctx.restore();
         }
 
+
         function updateBoxPosition(angle, friction, initialForce, continuousForce, forceAngle) {
-            let gravity = -0.5;
             let angleRadian = angle * Math.PI / 180;
-            // console.log(angleRadian);
             let acceleration = gravity * Math.sin(angleRadian);
             let frictionForce = null;
             let inititalForce = null;
@@ -209,11 +223,11 @@
                 box.velocityX += frictionForce;
             }
 
-            box.x += box.velocityX;
+            box.x += box.velocityX / Scale;
 
             if (Math.abs(box.x) > canvas.width) {
-                box.x = 400;
-                box.y = 300;
+                box.x = canvas.width / 2 - 25;
+                box.y = canvas.width / 2 - 25;
                 box.velocityX = 0;
                 box.velocityY = 0;
             }
@@ -231,12 +245,45 @@
             const forceAngle = parseFloat(forceAngleSlider.value);
             drawSlope(angle);
             updateBoxPosition(angle, friction, initialForce, continuousForce, forceAngle);
-            drawBox();
+            drawBox(angle);
+            if (showForce) {
+                drawForce(angle);
+            }
         }
  
         function animate() {
             updateCanvas();
             requestAnimationFrame(animate);
+
+        }
+
+        function force() {
+            showForce = !showForce;
+        }
+
+        function drawForce(angle) {
+            const angleRadian = angle * Math.PI / 180;
+    
+            const gravityLength = 50; 
+            const gravityX = box.x + box.width / 2;
+            const gravityY = box.y + box.height / 2; 
+            
+            drawArrow(gravityX, gravityY, gravityX, gravityY + gravityLength, 'blue'); 
+
+            const normalLength = 50; 
+            const normalX = gravityX; 
+            const normalY = gravityY;
+
+            const normalXEnd = normalX - normalLength * Math.sin(angleRadian);
+            const normalYEnd = normalY - normalLength * Math.cos(angleRadian);
+            
+            drawArrow(normalX, normalY, normalXEnd, normalYEnd, 'red'); 
+        }
+        function reset() {
+            // showPosition = false;
+            // showVelocity = false;
+            // showAcceleration = false;
+            animate();
         }
 
         // Event listeners for sliders
