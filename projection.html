@@ -41,6 +41,10 @@
             /* text-shadow: 1px 1px black; */
             cursor: pointer;
         }
+
+        button.active {
+            background-color: rgb(175, 175, 148);
+        }
         
         @media (min-width: 768px) {
             button, .file-input-label {
@@ -131,14 +135,17 @@
 
         function position() {
             showPosition = !showPosition;
+            document.querySelector('button[onclick="position()"]').classList.toggle('active');
         }
 
         function velocity() {
             showVelocity = !showVelocity;
+            document.querySelector('button[onclick="velocity()"]').classList.toggle('active');
         }
 
         function acceleration() {
             showAcceleration = !showAcceleration;
+            document.querySelector('button[onclick="acceleration()"]').classList.toggle('active');
         }
 
         function reset() {
@@ -146,6 +153,10 @@
             // showPosition = false;
             // showVelocity = false;
             // showAcceleration = false;
+            
+            // document.querySelector('button[onclick="position()"]').classList.remove('active');
+            // document.querySelector('button[onclick="velocity()"]').classList.remove('active');
+            // document.querySelector('button[onclick="acceleration()"]').classList.remove('active');
             animate();
         }
         // Animation loop

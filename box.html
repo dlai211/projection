@@ -91,6 +91,10 @@
             cursor: pointer;
         }
         
+        button.active {
+            background-color: rgb(188, 188, 159);
+        }
+        
         @media (min-width: 768px) {
             button, .file-input-label {
                 font-size: 2vh;
@@ -188,22 +192,30 @@
 
         function drawSlope(angle) {
             ctx.beginPath();
+            // ctx.moveTo(0, canvas.height/2 + box.height/2);
             ctx.moveTo(0, canvas.height/2);
-            ctx.lineTo(canvas.width, canvas.height/2 - Math.tan(angle * Math.PI / 180) * canvas.width);
+            const angleRadian = angle * Math.PI / 180;
+            const dist = Math.tan(angleRadian) * canvas.width;
+            // ctx.lineTo(canvas.width, canvas.height/2 - dist - box.height * 2.5 * Math.cos(angleRadian) + 3*box.height);
+            ctx.lineTo(canvas.width, canvas.height/2 - dist);
             ctx.stroke();
         }
 
         function drawBox(angle) {
             ctx.save();
             ctx.translate(0, canvas.height / 2);
-
             const angleRadian = angle * Math.PI / 180;
             ctx.rotate(-angleRadian);
-
             ctx.translate(box.x, 0);   
-
             ctx.fillStyle = '#257180';
-            ctx.fillRect(0, -box.height, box.width, box.height);
+            ctx.fillRect(0, -box.height/2, box.width, box.height);
+
+            const boxCenterX = box.x + box.width / 2;
+            const boxCenterY = -box.height / 2 ;
+
+            // Save transformed coordinates for force drawing
+            box.transformedX = boxCenterX * Math.cos(angleRadian);
+            box.transformedY = -boxCenterX * Math.sin(angleRadian) + (canvas.height / 2);
 
             ctx.restore();
         }
@@ -225,7 +237,8 @@
 
             box.x += box.velocityX / Scale;
 
-            if (Math.abs(box.x) > canvas.width) {
+            // return to center if out of canvas' bounds 
+            if (Math.abs(box.x - canvas.width/2) > canvas.width/2) {
                 box.x = canvas.width / 2 - 25;
                 box.y = canvas.width / 2 - 25;
                 box.velocityX = 0;
@@ -254,31 +267,49 @@
         function animate() {
             updateCanvas();
             requestAnimationFrame(animate);
-
         }
 
         function force() {
             showForce = !showForce;
+            document.querySelector('button[onclick="force()"]').classList.toggle('active');
         }
 
         function drawForce(angle) {
             const angleRadian = angle * Math.PI / 180;
-    
-            const gravityLength = 50; 
-            const gravityX = box.x + box.width / 2;
-            const gravityY = box.y + box.height / 2; 
-            
-            drawArrow(gravityX, gravityY, gravityX, gravityY + gravityLength, 'blue'); 
 
-            const normalLength = 50; 
-            const normalX = gravityX; 
-            const normalY = gravityY;
+            gravityLength = 50;
+            const gravityX = box.transformedX;
+            const gravityY = box.transformedY;
 
-            const normalXEnd = normalX - normalLength * Math.sin(angleRadian);
-            const normalYEnd = normalY - normalLength * Math.cos(angleRadian);
-            
-            drawArrow(normalX, normalY, normalXEnd, normalYEnd, 'red'); 
+            // Draw gravity force arrow pointing straight down
+            drawArrow(gravityX, gravityY, gravityX, gravityY + gravityLength, 'steelblue');
+
+            // Draw normal force arrow perpendicular to the slope
+            const normalLength = 50;
+            const normalXEnd = gravityX - normalLength * Math.sin(angleRadian);
+            const normalYEnd = gravityY - normalLength * Math.cos(angleRadian);
+
+            drawArrow(gravityX, gravityY, normalXEnd, normalYEnd, 'orange');
         }
+
+        // function drawForce(angle) {
+        //     const angleRadian = angle * Math.PI / 180;
+    
+        //     const gravityLength = 50; 
+        //     const gravity_x = box.x + box.width/2
+        //     const gravity_y = box.y + box.height/2
+            
+        //     drawArrow(gravity_x, gravity_y, gravity_x, gravity_y + gravityLength, 'steelblue');             ctx.save();
+
+        //     const normalLength = 50; 
+        //     const normalX = gravity_x; 
+        //     const normalY = gravity_y;
+
+        //     const normalXEnd = normalX - normalLength * Math.sin(angleRadian);
+        //     const normalYEnd = normalY - normalLength * Math.cos(angleRadian);
+            
+        //     drawArrow(normalX, normalY, normalXEnd, normalYEnd, 'orange'); 
+        // }
         function reset() {
             // showPosition = false;
             // showVelocity = false;
