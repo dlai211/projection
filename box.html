@@ -107,7 +107,7 @@
     <canvas id="boxCanvas" width="800" height="600"></canvas>
     <div id="controls">
         <label for="angleSlider"> Slope Angle: </label>
-        <input type="range" id="angleSlider" min="-90" max="90" step="5" value="0"> <span id="angleValue">0°</span>
+        <input type="range" id="angleSlider" min="-45" max="45" step="5" value="0"> <span id="angleValue">0°</span>
         <br>
         <label for="frictionSlider"> Friction Coefficient: </label>
         <input type="range" id="frictionSlider" min="0" max="1" step="0.1" value="0.3"> <span id="frictionValue">0.3</span>
@@ -122,9 +122,6 @@
         <input type="range" id="forceAngleSlider" min="-45" max="45" step="5" value="0"> <span id="forceAngleValue">0°</span>
         <br>
 
-        <button onclick="position()">P</button>
-        <button onclick="velocity()">V</button>
-        <button onclick="acceleration()">A</button>
         <button onclick="force()">F</button>
         <button onclick="reset()">R</button>
     </div>
@@ -157,14 +154,6 @@
         };
         const Scale = 300;
         const gravity = -9.81; // m/s^2
-        // const maxX = 80000;
-        // const maxY = 60000;
-        // function scaleX(value) {
-        //     return value / maxX * canvas.width;
-        // }
-        // function scaleY(value) {
-        //     return value / maxY * canvas.height;
-        // }
 
         function drawArrow(fromX, fromY, toX, toY, color) {
             const headLength = 10; // Length of the arrowhead
@@ -217,22 +206,28 @@
         function updateBoxPosition(angle, friction, initialForce, continuousForce, forceAngle) {
             let angleRadian = angle * Math.PI / 180;
             let acceleration = gravity * Math.sin(angleRadian);
-            let frictionForce = null;
+            let staticFrictionCoef = friction;
+            let kineticFrictionCoef = 0.8 * staticFrictionCoef;
+            let criticalAngle = Math.atan(staticFrictionCoef); // Angle at which friction changes to kinetic
             let inititalForce = null;
 
-            box.velocityX += acceleration;
-
-            if (box.velocityX != 0) { 
-                frictionForce = Math.sign(box.velocityX) * friction * gravity * Math.cos(angleRadian);
-                box.velocityX += frictionForce;
+            let kineticFriction = kineticFrictionCoef * gravity * Math.cos(angleRadian);
+            // console.log(Math.cos(angleRadian), Math.sin(angleRadian), acceleration, kineticFriction);
+            if (Math.abs(angleRadian) > criticalAngle) {
+                box.velocityX += (acceleration - kineticFriction) * Math.cos(angleRadian);
+            } else {
+                if (Math.abs(box.velocityX) < 0.01) {
+                    box.velocityX = 0;
+                } else {
+                    box.velocityX += (acceleration - kineticFriction) * Math.cos(angleRadian);
+                }
             }
 
 
-            box.x += box.velocityX * Math.cos(angleRadian) / Scale;
-            box.y += box.velocityX * Math.sin(angleRadian) / Scale;
+            box.x += box.velocityX / Scale;
 
             // return to center if out of canvas' bounds 
-            if (Math.abs(box.x) > 0.75*canvas.width) {
+            if (Math.abs(box.x) > 0.75 * canvas.width || Math.abs(box.y) > 0.75 * canvas.height) {
                 box.x = 0;
                 box.y = 0;
                 box.velocityX = 0;
@@ -253,10 +248,10 @@
             drawSlope(angle);
             updateBoxPosition(angle, friction, initialForce, continuousForce, forceAngle);
             drawBox(angle);
-            drawForce(angle);
-            // if (showForce) {
-            //     drawForce(angle);
-            // }
+            // drawForce(angle, friction);
+            if (showForce) {
+                drawForce(angle, friction);
+            }
         }
  
         function animate() {
@@ -269,37 +264,18 @@
             document.querySelector('button[onclick="force()"]').classList.toggle('active');
         }
 
-        // function drawForce(angle) {
-        //     const angleRadian = angle * Math.PI / 180;
 
-        //     let gravityLength = 70;
-        //     const gravityX = ctx.canvas.width / 2 + box.x * Math.cos(angleRadian);
-        //     const gravityY = ctx.canvas.height / 2 - box.y * Math.sin(angleRadian);
+        function drawForce(angle, friction) {
+            let staticFrictionCoef = friction;
+            let kineticFrictionCoef = 0.8 * staticFrictionCoef;
+            let criticalAngle = Math.atan(0.3); // Angle at which friction changes to kinetic
 
-        //     // Gravity force arrow: pointing straight down
-        //     drawArrow(gravityX, gravityY, gravityX, gravityY + gravityLength, 'steelblue');
-
-        //     // Normal force arrow: perpendicular to the slope
-        //     const normalLength = gravityLength * Math.cos(angleRadian);
-        //     const normalXEnd = gravityX - normalLength * Math.sin(angleRadian);
-        //     const normalYEnd = gravityY - normalLength * Math.cos(angleRadian);
-
-        //     drawArrow(gravityX, gravityY, normalXEnd, normalYEnd, 'orange');
-
-        //     //Friction Force arrow: perpendicular to the normal force
-        //     // const frictionLength = Math.sqrt( gravityLength*gravityLength - normalLength*normalLength );
-        //     // const frictionXEnd = normalXEnd - frictionLength * Math.sin(angleRadian);
-        //     // const frictionYEnd = normalYEnd - frictionLength * Math.cos(angleRadian);
-
-        //     // drawArrow(gravityX, gravityY, frictionXEnd, frictionYEnd, 'red');
-        // }
-
-        function drawForce(angle) {
             ctx.save();
             ctx.translate(canvas.width / 2, canvas.height / 2);
             const angleRadian = angle * Math.PI / 180;
             ctx.rotate(-angleRadian);
             ctx.translate(box.x, 0);
+
 
             // Gravity force arrow: pointing straight down
             const gravityLength = 70;
@@ -315,14 +291,13 @@
             const normalLength = gravityLength * Math.cos(angleRadian);
             const normalXEnd = 0;
             const normalYEnd = 0;
-            drawArrow(0, 0, 0, -normalLength, 'orange');
+            drawArrow(0, 0, 0, -normalLength, 'green');
 
-            ctx.fillStyle = 'orange';
+            ctx.fillStyle = 'green';
             ctx.font = '15px Arial';
             ctx.fillText('N', 5, -normalLength-5);
 
-
-            if (angleRadian != 0) { 
+            if ((angle != 0) && (Math.abs(angleRadian) < criticalAngle)) { 
                 const frictionLength = Math.sign(-Math.sin(angleRadian)) * Math.sqrt(gravityLength * gravityLength - normalLength * normalLength);
                 const frictionXEnd = frictionLength;
                 const frictionYEnd = 0;
@@ -330,15 +305,18 @@
 
                 ctx.fillStyle = 'red';
                 ctx.font = '15px Arial';
-                ctx.fillText('f', -frictionLength + 5, -5);
+                ctx.fillText('fₛ', -frictionLength + 5, -5);
 
+            } else if ((angle != 0) && (Math.abs(angleRadian) > criticalAngle)) { 
+                const frictionLength = Math.sign(-Math.sin(angleRadian)) * normalLength * kineticFrictionCoef;
+                const frictionXEnd = frictionLength;
+                const frictionYEnd = 0;
+                drawArrow(0, 0, -frictionLength, 0, 'limegreen');
+
+                ctx.fillStyle = 'limegreen';
+                ctx.font = '15px Arial';
+                ctx.fillText('fₖ', -frictionLength + 5, -5);
             }
-
-            // if (box.velocityX != 0) {
-            //     const frictionLength = Math.sign(Math.cos(angleRadian)) * Math.sqrt(gravityLength * gravityLength - normalLength * normalLength);
-            //     const frictionXEnd = frictionLength;
-            //     const frictionYEnd = 0;
-            // }
 
 
 
@@ -347,12 +325,23 @@
         }
 
 
-        function reset() {
-            // showPosition = false;
-            // showVelocity = false;
-            // showAcceleration = false;
-            animate();
-        }
+        // function reset() {
+        //     Reset = !Reset;
+
+        //     box.x = 0;
+        //     box.y = 0;
+        //     box.velocityX = 0;
+        //     box.velocityY = 0;
+            
+        //     angleSlider.value = 0;
+        //     frictionSlider.value = 0.3;
+
+        //     // showPosition = false;
+        //     // showVelocity = false;
+        //     // showAcceleration = false;
+        //     document.querySelector('button[onclick="reset()"]').classList.toggle('active');
+
+        // }
 
         // Event listeners for sliders
         angleSlider.addEventListener('input', () => {
