@@ -88,7 +88,7 @@
             if (dragging) {
                 const vx = -(endX - startX) / 10;
                 const vy = -(endY - startY) / 10;
-                balls.push({ x: startX, y: startY, radius: 20, vx, vy, moving: true });
+                balls.push({ x: startX, y: startY, radius: 7, vx, vy, moving: true });
                 trailingLines.push([]);
                 dragging = false;
                 drawOverlay = false;
