@@ -41,6 +41,7 @@
             startY = e.clientY;
         });
 
+
         canvas.addEventListener('mousemove', (e) => {
             if (dragging) {
                 endX = e.clientX;
@@ -63,6 +64,38 @@
                 drawScene();
             }
         });
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();  // Prevent default behavior like scrolling
+            dragging = true;
+            drawOverlay = true;  // Enable drawing overlay (dashed line)
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (dragging) {
+                e.preventDefault();  // Prevent default scrolling
+                endX = e.touches[0].clientX;
+                endY = e.touches[0].clientY;
+                drawOverlay = true;
+                drawScene();
+                drawCurvedDashedLine(startX, startY, endX, endY);
+            }
+        });
+
+        canvas.addEventListener('touchend', (e) => {
+            if (dragging) {
+                const vx = -(endX - startX) / 10;
+                const vy = -(endY - startY) / 10;
+                balls.push({ x: startX, y: startY, radius: 20, vx, vy, moving: true });
+                trailingLines.push([]);
+                dragging = false;
+                drawOverlay = false;
+                drawScene();
+            }
+        });
+
 
         function drawScene() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -150,29 +183,6 @@
             ctx.restore();
             
         }
-
-        // function drawDashedLine(x1, y1, x2, y2) {
-        //     const x = [50, 100, 150, 200, 250];
-        //     const y = [80, 120, 70, 150, 100];
-
-        //     ctx.setLineDash([5, 5]);  // 5px dash followed by 5px gap
-        //     ctx.lineWidth = 2;        // Line width for better visibility
-        //     ctx.strokeStyle = '#000'; // Set the line color
-
-        //     ctx.beginPath();
-        //     ctx.moveTo(x[0], y[0]);
-
-        //     for (let i = 1; i < x.length - 1; i++) {
-        //         const xc = (x[i] + x[i + 1]) / 2;
-        //         const yc = (y[i] + y[i + 1]) / 2;
-        //         ctx.quadraticCurveTo(x[i], y[i], xc, yc);
-        //     }
-
-        //     ctx.lineTo(x[x.length - 1], y[y.length - 1]);
-
-        //     ctx.stroke();
-
-        // }
 
         function drawDashedLine(x1, y1, x2, y2) {
             ctx.save();
