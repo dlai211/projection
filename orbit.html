@@ -22,10 +22,12 @@
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        const color1 = '#CB6040';
-        const color2 = '#FD8B51';
-        const color3 = '#F2E5BF';
-        const color4 = '#257180';
+        const colors = [
+            { hex: '#CB6040', rgba: 'rgba(203, 96, 64, ' },  // Color 1
+            { hex: '#FD8B51', rgba: 'rgba(253, 139, 81, ' }, // Color 2
+            { hex: '#F2E5BF', rgba: 'rgba(242, 229, 191, ' }, // Color 3
+            { hex: '#257180', rgba: 'rgba(37, 113, 128, ' }  // Color 4
+        ];
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
@@ -104,15 +106,8 @@
             balls.forEach(ball => {
                 ctx.beginPath();
                 ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-                if (ball.mass == 1) {
-                    ctx.fillStyle = color1;
-                } else if (ball.mass == 2) {
-                    ctx.fillStyle = color2;
-                } else if (ball.mass == 3) {
-                    ctx.fillStyle = color3;
-                } else if (ball.mass >= 4) {
-                    ctx.fillStyle = color4;
-                }
+                const colorIndex = Math.max(0, Math.min(ball.mass - 1, colors.length - 1));
+                ctx.fillStyle = `${colors[colorIndex].rgba} 1)`;
                 ctx.fill();
                 ctx.closePath();
             });
@@ -124,7 +119,7 @@
             ctx.beginPath();
             ctx.moveTo(x1, y1);
             ctx.lineTo(x2, y2);
-            ctx.strokeStyle = color1;
+            ctx.strokeStyle = `${colors[0].rgba}1)`;
             ctx.lineWidth = 1;
             ctx.stroke();
             ctx.restore();
@@ -138,8 +133,9 @@
             trailingLines.forEach(line => {
                 if (line.length > 1) {
                     const gradient = ctx.createLinearGradient(line[0].x, line[0].y, line[line.length - 1].x, line[line.length - 1].y);
-                    gradient.addColorStop(0, 'rgba(240, 193, 225, 0)');
-                    gradient.addColorStop(1, 'rgba(240, 193, 225, 1)');
+                    const colorIndex = Math.max(0, Math.min(line[0].mass - 1, colors.length - 1));
+                    gradient.addColorStop(0, `${colors[colorIndex].rgba}0)`);
+                    gradient.addColorStop(1, `${colors[colorIndex].rgba}1)`);
                     ctx.strokeStyle = gradient;
                     ctx.beginPath();
                     ctx.moveTo(line[0].x, line[0].y);
@@ -195,8 +191,8 @@
                     };
 
                     if (trailingLines[index]) {
-                        trailingLines[index].push({ x: ball.x, y: ball.y });
-                        if (trailingLines[index].length > 120) { // Keep only last 2 seconds of positions (assuming 60 FPS)
+                        trailingLines[index].push({ x: ball.x, y: ball.y, mass: ball.mass });
+                        if (trailingLines[index].length > 240) { // Keep only last 2 seconds of positions (assuming 60 FPS)
                             trailingLines[index].shift();
                         }
                     }
@@ -215,13 +211,13 @@
 
                 ctx.beginPath();
                 ctx.arc(startX, startY, 7, 0, Math.PI * 2);
-                ctx.fillStyle = color1;
+                ctx.fillStyle =  `${colors[0].rgba}1)`;
                 ctx.fill();
                 ctx.closePath();
 
                 ctx.beginPath();
                 ctx.arc(endX, endY, 3, 0, Math.PI * 2);
-                ctx.fillStyle = color1;
+                ctx.fillStyle =  `${colors[0].rgba}1)`;
                 ctx.fill();
                 ctx.closePath();
             }
