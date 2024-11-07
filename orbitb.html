@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+        canvas {
+            /* border: 1px solid black; */
+            background-color: 'white';
+            /* background-color: #bae3d0; */
+            display: block;
+        }
+    </style>
+    <title>Orbit Motion Animation</title>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const G = 10; // gravitational constant for black hole attraction
+        const blackHole = { x: canvas.width / 2, y: canvas.height / 2, radius: 35 };
+        
+        let balls = [];
+        let trailingLines = [];
+        let drawOverlay = false;
+        let dragging = false;
+        let startX, startY, endX, endY;
+
+        canvas.addEventListener('mousedown', (e) => {
+            dragging = true;
+            drawOverlay = true;
+            startX = e.clientX;
+            startY = e.clientY;
+        });
+
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (dragging) {
+                endX = e.clientX;
+                endY = e.clientY;
+                drawOverlay = true;
+                drawScene();
+                drawSolidLine(startX, startY, endX, endY);
+                drawDashedLine(startX, startY, endX, endY);
+            }
+        });
+
+        canvas.addEventListener('mouseup', (e) => {
+            if (dragging) {
+                const vx = -(e.clientX - startX) / 10;
+                const vy = -(e.clientY - startY) / 10;
+                balls.push({ x: startX, y: startY, radius: 7, vx, vy, moving: true });
+                trailingLines.push([]);
+                dragging = false;
+                drawOverlay = false;
+                drawScene();
+            }
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();  // Prevent default behavior like scrolling
+            dragging = true;
+            drawOverlay = true;  // Enable drawing overlay (dashed line)
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (dragging) {
+                e.preventDefault();  // Prevent default scrolling
+                endX = e.touches[0].clientX;
+                endY = e.touches[0].clientY;
+                drawOverlay = true;
+                drawScene();
+                drawCurvedDashedLine(startX, startY, endX, endY);
+            }
+        });
+
+        canvas.addEventListener('touchend', (e) => {
+            if (dragging) {
+                const vx = -(endX - startX) / 10;
+                const vy = -(endY - startY) / 10;
+                balls.push({ x: startX, y: startY, radius: 7, vx, vy, moving: true });
+                trailingLines.push([]);
+                dragging = false;
+                drawOverlay = false;
+                drawScene();
+            }
+        });
+
+
+        function drawScene() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBlackHole();
+            drawTrailingLines();
+            balls.forEach(ball => {
+                ctx.beginPath();
+                ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#F0C1E1';
+                ctx.fill();
+                ctx.closePath();
+            });
+        }
+
+        let outerRadiusFirst = blackHole.radius * Math.sqrt(3);
+        let outerRadiusSecond = blackHole.radius * 3;
+        const outerRadius = blackHole.radius * 3;
+        const shrinkRate = 0.002; // Rate at which the radius shrinks
+        const minRadius = blackHole.radius * Math.sqrt(3);
+        let shrinkingFirst = true;
+        let shrinkingSecond = true;
+
+
+        function drawBlackHole() {
+            // Clear the canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.beginPath();
+            ctx.arc(blackHole.x, blackHole.y, outerRadiusFirst, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(183,183,183, ${1 - outerRadiusFirst / outerRadius})`; 
+            ctx.fill();
+            ctx.closePath();
+
+            // Draw the second circle
+            ctx.beginPath();
+            ctx.arc(blackHole.x, blackHole.y, outerRadiusSecond, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(183,183,183, ${1 - outerRadiusSecond / outerRadius})`; // Darker as it shrinks
+            ctx.fill();
+            ctx.closePath();
+
+            // Draw the static black hole
+            ctx.beginPath();
+            ctx.arc(blackHole.x, blackHole.y, blackHole.radius, 0, Math.PI * 2);
+            ctx.fillStyle = 'black';
+            ctx.fill();
+            ctx.closePath();
+
+            if (shrinkingFirst) {
+                outerRadiusFirst -= shrinkRate;
+
+                if (outerRadiusFirst <= blackHole.radius) {
+                    shrinkingFirst = false;
+                }
+            } else {
+                outerRadiusFirst = outerRadius;
+
+                shrinkingFirst = true;
+            }
+
+            if (shrinkingSecond) {
+                outerRadiusSecond -= shrinkRate;
+
+                if (outerRadiusSecond <= blackHole.radius) {
+                    shrinkingSecond = false;
+                }
+            } else {
+                outerRadiusSecond = outerRadius;
+
+                shrinkingSecond = true;
+            }
+
+            setInterval(drawBlackHole, 16);
+        }
+
+
+
+        function drawSolidLine(x1, y1, x2, y2) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.strokeStyle = '#F0C1E1';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.restore();
+            
+        }
+
+        function drawDashedLine(x1, y1, x2, y2) {
+            ctx.save();
+            let Vx = -(x2 - x1)/10;
+            let Vy = -(y2 - y1)/10;
+            let x = [x1];
+            let y = [y1];
+
+            for (let i = 0; i < 300; i++) {
+                let newX = x[i] + Vx;
+                let newY = y[i] + Vy;
+
+                x.push(newX);
+                y.push(newY);
+
+                let Dx = blackHole.x - newX;
+                let Dy = blackHole.y - newY;
+                let Distance = Math.sqrt(Dx * Dx + Dy * Dy);
+                if (Distance < blackHole.radius) {
+                    continue; 
+                }
+
+                let Force = G / (Distance * Distance);
+                let Ax = Force * Dx;
+                let Ay = Force * Dy;
+
+                Vx += Ax;
+                Vy += Ay;
+
+            }
+
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            
+            for (let i = 1; i < x.length - 1; i++) {
+                const xc = (x[i] + x[i + 1]) / 2;
+                const yc = (y[i] + y[i + 1]) / 2;
+                ctx.quadraticCurveTo(x[i], y[i], xc, yc);
+            }
+
+            ctx.lineTo(x[x.length - 1], y[y.length - 1]);
+            ctx.strokeStyle = '#F0C1E1';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        function drawTrailingLines() {
+            ctx.save();
+
+            ctx.lineWidth = 1;
+            trailingLines.forEach(line => {
+                if (line.length > 1) {
+                    const gradient = ctx.createLinearGradient(line[0].x, line[0].y, line[line.length - 1].x, line[line.length - 1].y);
+                    gradient.addColorStop(0, 'rgba(240, 193, 225, 0)');
+                    gradient.addColorStop(1, 'rgba(240, 193, 225, 1)');
+                    ctx.strokeStyle = gradient;
+                    ctx.beginPath();
+                    ctx.moveTo(line[0].x, line[0].y);
+                    for (let i = 1; i < line.length; i++) {
+                        ctx.lineTo(line[i].x, line[i].y);
+                    }
+                    ctx.stroke();
+                    ctx.closePath();
+                }
+            });
+            ctx.restore();
+        }
+
+
+
+        function updateBallPositions() {
+            balls = balls.filter((ball, index) => {
+                if (ball.moving) {
+                    // Update position
+                    ball.x += ball.vx;
+                    ball.y += ball.vy;
+
+                    // Calculate gravitational pull towards black hole
+                    const dx = blackHole.x - ball.x;
+                    const dy = blackHole.y - ball.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    const force = G / (distance * distance);
+                    const ax = force * dx;
+                    const ay = force * dy;
+
+                    ball.vx += ax;
+                    ball.vy += ay;
+
+
+                    trailingLines[index].push({ x: ball.x, y: ball.y });
+                    if (trailingLines[index].length > 120) { // Keep only last 2 seconds of positions (assuming 60 FPS)
+                        trailingLines[index].shift();
+                    }
+
+
+                    // Check if the ball is absorbed by the black hole
+                    if (distance < blackHole.radius) {
+                        return false; // Ball is absorbed
+                    }
+                }
+                return true;
+            });
+            drawScene();
+
+            if (drawOverlay) {
+                drawSolidLine(startX, startY, endX, endY);
+                drawDashedLine(startX, startY, endX, endY);
+
+                ctx.beginPath();
+                ctx.arc(startX, startY, 7, 0, Math.PI * 2);
+                ctx.fillStyle = '#F0C1E1';
+                ctx.fill();
+                ctx.closePath();
+
+                ctx.beginPath();
+                ctx.arc(endX, endY, 3, 0, Math.PI * 2);
+                ctx.fillStyle = '#F0C1E1';
+                ctx.fill();
+                ctx.closePath();
+            }
+
+            requestAnimationFrame(updateBallPositions);
+        }
+
+        drawScene();
+        updateBallPositions();
+    </script>
+</body>
+</html>
