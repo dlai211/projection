@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mass-Based Color Intensity</title>
+</head>
+<body>
+    <canvas id="myCanvas" width="800" height="200"></canvas>
+
+    <script>
+        // Get the canvas context
+        const canvas = document.getElementById('myCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Example mass values
+        const masses = [1, 5, 10, 15, 20, 25, 30]; // Example mass values
+
+        // Base color in RGB format for easier manipulation (light pink #F0C1E1)
+        const baseColor = { r: 240, g: 193, b: 225 };
+
+        // Get the min and max masses to normalize mass values to a 0-1 range
+        const minMass = Math.min(...masses);
+        const maxMass = Math.max(...masses);
+
+        // Function to generate a darker color based on mass
+        function getDarkerColor(mass) {
+            // Normalize mass to a 0-1 range
+            const normalizedMass = (mass - minMass) / (maxMass - minMass);
+
+            // Adjust the color intensity based on normalized mass (darker for higher mass)
+            const factor = 1 - normalizedMass; // Invert for darker with higher mass
+            const r = Math.round(baseColor.r * factor);
+            const g = Math.round(baseColor.g * factor);
+            const b = Math.round(baseColor.b * factor);
+
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+
+        // Draw circles with colors based on mass
+        masses.forEach((mass, index) => {
+            const color = getDarkerColor(mass);
+            ctx.beginPath();
+            ctx.arc(100 + index * 100, 100, 30, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.strokeStyle = '#000000';
+            ctx.stroke();
+            ctx.closePath();
+
+            // Add text label for mass
+            ctx.fillStyle = '#000000';
+            ctx.fillText(`Mass: ${mass}`, 85 + index * 100, 150);
+        });
+    </script>
+</body>
+</html>
