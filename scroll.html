@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>UAW On Strike</title>
+    <style>
+        body {
+        margin: 0;
+        background: black;
+        overflow: hidden;
+        }
+
+        .scrolling-text {
+        position: absolute;
+        white-space: nowrap;
+        transform: translateY(-50%);
+        display: flex;
+        color: white;
+        font-weight: bold;
+        animation: scroll-left 10s linear infinite;
+        font-size: 90vh; 
+        }
+
+        @keyframes scroll-left {
+        from {
+            transform: translateX(0%);
+        }
+        to {
+            transform: translateX(-52%);
+        }
+        }
+    </style>
+</head>
+<body>
+    <div class="scrolling-text">UAW ON STRIKE — UAW ON STRIKE — UAW ON STRIKE — UAW ON STRIKE</div>
+
+    <script>
+        // Restart the animation on page load
+        window.onload = () => {
+        const el = document.querySelector('.scrolling-text');
+        el.style.animation = 'none';
+        el.offsetHeight;
+        el.style.animation = '';
+        };
+    </script>
+</body>
+
+
+
+</html>
