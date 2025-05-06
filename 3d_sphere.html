@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            background-color: #96CEB4;
+            margin: 0;
+            overflow: hidden;
+        }
+        canvas {
+            background-color: #ffffff;
+            display: block;
+        }
+    </style>
+    <title>Sphere Geodesic Visualization</title>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/110/three.min.js"></script>
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Add a sphere
+        const radius = 5; // Radius of the sphere
+        const sphereGeometry = new THREE.SphereGeometry(radius, 32, 32);
+        const sphereMaterial = new THREE.MeshBasicMaterial({ color: '#bae3d0', wireframe: true });
+        const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+        scene.add(sphere);
+
+        // Camera positioning
+        camera.position.z = 12;
+
+        // Points
+        let point1 = null;
+        let point2 = null;
+        const points = [];
+
+        // Add points and line to the scene
+        const pointMaterial = new THREE.MeshBasicMaterial({ color: 'red' });
+        const pointGeometry = new THREE.SphereGeometry(0.15, 16, 16);
+
+        const addPoint = (position) => {
+            const pointMesh = new THREE.Mesh(pointGeometry, pointMaterial);
+            pointMesh.position.copy(position);
+            scene.add(pointMesh);
+            points.push(position);
+        };
+
+        const drawGeodesic = () => {
+            if (points.length < 2) return;
+
+            // Calculate shortest path (geodesic) between the two points
+            const [p1, p2] = points;
+            const pathPoints = calculateGeodesic(p1, p2, radius, 64); // 64 segments for smooth path
+
+            const pathGeometry = new THREE.BufferGeometry().setFromPoints(pathPoints);
+            const pathMaterial = new THREE.LineBasicMaterial({ color: 'yellow' });
+            const pathLine = new THREE.Line(pathGeometry, pathMaterial);
+            scene.add(pathLine);
+        };
+
+        const calculateGeodesic = (p1, p2, radius, segments) => {
+            const pathPoints = [];
+            for (let i = 0; i <= segments; i++) {
+                const t = i / segments;
+                const interpolated = new THREE.Vector3().lerpVectors(p1.clone().normalize(), p2.clone().normalize(), t);
+                pathPoints.push(interpolated.multiplyScalar(radius));
+            }
+            return pathPoints;
+        };
+
+        // Detect clicks to add points
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        window.addEventListener('click', (event) => {
+            // Normalize mouse position to [-1, 1]
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            // Cast ray
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObject(sphere);
+            if (intersects.length > 0) {
+                const point = intersects[0].point;
+
+                if (points.length < 2) {
+                    addPoint(point);
+
+                    // If both points are set, draw the geodesic
+                    if (points.length === 2) {
+                        drawGeodesic();
+                    }
+                } else {
+                    alert("Two points are already selected. Refresh to reset.");
+                }
+            }
+        });
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            sphere.rotation.y += 0.002; // Slowly rotate the sphere
+            renderer.render(scene, camera);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
