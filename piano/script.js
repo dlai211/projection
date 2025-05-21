@@ -10,6 +10,12 @@ const whiteNotes = ['C','D','E','F','G','A','B'];
 const blackNotes = ['Db','Eb',null,'Gb','Ab','Bb',null];
 const numberMap = { C: '1', D: '2', E: '3', F: '4', G: '5', A: '6', B: '7' };
 
+// Check the version of ml5
+console.log('ml5 version:', ml5.version);
+console.log('ml5 methods:', Object.keys(ml5));
+console.log('typeof ml5.pitchDetection:', typeof ml5.pitchDetection);
+
+
 // Generate white keys
 let whiteCount = 0;
 for (let octave = 1; octave <= 7; octave++) {
@@ -122,10 +128,7 @@ async function setupMic() {
     const micNode  = audioCtx.createMediaStreamSource(stream);
 
     // declare pitch in outer scope so detect() can see it
-    let pitch = ml5.pitchDetection('./model/', audioCtx, micNode.stream, () => {
-        console.log('Pitch model loaded');
-        detect();    // start the detect loop
-    });
+    const pitch = ml5.pitchDetection('./model/', audioCtx, micNode.stream, detect);
 
     function detect() {
     pitch.getPitch((err, freq) => {
