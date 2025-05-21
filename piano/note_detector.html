@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Piano Mic Note Detector</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; margin-top: 50px; }
+    .key {
+      display: inline-block;
+      width: 60px;
+      height: 200px;
+      margin: 5px;
+      border: 2px solid #333;
+      border-radius: 8px;
+      background: white;
+      line-height: 200px;
+      font-size: 24px;
+      font-weight: bold;
+    }
+    .active {
+      background: yellow;
+    }
+  </style>
+</head>
+<body>
+  <h1>Piano Note Detector</h1>
+  <div id="piano">
+    <div class="key" id="note1">1</div>
+    <div class="key" id="note2">2</div>
+    <div class="key" id="note3">3</div>
+    <div class="key" id="note4">4</div>
+    <div class="key" id="note5">5</div>
+    <div class="key" id="note6">6</div>
+    <div class="key" id="note7">7</div>
+  </div>
+  <script src="https://unpkg.com/ml5@latest/dist/ml5.min.js"></script>
+  <script>
+    const notesHz = {
+      "1": 261.63, // C
+      "2": 293.66, // D
+      "3": 329.63, // E
+      "4": 349.23, // F
+      "5": 392.00, // G
+      "6": 440.00, // A
+      "7": 493.88  // B
+    };
+
+    function closestNote(freq) {
+      let closest = "1";
+      let minDiff = Infinity;
+      for (const [label, hz] of Object.entries(notesHz)) {
+        let diff = Math.abs(hz - freq);
+        if (diff < minDiff) {
+          minDiff = diff;
+          closest = label;
+        }
+      }
+      return closest;
+    }
+
+    async function startPitchDetection() {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mic = audioCtx.createMediaStreamSource(stream);
+      const pitch = ml5.pitchDetection('./model/', audioCtx, mic.stream, modelLoaded);
+
+      function modelLoaded() {
+        console.log("Model loaded!");
+        detectPitch();
+      }
+
+      function detectPitch() {
+        pitch.getPitch(function(err, freq) {
+          if (freq) {
+            const note = closestNote(freq);
+            document.querySelectorAll('.key').forEach(k => k.classList.remove('active'));
+            document.getElementById('note' + note).classList.add('active');
+          }
+          requestAnimationFrame(detectPitch);
+        });
+      }
+    }
+
+    startPitchDetection();
+  </script>
+</body>
+</html>
