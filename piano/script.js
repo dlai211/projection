@@ -124,11 +124,11 @@ async function setupMic() {
     }
 
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const stream   = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const micNode  = audioCtx.createMediaStreamSource(stream);
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const micNode = audioCtx.createMediaStreamSource(stream);
 
-    // declare pitch in outer scope so detect() can see it
-    const pitch = ml5.pitchDetection('./model/', audioCtx, micNode.stream, detect);
+    // PASS THE RAW stream, NOT micNode.stream
+    const pitch = ml5.pitchDetection('./pitch-detection/crepe', audioCtx, stream, detect);
 
     function detect() {
     pitch.getPitch((err, freq) => {
