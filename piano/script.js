@@ -147,4 +147,6 @@ async function setupMic() {
     });
     }
 }
-setupMic();
+document.getElementById('start-button').addEventListener('click', () => {
+  setupMic(); // ← this is your existing function
+});
