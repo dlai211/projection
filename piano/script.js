@@ -92,24 +92,44 @@ piano.addEventListener('click', (e) => {
 
 // Pitch detection
 async function setupMic() {
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const mic = audioCtx.createMediaStreamSource(stream);
-    const pitch = ml5.pitchDetection('./model/', audioCtx, mic.stream, detect);
+
+    const Tolerance_pct = 2;
 
     function freqToNote(freq) {
     const A4 = 440;
     const noteNum = 12 * (Math.log2(freq / A4)) + 69;
     const rounded = Math.round(noteNum);
+    const exactFreq = A4 * Math.pow(2, (rounded - 69) / 12);
+    const diffPct = Math.abs(freq - exactFreq) / exactFreq * 100;
+
+      console.log(
+    `→ midiNum: ${midiNum.toFixed(2)}, rounded: ${rounded}, ` +
+    `exactFreq: ${exactFreq.toFixed(2)}, diffPct: ${diffPct.toFixed(2)}%`
+        );           
+
+    if (diffPct > Tolerance_pct) return null;
+
     // const names = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
     const names = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
-    const name = names[rounded % 12];
+    const name = names[(rounded % 12 + 12) % 12]; // ensure positive mod
+
     const oct = Math.floor(rounded / 12) - 1;
     return name + oct;
     }
 
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const stream   = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const micNode  = audioCtx.createMediaStreamSource(stream);
+
+    // declare pitch in outer scope so detect() can see it
+    let pitch = ml5.pitchDetection('./model/', audioCtx, micNode.stream, () => {
+        console.log('Pitch model loaded');
+        detect();    // start the detect loop
+    });
+
     function detect() {
     pitch.getPitch((err, freq) => {
+        console.log(`freq: ${freq}`);
         document.querySelectorAll('.white-key, .black-key').forEach(k => k.classList.remove('highlight'));
         if (freq) {
         const note = freqToNote(freq);
