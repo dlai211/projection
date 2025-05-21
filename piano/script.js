@@ -2,6 +2,8 @@ const piano = document.getElementById('piano');
 const cutTitle = document.getElementById("cut-title");
 const letterBtn = document.getElementById("letter-btn");
 const numberBtn = document.getElementById("number-btn");
+const startBtn = document.getElementById("start-btn");
+const endBtn = document.getElementById("end-btn");
 let currentMode = 'letters'; // 'letters' or 'numbers'
 
 const whiteWidthPercent = 2.041;  // percent width of each white key
@@ -109,7 +111,7 @@ async function setupMic() {
     const diffPct = Math.abs(freq - exactFreq) / exactFreq * 100;
 
       console.log(
-    `→ midiNum: ${midiNum.toFixed(2)}, rounded: ${rounded}, ` +
+    `→ midiNum: ${noteNum.toFixed(2)}, rounded: ${rounded}, ` +
     `exactFreq: ${exactFreq.toFixed(2)}, diffPct: ${diffPct.toFixed(2)}%`
         );           
 
@@ -120,6 +122,7 @@ async function setupMic() {
     const name = names[(rounded % 12 + 12) % 12]; // ensure positive mod
 
     const oct = Math.floor(rounded / 12) - 1;
+
     return name + oct;
     }
 
@@ -147,6 +150,7 @@ async function setupMic() {
     });
     }
 }
-document.getElementById('start-button').addEventListener('click', () => {
+
+document.getElementById("start-btn").addEventListener('click', () => {
   setupMic(); // ← this is your existing function
 });
