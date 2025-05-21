@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Full Piano with Mic & Click Play</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <h1>Full Piano</h1>
+    <nav id="cut-nav">
+    <ul id="cut-links">
+        <li><a href="#" id="number-btn" class="cut-btn">Number</a></li>
+        <li><a href="#" id="letter-btn" class="cut-btn">Letter</a></li>
+    </ul>
+    </nav>
+
+    <!-- performance or selection plots -->
+    <nav id="mode-nav">
+        <ul></ul>
+    </nav>
+
+    <!-- Section to display images -->
+    <section>
+        <h2 id="cut-title"></h2>
+        <div class="wrapper" id="image-container">
+            <!-- Images will be dynamically added here -->
+        </div>
+    </section>
+
+    
+    <div class="piano-container" id="piano"></div>
+
+  
+    <!-- Sidebar -->
+    <div id="sidebar">
+    <h3>Test Plots</h3>
+    <ul>
+        <li><a href="piano.html#main" id="main-btn" class="active"><b>Piano</b></a></li>
+    </ul>
+    </div>
+
+    <div id="sidebar-toggle"><i class="fas fa-angle-right"></i></div>
+
+    <script src="https://unpkg.com/ml5@latest/dist/ml5.min.js"></script>
+    <script src="script.js"></script>
+    <script src="sidebar.js"></script>
+</body>
+</html>
