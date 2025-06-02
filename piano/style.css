@@ -158,6 +158,60 @@ nav {
 .active.white-key { background: #b3e5fc; }
 .active.black-key { background: #90a4ae; }
 
+#song-track {
+  display: flex;
+  justify-content: center;
+  gap: 1.2rem;
+  margin: 2rem 0;
+  font-size: 1.4rem;
+  height: 2rem;
+  overflow: hidden;
+}
+
+.song-note {
+  transition: all 0.3s ease;
+  font-weight: bold;
+  padding: 0.3em 0.5em;
+  border-radius: 4px;
+  background: #eee;
+  color: #111;
+}
+
+/* Center note = most visible */
+.song-note[data-offset="0"] {
+  background: #222;
+  color: white;
+  transform: scale(1.2);
+  opacity: 1;
+}
+
+/* Next closest notes */
+.song-note[data-offset="1"],
+.song-note[data-offset="-1"] {
+  opacity: 0.7;
+  transform: scale(1.05);
+}
+
+.song-note[data-offset="2"],
+.song-note[data-offset="-2"] {
+  opacity: 0.5;
+}
+
+.song-note[data-offset="3"],
+.song-note[data-offset="-3"] {
+  opacity: 0.3;
+}
+
+/* Hide everything else */
+.song-note[data-offset]:not([data-offset="-3"]):not([data-offset="-2"])
+:not([data-offset="-1"]):not([data-offset="0"])
+:not([data-offset="1"]):not([data-offset="2"])
+:not([data-offset="3"]) {
+  display: none;
+}
+
+
+
 
 /* sidebar */
 #sidebar-toggle {

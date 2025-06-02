@@ -3,7 +3,7 @@ const cutTitle = document.getElementById("cut-title");
 const letterBtn = document.getElementById("letter-btn");
 const numberBtn = document.getElementById("number-btn");
 const startBtn = document.getElementById("start-btn");
-const endBtn = document.getElementById("end-btn");
+const resetBtn = document.getElementById("reset-btn");
 let currentMode = 'letters'; // 'letters' or 'numbers'
 
 const whiteWidthPercent = 2.041;  // percent width of each white key
@@ -151,6 +151,7 @@ async function setupMic() {
     }
 }
 
-document.getElementById("start-btn").addEventListener('click', () => {
-  setupMic(); // ← this is your existing function
+startBtn.addEventListener('click', () => {
+    startBtn.classList.toggle("active");
+    setupMic(); 
 });
