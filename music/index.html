@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Tek It</title>
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet" />
+</head>
+<body>
+    <div class="container">
+        <img class="cover" id="cover" src="music_pic/music_2.webp" alt="Cover" />
+        <div class="info">
+        <h1 id="song-name">Tek It</h1>
+        <p class="artist" id="artist-name">Cafuné</p>
+            <canvas id="visualizer"></canvas>
+            <p class="lyric">We started off in such a nice place</p>
+            <button id="playBtn">▶ Play</button>
+        </div>
+    </div>
+    <div id="wheel-container"></div>
+
+  <!-- <audio id="audio" src="Tek_It.mp3"></audio> -->
+    <audio id="audio" controls></audio>
+    <script src="config.js"></script>
+    <script src="script.js"></script>
+    <script src="wheel.js"></script>
+</body>
+</html>

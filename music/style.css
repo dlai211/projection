@@ -1,0 +1,122 @@
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #dceee0;
+  font-family: 'Patrick Hand', sans-serif;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.container {
+  display: flex;
+  align-items: center;
+  gap: 10%;
+
+}
+
+.cover {
+  width: 60%;
+  height: 60%;
+  object-fit: cover;
+  box-shadow: 10px 10px 20px rgba(0,0,0,0.5);
+  border-radius: 10%;
+  transform: translateX(-15%); /* shift left */
+}
+
+.info {
+  text-align: center;
+}
+
+.info h1 {
+  margin: 0;
+  font-size: 4.5em;
+  font-weight: normal;
+}
+
+.info p {
+  font-size: 1.5em;
+  margin: 5% 0;
+}
+
+canvas {
+  width: 150%;
+  height: 50%;
+  margin: 10px auto;
+  border-bottom: 0.5px solid black;
+  display: flex;
+  transform: translateX(-15%);
+}
+
+#visualizer {
+  display: block;
+  margin-right: 30px;
+}
+
+.lyric {
+  font-size: 1.5em;
+  margin-top: 10%;
+}
+
+audio { 
+    display: none; /* Hide the audio player */
+}
+
+#playBtn {
+  margin-top: 15px;
+  padding: 4px 16px;
+  font-family: 'Patrick Hand', cursive;
+  font-size: 1.2em;
+  background-color: #ffffff;
+  color: #333;
+  border: 2px solid #888;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+#playBtn:hover {
+  background-color: #f0f0f0;
+  transform: scale(1.05);
+}
+
+
+
+#wheel-container {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  transition: transform 0.2s ease-in-out;
+  width: 250px;
+  height: 400px;
+  overflow: hidden;
+  pointer-events: auto;
+  z-index: 10;
+}
+
+.wheel-item {
+  position: absolute;
+  left: 40px;
+  transform-origin: left center;
+  font-size: 1em;
+  font-family: 'Patrick Hand', sans-serif;
+  color: #333;
+  transition: transform 0.2s, opacity 0.2s, font-size 0.2s;
+
+  user-select: none; /* Prevent text selection */
+}
+
+.wheel-item.active {
+  font-size: 1.3em;
+  transform-origin: left center;
+  color: #000;
+  font-weight: bold;
+}
+
+#wheel-container:hover {
+  transform: translateY(-50%) scale(1.4);
+}
