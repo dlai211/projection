@@ -8,6 +8,13 @@ const cutoff = 120;
 const audio = document.getElementById("audio"); // from <audio>
 const playBtn = document.getElementById("playBtn");
 
+audio.src = "music_mp3/tek_it_cafune.mp3"; // Default to Tek It
+
+document.getElementById("cover").src = "music_pic/music_2.webp";
+document.getElementById("song-name").textContent = "Tek It";
+document.getElementById("artist-name").textContent = "Cafuné";
+
+
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 const analyser = audioCtx.createAnalyser();
 const source = audioCtx.createMediaElementSource(audio);
