@@ -259,7 +259,6 @@ audio {
   width: 0%;
   height: 100%;
   background: linear-gradient(135deg, #F78DA7, #A8C0FF);
-  /* background-color: #4CAF50; green fill */
   transition: width 0.1s linear;
   pointer-events: none;
 }

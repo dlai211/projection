@@ -113,7 +113,7 @@ document.addEventListener("mouseup", () => {
 // Scroll wheel to rotate
 container.addEventListener("wheel", (e) => {
   e.preventDefault();
-  angleOffset += e.deltaY / 10;
+  angleOffset -= e.deltaY / 10;
   updateWheel();
   highlightedSong();
 });
