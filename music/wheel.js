@@ -84,7 +84,7 @@ function highlightedSong() {
       animateLetters(document.getElementById("artist-name"), song.artist);
 
       const playBtn = document.getElementById("playBtn");
-      if (playBtn) playBtn.textContent = "▶ Play";
+      if (playBtn) document.querySelector('#playBtn .btn-text').textContent = '▶ Play';
     }
   });
 }
