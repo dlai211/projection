@@ -1,42 +1,22 @@
 const container = document.getElementById("wheel-container");
 
-// let angleOffset = 0;
 let isDragging = false;
 let startY;
 
 const radius = 100;
 const itemHeight = 30;
-let angleOffset = -0 * itemHeight; // this is index 0 → centered
+let angleOffset = -0 * itemHeight;
 const centerY = container.offsetHeight / 2;
 
-// Create DOM elements
+// Create wheel items
 songs.forEach((song, i) => {
-    const el = document.createElement("div");
-    el.className = "wheel-item";
-    el.innerText = song.name;
-    el.onmousedown = (e) => e.preventDefault(); // prevent highlight
+  const el = document.createElement("div");
+  el.className = "wheel-item";
+  el.innerText = song.name;
 
-    el.onclick = () => {
-    // Set audio source
-    audio.pause();
-    audio.src = `music_mp3/${song.src}`;
-    audio.load();
+  el.onmousedown = (e) => e.preventDefault(); // prevent text selection
 
-    // Update cover, name, artist
-    document.getElementById("cover").src = `music_pic/${song.pic}`;
-    document.getElementById("song-name").textContent = song.name;
-    document.getElementById("artist-name").textContent = song.artist;
-
-    // Optional: sync button
-    const playBtn = document.getElementById("playBtn");
-    if (playBtn) playBtn.textContent = "⏸ Pause";
-
-    audio.oncanplay = () => {
-        audio.play().catch(e => console.warn("Playback failed:", e));
-    };
-    };
-
-    container.appendChild(el);
+  container.appendChild(el);
 });
 
 function updateWheel() {
@@ -45,8 +25,7 @@ function updateWheel() {
   items.forEach((el, i) => {
     const angle = (i * itemHeight + angleOffset) / radius;
     const x = Math.sin(angle) * radius;
-    const y = container.offsetHeight / 2 - Math.cos(angle) * radius;
-
+    const y = centerY - Math.cos(angle) * radius;
     const deg = angle * (180 / Math.PI) - 90;
 
     el.style.transform = `translate(${x}px, ${y}px) rotate(${deg}deg)`;
@@ -56,6 +35,56 @@ function updateWheel() {
       el.classList.add("active");
     } else {
       el.classList.remove("active");
+    }
+  });
+}
+
+function highlightedSong() {
+  const items = container.querySelectorAll(".wheel-item");
+
+  items.forEach((el, i) => {
+    if (el.classList.contains("active")) {
+      const song = songs[i];
+      const newSrc = `music_mp3/${song.src}`;
+
+      // Prevent reloading the same song
+      if (audio.src.includes(song.src)) return;
+
+      audio.pause();
+      audio.src = newSrc;
+      audio.load();
+
+      // Update song info
+      document.getElementById("cover").src = `music_pic/${song.pic}`;
+      document.getElementById("song-name").textContent = song.name;
+      document.getElementById("artist-name").textContent = song.artist;
+
+
+      const imageUrl = `url("music_pic/${song.pic}")`;
+
+      if (song.theme) {
+        const gradient = `linear-gradient(to bottom, ${song.theme}, rgba(255, 255, 255, 0.2))`;
+        document.body.style.backgroundImage = `${gradient}, ${imageUrl}`;
+        document.body.style.backgroundColor = song.theme;
+        document.body.style.backgroundBlendMode = "normal";
+        document.body.style.backgroundPosition = "center";
+        document.body.style.backgroundSize = "100% auto";
+        document.body.style.backgroundRepeat = "no-repeat";
+      } else {
+        document.body.style.backgroundImage = imageUrl;
+        document.body.style.backgroundColor = "#ffffff";
+        document.body.style.backgroundBlendMode = "normal";
+        document.body.style.backgroundPosition = "right 20% center";
+        document.body.style.backgroundSize = "35% auto";
+        document.body.style.backgroundRepeat = "no-repeat";
+      }
+
+      // Animation
+      animateLetters(document.getElementById("song-name"), song.name);
+      animateLetters(document.getElementById("artist-name"), song.artist);
+
+      const playBtn = document.getElementById("playBtn");
+      if (playBtn) playBtn.textContent = "▶ Play";
     }
   });
 }
@@ -78,4 +107,13 @@ document.addEventListener("mousemove", (e) => {
 
 document.addEventListener("mouseup", () => {
   isDragging = false;
+  highlightedSong();
+});
+
+// Scroll wheel to rotate
+container.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  angleOffset += e.deltaY / 10;
+  updateWheel();
+  highlightedSong();
 });

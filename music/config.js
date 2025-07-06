@@ -4,21 +4,23 @@ const songs = [
     artist: "Lil Wayne, BigXthaPlug",
     title: "hip_hop_lil_wayne",
     src: "hip_hop_lil_wayne.mp3",
-    pic: "music_1.webp"
+    pic: "music_1.webp",
   },
   {
     name: "Understand",
     artist: "Keshi",
     title: "understand_keshi",
     src: "understand_keshi.mp3",
-    pic: "music_3.webp"
+    pic: "music_3.webp",
+    theme: "#F2EAEA"
   },
   {
     name: "道 (Michi Teyu Ku)",
     artist: "藤井風 (Fujii Kaze)",
     title: "michi_teyu_ku_fujii_kaze",
     src: "michi_teyu_ku_fujii_kaze.mp3",
-    pic: "music_4.webp"
+    pic: "music_4.webp",
+    theme: "#E8E3D4"
   },
   {
     name: "Napori",
@@ -39,7 +41,8 @@ const songs = [
     artist: "Cafuné",
     title: "tek_it_cafune",
     src: "tek_it_cafune.mp3",
-    pic: "music_2.webp"
+    pic: "music_2.webp",
+    theme: "#dceee0"
   },
   {
     name: "Redrum",
@@ -53,14 +56,16 @@ const songs = [
     artist: "Kanye West",
     title: "good_morning_kanye_west",
     src: "good_morning_kanye.mp3",
-    pic: "music_8.webp"
+    pic: "music_8.webp",
+    theme: "#EAE9E0"
   },
   {
     name: "GONE, GONE/ THANK YOU",
     artist: "Tyler, The Creator",
     title: "gone_gone_thank_you_tyler_the_creator",
     src: "gone_gone_thank_you_tyler_the_creator.mp3",
-    pic: "music_9.webp"
+    pic: "music_9.webp",
+    theme: "#F6F9F1"
   },
   {
     name: "NISSAN ALTIMA",
@@ -77,3 +82,6 @@ const songs = [
     pic: "music_11.webp"
   }
 ];
+
+
+

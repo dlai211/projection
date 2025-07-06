@@ -1,77 +1,73 @@
-const canvas = document.getElementById("visualizer");
-const ctx = canvas.getContext("2d");
-canvas.width = canvas.offsetWidth;
-canvas.height = canvas.offsetHeight/3;
-const gap = 200;
-const cutoff = 120;
-
-const audio = document.getElementById("audio"); // from <audio>
-const playBtn = document.getElementById("playBtn");
-
-audio.src = "music_mp3/tek_it_cafune.mp3"; // Default to Tek It
-
-document.getElementById("cover").src = "music_pic/music_2.webp";
-document.getElementById("song-name").textContent = "Tek It";
-document.getElementById("artist-name").textContent = "Cafuné";
-
-
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-const analyser = audioCtx.createAnalyser();
-const source = audioCtx.createMediaElementSource(audio);
-source.connect(analyser);
-analyser.connect(audioCtx.destination);
-// analyser.fftSize = 4096;
-analyser.fftSize = 512;
-
-
-const buffLen = analyser.frequencyBinCount;
-const dataArray = new Uint8Array(buffLen);
-const barWidth = (canvas.width - gap * (buffLen - 1)) / buffLen;
-
-// const barWidth = (canvas.width / buffLen) * 0.8;
-ctx.lineWidth = barWidth;
-ctx.lineCap = "round";
-ctx.strokeStyle = "black";
-ctx.fillStyle = "rgb(220, 238, 224)";
-
-let animationStarted = false;
-
-
-function draw() {
-    requestAnimationFrame(draw);
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    analyser.getByteFrequencyData(dataArray);
-
-    for (let i = 0; i < buffLen; i++) {
-    const x = i * (barWidth + gap);
-    const y = canvas.height;
-    let barHeight = dataArray[i];
-
-    if (barHeight > cutoff) {
-        barHeight = (barHeight - cutoff) * 0.2;
-        ctx.beginPath();
-        ctx.moveTo(x + barWidth / 2, y);
-        ctx.lineTo(x + barWidth / 2, y - barHeight);
-        ctx.stroke();
-    }
-    }
+// Animation for the text
+function animateLetters(textElement, text) {
+  textElement.innerHTML = [...text].map((char, i) => {
+    const content = char === " " ? "&nbsp;" : char;
+    return `<span style="--i:${i}">${content}</span>`;
+  }).join('');
 }
 
-// ✅ Play/pause logic
-playBtn.addEventListener("click", async () => {
-  if (audioCtx.state === "suspended") {
-    await audioCtx.resume();
-  }
+const songNameEl = document.getElementById("song-name");
 
-  if (audio.paused) {
-    audio.play();
-    playBtn.textContent = "⏸ Pause";
-    if (!animationStarted) {
-      draw();
-      animationStarted = true;
-    }
-  } else {
-    audio.pause();
-    playBtn.textContent = "▶ Play";
+
+
+// Progress bar 
+const progressFill = document.querySelector(".progress-fill");
+const currentTimeEl = document.getElementById("current-time");
+const totalTimeEl = document.getElementById("total-time");
+
+audio.addEventListener("loadedmetadata", () => {
+  totalTimeEl.textContent = formatTime(audio.duration);
+});
+
+audio.addEventListener("timeupdate", () => {
+  currentTimeEl.textContent = formatTime(audio.currentTime);
+  const percent = (audio.currentTime / audio.duration) * 100;
+  progressFill.style.width = `${percent}%`;
+});
+
+function formatTime(seconds) {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60).toString().padStart(2, '0');
+  return `${mins}:${secs}`;
+}
+
+
+const progressBar = document.querySelector(".progress-bar");
+
+progressBar.addEventListener("click", (e) => {
+  const rect = progressBar.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const percent = clickX / rect.width;
+  audio.currentTime = percent * audio.duration;
+});
+
+
+let draggingProgress = false;
+
+progressBar.addEventListener("mousedown", (e) => {
+  draggingProgress = true;
+  seekToPosition(e);
+});
+
+progressBar.addEventListener("mousemove", (e) => {
+  if (draggingProgress) {
+    seekToPosition(e);
   }
 });
+
+progressBar.addEventListener("mouseup", () => {
+  draggingProgress = false;
+});
+
+document.addEventListener("mouseup", () => {
+  draggingProgress = false;
+});
+
+
+function seekToPosition(e) {
+  const rect = progressBar.getBoundingClientRect();
+  const x = Math.min(Math.max(e.clientX - rect.left, 0), rect.width); // clamp
+  const percent = x / rect.width;
+  audio.currentTime = percent * audio.duration;
+}
+
