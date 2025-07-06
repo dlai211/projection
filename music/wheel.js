@@ -58,7 +58,7 @@ function highlightedSong() {
       document.getElementById("cover").src = `music_pic/${song.pic}`;
       document.getElementById("song-name").textContent = song.name;
       document.getElementById("artist-name").textContent = song.artist;
-
+      document.getElementById("lyric").textContent = song.lyrics || "";
 
       const imageUrl = `url("music_pic/${song.pic}")`;
 
