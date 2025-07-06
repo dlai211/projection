@@ -119,3 +119,26 @@ container.addEventListener("wheel", (e) => {
   updateWheel();
   highlightedSong();
 });
+
+
+
+// For phone users
+
+container.addEventListener("touchstart", (e) => {
+  isDragging = true;
+  startY = e.touches[0].clientY;
+}, { passive: true });
+
+container.addEventListener("touchmove", (e) => {
+  if (!isDragging) return;
+  const currentY = e.touches[0].clientY;
+  const deltaY = currentY - startY;
+  angleOffset += deltaY;
+  startY = currentY;
+  updateWheel();
+}, { passive: true });
+
+container.addEventListener("touchend", () => {
+  isDragging = false;
+  highlightedSong();
+});
