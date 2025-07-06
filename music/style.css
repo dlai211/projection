@@ -172,6 +172,9 @@ audio {
   overflow: hidden;
   pointer-events: auto;
   z-index: 10;
+
+  touch-action: none;   
+  -webkit-user-select: none; 
 }
 
 .wheel-item {

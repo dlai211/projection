@@ -123,11 +123,11 @@ container.addEventListener("wheel", (e) => {
 
 
 // For phone users
-
 container.addEventListener("touchstart", (e) => {
   isDragging = true;
   startY = e.touches[0].clientY;
-}, { passive: true });
+  e.preventDefault();
+}, false);
 
 container.addEventListener("touchmove", (e) => {
   if (!isDragging) return;
@@ -136,7 +136,7 @@ container.addEventListener("touchmove", (e) => {
   angleOffset += deltaY;
   startY = currentY;
   updateWheel();
-}, { passive: true });
+}, false);
 
 container.addEventListener("touchend", () => {
   isDragging = false;
