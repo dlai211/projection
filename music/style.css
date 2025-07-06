@@ -97,37 +97,65 @@ audio {
     display: none; /* Hide the audio player */
 }
 
+/* Cannot have outline with a line gradient, so using a outline-wrapper */
+.outline-wrapper {
+  display: inline-block;
+  padding: 3px;
+  border-radius: 10vw;
+  background: linear-gradient(135deg, #F78DA7, #A8C0FF);
+}
 
-
+/* 
 #playBtn {
-  margin-top: 15px;
   padding: 0.6vb 1.3vw;
-  /* padding: 4px 16px; */
   font-family: 'Patrick Hand', cursive;
   font-size: 1.4em;
   font-weight: 100;
   letter-spacing: 0.15em;
-  /* background-color: #ffffff; */
-  background: linear-gradient(135deg, #F78DA7, #A8C0FF);
-  color: white;
-  /* border: 0.01px solid white; */
+
+  background: #f5f5f5;
   border: none;
   border-radius: 10vw;
   cursor: pointer;
-  box-shadow: 2px 2px 8px rgba(255, 255, 255, 0.4);
   transition: all 0.2s ease;
 }
 
-#playBtn {
-  outline: 0.8px solid white;
-  outline-offset: 0.8vb;
-}
-
-
-#playBtn:hover {
-  background-color: #f0f0f0;
+.outline-wrapper:hover {
   transform: scale(1.05);
+  box-shadow: 2px 2px 12px rgba(255, 255, 255, 0.6);
+} */
+
+
+#playBtn {
+  padding: 0.6vb 1.3vw;
+  font-family: 'Patrick Hand', cursive;
+  font-size: 1.4em;
+  font-weight: 100;
+  letter-spacing: 0.15em;
+
+  background: linear-gradient(to bottom, #f5f5f5, #e6e6e6); /* soft grey */
+  border: none;
+  border-radius: 10vw;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
+
+.btn-text {
+  background: linear-gradient(135deg, #F78DA7, #A8C0FF);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.outline-wrapper:hover {
+  transform: scale(1.05);
+  box-shadow: 2px 3.5px 10px rgba(255, 255, 255, 0.6);
+}
+
 
 
 
@@ -230,7 +258,8 @@ audio {
 .progress-fill {
   width: 0%;
   height: 100%;
-  background-color: #4CAF50; /* green fill */
+  background: linear-gradient(135deg, #F78DA7, #A8C0FF);
+  /* background-color: #4CAF50; green fill */
   transition: width 0.1s linear;
   pointer-events: none;
 }

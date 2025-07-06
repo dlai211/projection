@@ -73,13 +73,15 @@ playBtn.addEventListener("click", async () => {
 
   if (audio.paused) {
     audio.play();
-    playBtn.textContent = "⏸ Pause";
+    document.querySelector('#playBtn .btn-text').textContent = '⏸ Pause';
+    // playBtn.textContent = "⏸ Pause";
     if (!animationStarted) {
       draw();
       animationStarted = true;
     }
   } else {
     audio.pause();
-    playBtn.textContent = "▶ Play";
+    document.querySelector('#playBtn .btn-text').textContent = '▶ Play';
+    // playBtn.textContent = "▶ Play";
   }
 });
