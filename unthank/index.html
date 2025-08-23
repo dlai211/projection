@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Unthank Hall Dining Simulation</title>
+  <style>
+    canvas {
+      background: #f2f2f2;
+      border: 2px solid #444;
+    }
+    #info {
+      font-family: sans-serif;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Unthank Hall Dining Hall Simulation</h2>
+  <canvas id="simCanvas" width="800" height="500"></canvas>
+  <div id="info">
+    ⏱ Time: <span id="time">0</span>s &nbsp; | 🍕 Food Left: <span id="food">100</span>%
+  </div>
+
+  <script>
+    const canvas = document.getElementById("simCanvas");
+    const ctx = canvas.getContext("2d");
+    const foodZone = { x: 650, y: 200, w: 100, h: 100 };
+
+    let time = 0;
+    let foodPercentage = 100;
+    const eatRate = 0.05; // food consumed per person per second
+
+    const people = [];
+    for (let i = 0; i < 20; i++) {
+      people.push({
+        x: Math.random() * 200,
+        y: Math.random() * 400 + 50,
+        speed: 1 + Math.random(),
+        arrived: false
+      });
+    }
+
+    function drawLayout() {
+      // Draw food zone
+      ctx.fillStyle = "#cce5ff";
+      ctx.fillRect(foodZone.x, foodZone.y, foodZone.w, foodZone.h);
+      ctx.strokeStyle = "#333";
+      ctx.strokeRect(foodZone.x, foodZone.y, foodZone.w, foodZone.h);
+      ctx.fillStyle = "#000";
+      ctx.fillText("Food Zone", foodZone.x + 10, foodZone.y + 20);
+    }
+
+    function drawPeople() {
+      ctx.fillStyle = "#ff6666";
+      people.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    function updatePeople(dt) {
+      people.forEach(p => {
+        if (!p.arrived) {
+          const dx = foodZone.x - p.x;
+          const dy = foodZone.y + foodZone.h/2 - p.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist < 5) {
+            p.arrived = true;
+          } else {
+            p.x += (dx / dist) * p.speed;
+            p.y += (dy / dist) * p.speed;
+          }
+        }
+      });
+    }
+
+    function simulateStep() {
+      time++;
+      document.getElementById("time").textContent = time;
+
+      const eaters = people.filter(p => p.arrived).length;
+      foodPercentage = Math.max(0, foodPercentage - eatRate * eaters);
+      document.getElementById("food").textContent = foodPercentage.toFixed(1);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawLayout();
+      updatePeople(1);
+      drawPeople();
+    }
+
+    setInterval(simulateStep, 1000);
+  </script>
+</body>
+</html>

@@ -48,6 +48,7 @@ function draw() {
 
     analyser.getByteFrequencyData(dataArray);
     const cutoff = 0.5* Math.max(...dataArray);
+    // const cutoff = 0;
 
     for (let i = 0; i < buffLen; i++) {
     const x = i * (barWidth + gap);

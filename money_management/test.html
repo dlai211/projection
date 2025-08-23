@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vacation Money Manager</title>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg:#0f172a; --panel:#111827; --muted:#94a3b8; --acc:#22d3ee; --text:#e5e7eb; }
+    *{ box-sizing:border-box; }
+    body{ margin:0; font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:var(--text); }
+    header{ padding:18px 20px; border-bottom:1px solid #1f2937; display:flex; gap:12px; align-items:center; justify-content:space-between; }
+    header h1{ margin:0; font-size:18px; letter-spacing:.2px; }
+    .wrap{ max-width:1100px; margin:20px auto; padding:0 16px; }
+    .card{ background:var(--panel); border:1px solid #1f2937; border-radius:16px; box-shadow:0 4px 24px rgba(0,0,0,.25); }
+    .row{ display:grid; gap:16px; grid-template-columns:1.25fr .75fr; }
+    @media (max-width: 980px){ .row{ grid-template-columns:1fr; } }
+    .pad{ padding:16px; }
+    .controls{ display:grid; grid-template-columns: 1fr 1fr 1fr auto; gap:10px; }
+    .controls input, .controls button, .controls select, .controls label{
+      font-size:14px; border-radius:10px; border:1px solid #374151; background:#0b1220; color:var(--text); padding:10px 12px; outline:none;
+    }
+    .controls button{ background:#0ea5e9; border:none; cursor:pointer; font-weight:600; }
+    .controls button.secondary{ background:#1f2937; border:1px solid #334155; }
+    .controls button.acc{ background:#22c55e; }
+    .controls small{ color:var(--muted); display:block; margin-top:8px; }
+    #chart{ width:100%; height:460px; }
+    .flex{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .right{ display:flex; gap:8px; align-items:center; justify-content:flex-end; }
+    .muted{ color:var(--muted); }
+    table{ width:100%; border-collapse:collapse; font-size:14px; }
+    th, td{ padding:10px 8px; border-bottom:1px solid #1f2937; }
+    th{ text-align:left; color:#cbd5e1; font-weight:600; }
+    td .del{ background:#ef4444; color:white; border:none; border-radius:8px; padding:6px 10px; cursor:pointer; }
+    .totals{ display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+    .badge{ background:#0b1220; border:1px solid #334155; border-radius:999px; padding:6px 10px; font-size:12px; color:#cbd5e1; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>💸 Vacation Money Manager</h1>
+    <div class="right pad" style="padding:0">
+      <button class="secondary" id="btnExport" title="Download your data as a JSON config file">Export config</button>
+      <label class="secondary" for="importFile" style="cursor:pointer;">Import config</label>
+      <input id="importFile" type="file" accept="application/json" style="display:none" />
+      <button class="secondary" id="btnClear">Clear all</button>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div class="card pad" style="margin-bottom:16px">
+      <div class="controls">
+        <input type="date" id="inDate" />
+        <input type="text" id="inItem" placeholder="Item (e.g., Ferry tickets)" />
+        <input type="number" step="0.01" min="0" id="inPrice" placeholder="Price" />
+        <button id="btnAdd">Add</button>
+      </div>
+      <div class="flex" style="margin-top:10px; justify-content:space-between">
+        <div class="totals" id="totalsBar">
+          <!-- totals summary badges rendered here -->
+        </div>
+        <div class="flex">
+          <label class="secondary" style="padding:8px 10px;">Group by:
+            <select id="groupMode" style="margin-left:6px">
+              <option value="item" selected>Item (stack items)</option>
+              <option value="category">Category</option>
+            </select>
+          </label>
+          <input type="text" id="inCategory" placeholder="(optional) Category for last added/edited" title="Category is optional. If provided, the chart can group by it."/>
+        </div>
+      </div>
+    </div>
+
+    <div class="card pad" style="margin-bottom:16px">
+      <div id="chart"></div>
+    </div>
+
+    <div class="card pad">
+      <div class="flex" style="justify-content:space-between; margin-bottom:6px;">
+        <strong>Your items</strong>
+        <span class="muted" id="countSpan"></span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:140px">Date</th>
+            <th>Item</th>
+            <th style="width:140px">Category</th>
+            <th style="width:120px">Price</th>
+            <th style="width:80px">Action</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    // ---- State ----
+    const LS_KEY = 'vacation-money-manager-v1';
+    let data = load() || [];
+
+    // ---- Helpers ----
+    function save() { localStorage.setItem(LS_KEY, JSON.stringify(data)); }
+    function load() { try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch { return []; } }
+
+    function fmtDateISO(d){ return new Date(d).toISOString().slice(0,10); }
+    function sum(arr){ return arr.reduce((a,b)=>a+b,0); }
+
+    function upsertRow(dt, item, price, category){
+      if(!dt || !item || isNaN(price)) return;
+      data.push({ date: fmtDateISO(dt), item: item.trim(), price: +price, category: (category||'').trim() });
+      save();
+      renderAll();
+    }
+
+    function removeAt(idx){ data.splice(idx,1); save(); renderAll(); }
+
+    function groupByDate(entries){
+      const map = new Map();
+      for(const e of entries){
+        if(!map.has(e.date)) map.set(e.date, []);
+        map.get(e.date).push(e);
+      }
+      return map; // date => [entries]
+    }
+
+    function computeStacks(entries, groupMode='item'){
+      // returns { dates: [...], traces: [...], dayTotals: {...} }
+      const byDate = groupByDate(entries);
+      const dates = Array.from(byDate.keys()).sort();
+
+      // unique groups (items or categories)
+      const groups = new Set();
+      for(const arr of byDate.values()){
+        for(const e of arr){ groups.add(groupMode==='category' ? (e.category||'(uncat)') : e.item); }
+      }
+      const groupList = Array.from(groups);
+
+      const dayTotals = {}; dates.forEach(d=> dayTotals[d] = 0);
+
+      // build Y per group per date
+      const traces = groupList.map(g=>{
+        const y = dates.map(d=>{
+          const items = byDate.get(d) || [];
+          const subtotal = items
+            .filter(e => (groupMode==='category' ? (e.category||'(uncat)') : e.item) === g)
+            .reduce((acc,e)=>acc+e.price,0);
+          dayTotals[d] += subtotal; // this will overcount if repeated per group; so reset later
+          return subtotal || 0;
+        });
+        return { key:g, y };
+      });
+
+      // Correct dayTotals (recompute once properly)
+      for(const d of dates){
+        dayTotals[d] = sum((byDate.get(d)||[]).map(e=>e.price));
+      }
+
+      return { dates, traces, dayTotals, groupList };
+    }
+
+    function currency(n){
+      return n.toLocaleString(undefined, { style:'currency', currency:'USD', maximumFractionDigits: 2 });
+    }
+
+    function renderChart(){
+      const groupMode = document.getElementById('groupMode').value;
+      const { dates, traces, dayTotals, groupList } = computeStacks(data, groupMode);
+
+      const plotTraces = traces.map(t=>({
+        type: 'bar',
+        name: t.key,
+        x: dates,
+        y: t.y,
+        text: t.y.map(v => v ? v.toFixed(2) : ''), // show numbers on each stacked segment
+        textposition: 'inside',
+        hovertemplate: `${groupMode==='item' ? 'Item' : 'Category'}: <b>%{fullData.name}</b><br>`+
+                       `Date: %{x}<br>`+
+                       `Price: <b>$%{y:.2f}</b><extra></extra>`
+      }));
+
+      // Daily total labels above bars via a scatter trace
+      const totalText = dates.map(d=> dayTotals[d] ? currency(dayTotals[d]) : '');
+      const totalTrace = {
+        type: 'scatter', mode: 'text', name: 'Total',
+        x: dates,
+        y: dates.map(d=> dayTotals[d] || 0),
+        text: totalText,
+        textposition: 'top center',
+        hoverinfo: 'skip',
+        showlegend: false
+      };
+
+      const layout = {
+        barmode: 'stack',
+        xaxis: { title: 'Date', type: 'category', categoryorder: 'category ascending' },
+        yaxis: { title: 'Price (USD)' },
+        margin: { t: 24, r: 12, b: 48, l: 48 },
+        bargap: 0.2,
+        plot_bgcolor: '#0b1220',
+        paper_bgcolor: '#111827',
+        font: { color: '#e5e7eb' },
+      };
+
+      const config = { responsive: true, displaylogo: false, modeBarButtonsToRemove: ['select2d','lasso2d'] };
+      Plotly.newPlot('chart', [...plotTraces, totalTrace], layout, config);
+
+      // Totals badges (overall + by date)
+      const overall = currency(sum(data.map(d=>d.price)));
+      const badges = [`<span class="badge">Total (all): <b>${overall}</b></span>`]
+        .concat(dates.map(d=> `<span class="badge">${d}: <b>${currency(dayTotals[d])}</b></span>`));
+      document.getElementById('totalsBar').innerHTML = badges.join(' ');
+    }
+
+    function renderTable(){
+      const tbody = document.getElementById('tbody');
+      tbody.innerHTML = '';
+      data
+        .map((e,i)=>({ ...e, idx:i }))
+        .sort((a,b)=> a.date.localeCompare(b.date) || a.item.localeCompare(b.item))
+        .forEach(({date,item,price,category,idx})=>{
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><input type="date" value="${date}" data-idx="${idx}" class="cell-date" style="width:100%; background:#0b1220; border:1px solid #334155; color:#e5e7eb; border-radius:8px; padding:6px 8px;"></td>
+            <td><input type="text" value="${item.replace(/"/g,'&quot;')}" data-idx="${idx}" class="cell-item" style="width:100%; background:#0b1220; border:1px solid #334155; color:#e5e7eb; border-radius:8px; padding:6px 8px;"></td>
+            <td><input type="text" value="${(category||'').replace(/"/g,'&quot;')}" data-idx="${idx}" class="cell-cat" style="width:100%; background:#0b1220; border:1px solid #334155; color:#e5e7eb; border-radius:8px; padding:6px 8px;"></td>
+            <td><input type="number" step="0.01" min="0" value="${price}" data-idx="${idx}" class="cell-price" style="width:100%; background:#0b1220; border:1px solid #334155; color:#e5e7eb; border-radius:8px; padding:6px 8px;"></td>
+            <td><button class="del" data-idx="${idx}">Del</button></td>`;
+          tbody.appendChild(tr);
+        });
+
+      document.getElementById('countSpan').textContent = `${data.length} item${data.length===1?'':'s'}`;
+
+      // Wire inline editing
+      tbody.querySelectorAll('.cell-date').forEach(el=> el.addEventListener('change', e=>{
+        const i = +e.target.dataset.idx; data[i].date = fmtDateISO(e.target.value); save(); renderAll();
+      }));
+      tbody.querySelectorAll('.cell-item').forEach(el=> el.addEventListener('change', e=>{
+        const i = +e.target.dataset.idx; data[i].item = e.target.value.trim(); save(); renderAll();
+      }));
+      tbody.querySelectorAll('.cell-cat').forEach(el=> el.addEventListener('change', e=>{
+        const i = +e.target.dataset.idx; data[i].category = e.target.value.trim(); save(); renderAll();
+      }));
+      tbody.querySelectorAll('.cell-price').forEach(el=> el.addEventListener('change', e=>{
+        const i = +e.target.dataset.idx; data[i].price = +e.target.value; save(); renderAll();
+      }));
+      tbody.querySelectorAll('.del').forEach(btn=> btn.addEventListener('click', e=> removeAt(+btn.dataset.idx)));
+    }
+
+    function renderAll(){ renderChart(); renderTable(); }
+
+    // ---- Export / Import ----
+    function exportConfig(){
+      const blob = new Blob([JSON.stringify({ version:1, entries:data }, null, 2)], { type:'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'expenses-config.json'; a.click();
+      setTimeout(()=> URL.revokeObjectURL(url), 500);
+    }
+
+    async function importConfig(file){
+      if(!file) return;
+      const text = await file.text();
+      try{
+        const obj = JSON.parse(text);
+        if(obj && Array.isArray(obj.entries)){
+          data = obj.entries.map(e=> ({
+            date: fmtDateISO(e.date),
+            item: String(e.item||'').trim(),
+            price: +e.price || 0,
+            category: (e.category||'').trim()
+          }));
+          save();
+          renderAll();
+        } else { alert('Invalid config file.'); }
+      }catch(err){ alert('Could not parse JSON config.'); }
+    }
+
+    // ---- Events ----
+    document.getElementById('btnAdd').addEventListener('click', ()=>{
+      const d = document.getElementById('inDate').value;
+      const it = document.getElementById('inItem').value;
+      const p = document.getElementById('inPrice').value;
+      const c = document.getElementById('inCategory').value;
+      upsertRow(d, it, p, c);
+      document.getElementById('inItem').value = '';
+      document.getElementById('inPrice').value = '';
+    });
+
+    document.getElementById('groupMode').addEventListener('change', renderAll);
+
+    document.getElementById('btnExport').addEventListener('click', exportConfig);
+    document.getElementById('importFile').addEventListener('change', e=> importConfig(e.target.files[0]));
+
+    document.getElementById('btnClear').addEventListener('click', ()=>{
+      if(confirm('Clear all items?')){ data = []; save(); renderAll(); }
+    });
+
+    // Init defaults
+    if(data.length === 0){
+      const today = new Date();
+      const iso = fmtDateISO(today);
+      data = [
+        { date: iso, item:'Coffee', price: 4.50, category:'Food' },
+        { date: iso, item:'Metro', price: 2.75, category:'Transit' },
+        { date: fmtDateISO(new Date(Date.now()-86400000)), item:'Museum', price: 18.00, category:'Activity' },
+      ];
+      save();
+    }
+
+    // First render
+    renderAll();
+  </script>
+</body>
+</html>

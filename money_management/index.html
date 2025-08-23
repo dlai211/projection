@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Full Piano with Mic & Click Play</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <h1>Full Piano</h1>
+    <nav id="cut-nav">
+    <ul id="cut-links">
+        <li>Music Expression: </li>
+        <li><a href="#" id="number-btn" class="cut-btn">Number</a></li>
+        <li><a href="#" id="letter-btn" class="cut-btn">Letter</a></li>
+    </ul>
+    </nav>
+
+    <!-- performance or selection plots -->
+    <nav id="mode-nav">
+        <ul>
+            <li>Button Function: </li>
+            <li><a href="#" id="start-btn" class="mode-btn">Start Mic</a></li>
+            <li><a href="#" id="reset-btn" class="mode-btn">Reset</a></li>
+        </ul>
+    </nav>
+
+    <!-- Section to display images -->
+    <section>
+        <h2 id="cut-title"></h2>
+        <div id="song-track"></div>
+    </section>
+
+    
+    <div class="piano-container" id="piano"></div>
+
+  
+    <!-- Sidebar -->
+    <div id="sidebar">
+    <h3>Test Plots</h3>
+    <ul>
+        <li><a href="index.html#main" id="main-btn" class="active"><b>Main</b></a></li>
+    </ul>
+    </div>
+
+    <div id="sidebar-toggle"><i class="fas fa-angle-right"></i></div>
+
+    <script src="script.js"></script>
+    <script src="./music-sheet/city-of-stars.js"></script>
+    <script src="sidebar.js"></script>
+</body>
+</html>

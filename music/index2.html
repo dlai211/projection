@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Rain on Glass Panel</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      background: #1e1e1e;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .glass-panel {
+      position: relative;
+      width: 400px;
+      height: 400px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+      overflow: hidden;
+    }
+
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="glass-panel">
+    <canvas id="rain-canvas"></canvas>
+  </div>
+
+  <script>
+    const panel = document.querySelector('.glass-panel');
+    const canvas = document.getElementById('rain-canvas');
+    const ctx = canvas.getContext('2d');
+
+    // Match canvas size to the panel
+    canvas.width = panel.clientWidth;
+    canvas.height = panel.clientHeight;
+
+    const drops = Array.from({ length: 60 }, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      length: 10 + Math.random() * 15,
+      speed: 1 + Math.random() * 2,
+      opacity: 0.05 + Math.random() * 0.3
+    }));
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let d of drops) {
+        ctx.beginPath();
+        ctx.strokeStyle = `rgba(255,255,255,${d.opacity})`;
+        ctx.lineWidth = 1;
+        ctx.moveTo(d.x, d.y);
+        ctx.lineTo(d.x, d.y + d.length);
+        ctx.stroke();
+
+        d.y += d.speed;
+        if (d.y > canvas.height) {
+          d.y = -d.length;
+          d.x = Math.random() * canvas.width;
+        }
+      }
+      requestAnimationFrame(draw);
+    }
+
+    draw();
+  </script>
+</body>
+</html>
