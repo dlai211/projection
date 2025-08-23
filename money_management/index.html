@@ -6,6 +6,7 @@
   <title>Full Piano with Mic & Click Play</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style2.css" />
 </head>
 <body>
     <h1>Full Piano</h1>
@@ -32,11 +33,63 @@
         <div id="song-track"></div>
     </section>
 
-    
-    <div class="piano-container" id="piano"></div>
+    <div class="right pad" style="padding:0">
+        <button class="secondary" id="btnExport" title="Download your data as a JSON config file">Export config</button>
+        <label class="secondary" for="importFile" style="cursor:pointer;">Import config</label>
+        <input id="importFile" type="file" accept="application/json" style="display:none" />
+        <button class="secondary" id="btnClear">Clear all</button>
+        </div>
+    </header>
+
+    <div class="wrap">
+        <div class="card pad" style="margin-bottom:16px">
+        <div class="controls">
+            <input type="date" id="inDate" />
+            <input type="text" id="inItem" placeholder="Item (e.g., Ferry tickets)" />
+            <input type="number" step="0.01" min="0" id="inPrice" placeholder="Price" />
+            <button id="btnAdd">Add</button>
+        </div>
+        <div class="flex" style="margin-top:10px; justify-content:space-between">
+            <div class="totals" id="totalsBar">
+            <!-- totals summary badges rendered here -->
+            </div>
+            <div class="flex">
+            <label class="secondary" style="padding:8px 10px;">Group by:
+                <select id="groupMode" style="margin-left:6px">
+                <option value="item" selected>Item (stack items)</option>
+                <option value="category">Category</option>
+                </select>
+            </label>
+            <input type="text" id="inCategory" placeholder="(optional) Category for last added/edited" title="Category is optional. If provided, the chart can group by it."/>
+            </div>
+        </div>
+        </div>
+
+        <div class="card pad" style="margin-bottom:16px">
+        <div id="chart"></div>
+        </div>
+
+        <div class="card pad">
+        <div class="flex" style="justify-content:space-between; margin-bottom:6px;">
+            <strong>Your items</strong>
+            <span class="muted" id="countSpan"></span>
+        </div>
+        <table>
+            <thead>
+            <tr>
+                <th style="width:140px">Date</th>
+                <th>Item</th>
+                <th style="width:140px">Category</th>
+                <th style="width:120px">Price</th>
+                <th style="width:80px">Action</th>
+            </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+        </table>
+        </div>
+    </div>
 
   
-    <!-- Sidebar -->
     <div id="sidebar">
     <h3>Test Plots</h3>
     <ul>
@@ -47,7 +100,6 @@
     <div id="sidebar-toggle"><i class="fas fa-angle-right"></i></div>
 
     <script src="script.js"></script>
-    <script src="./music-sheet/city-of-stars.js"></script>
     <script src="sidebar.js"></script>
 </body>
 </html>

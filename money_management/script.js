@@ -1,157 +1,215 @@
-const piano = document.getElementById('piano');
-const cutTitle = document.getElementById("cut-title");
-const letterBtn = document.getElementById("letter-btn");
-const numberBtn = document.getElementById("number-btn");
-const startBtn = document.getElementById("start-btn");
-const resetBtn = document.getElementById("reset-btn");
-let currentMode = 'letters'; // 'letters' or 'numbers'
 
-const whiteWidthPercent = 2.041;  // percent width of each white key
-const blackWidthPercent = 1.101;  // percent width of each black key
-const whiteNotes = ['C','D','E','F','G','A','B'];
-const blackNotes = ['Db','Eb',null,'Gb','Ab','Bb',null];
-const numberMap = { C: '1', D: '2', E: '3', F: '4', G: '5', A: '6', B: '7' };
+const LS_KEY = 'vacation-money-manager-v1';
+let data = load() || [];
 
-// Check the version of ml5
-console.log('ml5 version:', ml5.version);
-console.log('ml5 methods:', Object.keys(ml5));
-console.log('typeof ml5.pitchDetection:', typeof ml5.pitchDetection);
+// ---- Helpers ----
+function save() { localStorage.setItem(LS_KEY, JSON.stringify(data)); }
+function load() { try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch { return []; } }
 
+function fmtDateISO(d){ return new Date(d).toISOString().slice(0,10); }
+function sum(arr){ return arr.reduce((a,b)=>a+b,0); }
 
-// Generate white keys
-let whiteCount = 0;
-for (let octave = 1; octave <= 7; octave++) {
-    whiteNotes.forEach((wn) => {
-    const note = wn + octave;
-    const key = document.createElement('div');
-    key.className = 'white-key';
-    key.dataset.note = note;
-    piano.appendChild(key);
-    whiteCount++;
-    });
+function upsertRow(dt, item, price, category){
+    if(!dt || !item || isNaN(price)) return;
+    data.push({ date: fmtDateISO(dt), item: item.trim(), price: +price, category: (category||'').trim() });
+    save();
+    renderAll();
 }
 
-// Generate black keys
-whiteCount = 0;
-for (let octave = 1; octave <= 7; octave++) {
-    whiteNotes.forEach((wn, i) => {
-    if (blackNotes[i]) {
-        const note = blackNotes[i] + octave;
-        const key = document.createElement('div');
-        key.className = 'black-key';
-        key.dataset.note = note;
-        const leftPos = (whiteCount * whiteWidthPercent) + whiteWidthPercent - (blackWidthPercent/2);
-        key.style.left = leftPos + '%';
-        piano.appendChild(key);
+function removeAt(idx){ data.splice(idx,1); save(); renderAll(); }
+
+function groupByDate(entries){
+    const map = new Map();
+    for(const e of entries){
+    if(!map.has(e.date)) map.set(e.date, []);
+    map.get(e.date).push(e);
     }
-    whiteCount++;
-    });
+    return map; // date => [entries]
 }
 
-// Update key labels based on mode
-function updateLabels(mode) {
-    currentMode = mode;
-    
-    document.querySelectorAll("#cut-nav a.cut-btn").forEach(a => a.classList.remove("active"));
-    letterBtn.classList.toggle("active", currentMode === "letters");
-    numberBtn.classList.toggle("active", mode === "numbers");
+function computeStacks(entries, groupMode='item'){
+    // returns { dates: [...], traces: [...], dayTotals: {...} }
+    const byDate = groupByDate(entries);
+    const dates = Array.from(byDate.keys()).sort();
 
-    document.querySelectorAll('.white-key, .black-key').forEach(key => {
-    const note = key.dataset.note;
-    const letter = note.match(/^[A-G]#?/)[0];
-    let label;
-    if (currentMode === 'letters') {
-        label = letter;
-    } else {
-        const base = letter.replace('b', '');
-        label = numberMap[base] + (letter.includes('b') ? 'b' : '');
+    // unique groups (items or categories)
+    const groups = new Set();
+    for(const arr of byDate.values()){
+    for(const e of arr){ groups.add(groupMode==='category' ? (e.category||'(uncat)') : e.item); }
     }
-    key.textContent = label;
+    const groupList = Array.from(groups);
+
+    const dayTotals = {}; dates.forEach(d=> dayTotals[d] = 0);
+
+    // build Y per group per date
+    const traces = groupList.map(g=>{
+    const y = dates.map(d=>{
+        const items = byDate.get(d) || [];
+        const subtotal = items
+        .filter(e => (groupMode==='category' ? (e.category||'(uncat)') : e.item) === g)
+        .reduce((acc,e)=>acc+e.price,0);
+        dayTotals[d] += subtotal; // this will overcount if repeated per group; so reset later
+        return subtotal || 0;
     });
-}
+    return { key:g, y };
+    });
 
-
-numberBtn.onclick = () => updateLabels("numbers");
-letterBtn.onclick = () => updateLabels("letters");
-
-updateLabels(currentMode);
-
-// Helper: play and animate click
-function playKey(note) {
-    // const filename = note.replace('#', 'b');
-    const filename = note;
-    console.log(filename);
-    const audio = new Audio(`./piano-mp3/${filename}.mp3`);
-    audio.play();
-
-    const keyEl = document.querySelector(`[data-note='${note}']`);
-    cutTitle.textContent = `Current Node Played is ${note}`;
-    if (keyEl) {
-    keyEl.classList.add('active');
-    setTimeout(() => keyEl.classList.remove('active'), 150);
+    // Correct dayTotals (recompute once properly)
+    for(const d of dates){
+    dayTotals[d] = sum((byDate.get(d)||[]).map(e=>e.price));
     }
+
+    return { dates, traces, dayTotals, groupList };
 }
 
-// Click-to-play
-piano.addEventListener('click', (e) => {
-    const note = e.target.dataset.note;
-    if (note) playKey(note);
+function currency(n){
+    return n.toLocaleString(undefined, { style:'currency', currency:'USD', maximumFractionDigits: 2 });
+}
+
+function renderChart(){
+    const groupMode = document.getElementById('groupMode').value;
+    const { dates, traces, dayTotals, groupList } = computeStacks(data, groupMode);
+
+    const plotTraces = traces.map(t=>({
+    type: 'bar',
+    name: t.key,
+    x: dates,
+    y: t.y,
+    text: t.y.map(v => v ? v.toFixed(2) : ''), // show numbers on each stacked segment
+    textposition: 'inside',
+    hovertemplate: `${groupMode==='item' ? 'Item' : 'Category'}: <b>%{fullData.name}</b><br>`+
+                    `Date: %{x}<br>`+
+                    `Price: <b>$%{y:.2f}</b><extra></extra>`
+    }));
+
+    // Daily total labels above bars via a scatter trace
+    const totalText = dates.map(d=> dayTotals[d] ? currency(dayTotals[d]) : '');
+    const totalTrace = {
+    type: 'scatter', mode: 'text', name: 'Total',
+    x: dates,
+    y: dates.map(d=> dayTotals[d] || 0),
+    text: totalText,
+    textposition: 'top center',
+    hoverinfo: 'skip',
+    showlegend: false
+    };
+
+    const layout = {
+    barmode: 'stack',
+    xaxis: { title: 'Date', type: 'category', categoryorder: 'category ascending' },
+    yaxis: { title: 'Price (USD)' },
+    margin: { t: 24, r: 12, b: 48, l: 48 },
+    bargap: 0.2,
+    plot_bgcolor: '#0b1220',
+    paper_bgcolor: '#111827',
+    font: { color: '#e5e7eb' },
+    };
+
+    const config = { responsive: true, displaylogo: false, modeBarButtonsToRemove: ['select2d','lasso2d'] };
+    Plotly.newPlot('chart', [...plotTraces, totalTrace], layout, config);
+
+    // Totals badges (overall + by date)
+    const overall = currency(sum(data.map(d=>d.price)));
+    const badges = [`<span class="badge">Total (all): <b>${overall}</b></span>`]
+    .concat(dates.map(d=> `<span class="badge">${d}: <b>${currency(dayTotals[d])}</b></span>`));
+    document.getElementById('totalsBar').innerHTML = badges.join(' ');
+}
+
+function renderTable(){
+    const tbody = document.getElementById('tbody');
+    tbody.innerHTML = '';
+    data
+    .map((e,i)=>({ ...e, idx:i }))
+    .sort((a,b)=> a.date.localeCompare(b.date) || a.item.localeCompare(b.item))
+    .forEach(({date,item,price,category,idx})=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+        <td><input type="date" value="${date}" data-idx="${idx}" class="cell-date" style="width:100%; background:#0b1220; border:1px solid #334155; color:#e5e7eb; border-radius:8px; padding:6px 8px;"></td>
+        <td><input type="text" value="${item.replace(/"/g,'&quot;')}" data-idx="${idx}" class="cell-item" style="width:100%; background:#0b1220; border:1px solid #334155; color:#e5e7eb; border-radius:8px; padding:6px 8px;"></td>
+        <td><input type="text" value="${(category||'').replace(/"/g,'&quot;')}" data-idx="${idx}" class="cell-cat" style="width:100%; background:#0b1220; border:1px solid #334155; color:#e5e7eb; border-radius:8px; padding:6px 8px;"></td>
+        <td><input type="number" step="0.01" min="0" value="${price}" data-idx="${idx}" class="cell-price" style="width:100%; background:#0b1220; border:1px solid #334155; color:#e5e7eb; border-radius:8px; padding:6px 8px;"></td>
+        <td><button class="del" data-idx="${idx}">Del</button></td>`;
+        tbody.appendChild(tr);
+    });
+
+    document.getElementById('countSpan').textContent = `${data.length} item${data.length===1?'':'s'}`;
+
+    // Wire inline editing
+    tbody.querySelectorAll('.cell-date').forEach(el=> el.addEventListener('change', e=>{
+    const i = +e.target.dataset.idx; data[i].date = fmtDateISO(e.target.value); save(); renderAll();
+    }));
+    tbody.querySelectorAll('.cell-item').forEach(el=> el.addEventListener('change', e=>{
+    const i = +e.target.dataset.idx; data[i].item = e.target.value.trim(); save(); renderAll();
+    }));
+    tbody.querySelectorAll('.cell-cat').forEach(el=> el.addEventListener('change', e=>{
+    const i = +e.target.dataset.idx; data[i].category = e.target.value.trim(); save(); renderAll();
+    }));
+    tbody.querySelectorAll('.cell-price').forEach(el=> el.addEventListener('change', e=>{
+    const i = +e.target.dataset.idx; data[i].price = +e.target.value; save(); renderAll();
+    }));
+    tbody.querySelectorAll('.del').forEach(btn=> btn.addEventListener('click', e=> removeAt(+btn.dataset.idx)));
+}
+
+function renderAll(){ renderChart(); renderTable(); }
+
+// ---- Export / Import ----
+function exportConfig(){
+    const blob = new Blob([JSON.stringify({ version:1, entries:data }, null, 2)], { type:'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'expenses-config.json'; a.click();
+    setTimeout(()=> URL.revokeObjectURL(url), 500);
+}
+
+async function importConfig(file){
+    if(!file) return;
+    const text = await file.text();
+    try{
+    const obj = JSON.parse(text);
+    if(obj && Array.isArray(obj.entries)){
+        data = obj.entries.map(e=> ({
+        date: fmtDateISO(e.date),
+        item: String(e.item||'').trim(),
+        price: +e.price || 0,
+        category: (e.category||'').trim()
+        }));
+        save();
+        renderAll();
+    } else { alert('Invalid config file.'); }
+    }catch(err){ alert('Could not parse JSON config.'); }
+}
+
+// ---- Events ----
+document.getElementById('btnAdd').addEventListener('click', ()=>{
+    const d = document.getElementById('inDate').value;
+    const it = document.getElementById('inItem').value;
+    const p = document.getElementById('inPrice').value;
+    const c = document.getElementById('inCategory').value;
+    upsertRow(d, it, p, c);
+    document.getElementById('inItem').value = '';
+    document.getElementById('inPrice').value = '';
 });
 
-// Pitch detection
-async function setupMic() {
+document.getElementById('groupMode').addEventListener('change', renderAll);
 
-    const Tolerance_pct = 2;
+document.getElementById('btnExport').addEventListener('click', exportConfig);
+document.getElementById('importFile').addEventListener('change', e=> importConfig(e.target.files[0]));
 
-    function freqToNote(freq) {
-    const A4 = 440;
-    const noteNum = 12 * (Math.log2(freq / A4)) + 69;
-    const rounded = Math.round(noteNum);
-    const exactFreq = A4 * Math.pow(2, (rounded - 69) / 12);
-    const diffPct = Math.abs(freq - exactFreq) / exactFreq * 100;
+document.getElementById('btnClear').addEventListener('click', ()=>{
+    if(confirm('Clear all items?')){ data = []; save(); renderAll(); }
+});
 
-      console.log(
-    `→ midiNum: ${noteNum.toFixed(2)}, rounded: ${rounded}, ` +
-    `exactFreq: ${exactFreq.toFixed(2)}, diffPct: ${diffPct.toFixed(2)}%`
-        );           
-
-    if (diffPct > Tolerance_pct) return null;
-
-    // const names = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-    const names = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
-    const name = names[(rounded % 12 + 12) % 12]; // ensure positive mod
-
-    const oct = Math.floor(rounded / 12) - 1;
-
-    return name + oct;
-    }
-
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const micNode = audioCtx.createMediaStreamSource(stream);
-
-    // PASS THE RAW stream, NOT micNode.stream
-    const pitch = ml5.pitchDetection('./pitch-detection/crepe', audioCtx, stream, detect);
-
-    function detect() {
-    pitch.getPitch((err, freq) => {
-        console.log(`freq: ${freq}`);
-        document.querySelectorAll('.white-key, .black-key').forEach(k => k.classList.remove('highlight'));
-        if (freq) {
-        const note = freqToNote(freq);
-        cutTitle.textContent = `Current Node Detected is ${note}`;
-        const keyEl = document.querySelector(`[data-note='${note}']`);
-        if (keyEl) keyEl.classList.add('highlight');
-        } else {
-            // no pitch right now
-            cutTitle.textContent = `Current Node Detected is --`;
-        }
-        requestAnimationFrame(detect);
-    });
-    }
+// Init defaults
+if(data.length === 0){
+    const today = new Date();
+    const iso = fmtDateISO(today);
+    data = [
+    { date: iso, item:'Coffee', price: 4.50, category:'Food' },
+    { date: iso, item:'Metro', price: 2.75, category:'Transit' },
+    { date: fmtDateISO(new Date(Date.now()-86400000)), item:'Museum', price: 18.00, category:'Activity' },
+    ];
+    save();
 }
 
-startBtn.addEventListener('click', () => {
-    startBtn.classList.toggle("active");
-    setupMic(); 
-});
+// First render
+renderAll();
