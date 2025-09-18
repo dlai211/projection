@@ -1,0 +1,17 @@
+[
+  {"date": "2025-08-21", "item": "Groceries", "price": 147.1},
+  {"date": "2025-08-21", "item": "Dinner", "price": 265.69},
+  {"date": "2025-08-22", "item": "Museum", "price": 64.0},
+  {"date": "2025-08-22", "item": "Lime Bycycle", "price": 7.71},
+  {"date": "2025-08-22", "item": "Dinner", "price": 62.1},
+  {"date": "2025-08-22", "item": "Groceries", "price": 74.86},
+  {"date": "2025-08-22", "item": "Clothes (lululemon)", "price": 141.33},
+  {"date": "2025-08-22", "item": "Groceries", "price": 92.49},
+  {"date": "2025-08-22", "item": "Groceries", "price": 92.49},
+  {"date": "2025-08-23", "item": "Parking", "price": 7.16},
+  {"date": "2025-08-23", "item": "Supplement", "price": 112.51},
+  {"date": "2025-08-23", "item": "Lime Bycycle", "price": 14.07},
+  {"date": "2025-08-23", "item": "Event", "price": 66.18},
+  {"date": "2025-08-22", "item": "Groceries", "price": 25.99},
+  {"date": "2025-08-23", "item": "Other", "price": 7.73}
+]
