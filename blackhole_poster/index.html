@@ -4,18 +4,56 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Universe on Tap — Black Hole Animation</title>
 <style>
+  :root { color-scheme: dark; }
   body{margin:0;display:grid;place-items:center;min-height:100svh;background:#0a0f1a;color:#e6f0ff;font:16px system-ui}
   .wrap{max-width:900px;padding:20px;text-align:center}
-  video{width:100%;height:auto;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+  .stage{position:relative}
+  video{width:100%;height:auto;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.5);background:#000}
+  .unmute{
+    position:absolute;inset:auto 12px 12px auto;
+    padding:10px 14px;border-radius:999px;border:1px solid #fff8;
+    background:#0009;color:#fff;backdrop-filter:blur(6px);cursor:pointer;
+  }
   .hint{opacity:.7;margin-top:10px}
 </style>
+
 <div class="wrap">
   <h1>Universe on Tap — Black Hole Animation</h1>
-  <video controls playsinline preload="metadata" poster="assets/poster.jpg">
-    <source src="assets/watermarked-a0b24137-926f-4a3d-87f8-5860152b734d.mp4" type="video/mp4" />
-    <!-- Optional fallback -->
-    Sorry, your browser can’t play this video.
-  </video>
-  <p class="hint">Tip: long-press to save on mobile.</p>
+
+  <div class="stage">
+    <video id="v" autoplay loop muted playsinline webkit-playsinline preload="metadata" poster="assets/poster.jpg">
+      <source src="assets/watermarked-a0b24137-926f-4a3d-87f8-5860152b734d.mp4" type="video/mp4" />
+      <!-- Add a WebM source if you have it:
+      <source src="assets/video.webm" type="video/webm" /> -->
+      Sorry, your browser can’t play this video.
+    </video>
+    <button id="btn" class="unmute" aria-pressed="true" title="Unmute / Mute">🔇 Unmute</button>
+  </div>
+
+  <p class="hint">Video autoplays & loops. Click “Unmute” for sound.</p>
 </div>
+
+<script>
+  const v = document.getElementById('v');
+  const btn = document.getElementById('btn');
+
+  // Try to start playback immediately (handles some mobile quirks)
+  v.play().catch(()=>{ /* will start after first user interaction */ });
+
+  function updateBtn(){
+    btn.textContent = v.muted ? '🔇 Unmute' : '🔊 Mute';
+    btn.setAttribute('aria-pressed', (!v.muted).toString());
+  }
+  btn.addEventListener('click', () => {
+    v.muted = !v.muted;
+    if (!v.paused) v.play().catch(()=>{});
+    updateBtn();
+  });
+  // Also unmute on first tap anywhere on the video
+  v.addEventListener('click', () => {
+    if (v.muted) { v.muted = false; updateBtn(); v.play().catch(()=>{}); }
+  });
+  updateBtn();
+</script>
 </html>
+
