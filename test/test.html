@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Dark Photon – Cut Table</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --card: #ffffff;
+    --ink: #1f2937;
+    --muted: #6b7280;
+    --accent: #f3e8ef;
+    --accent-ink: #7a294d;
+    --ok: #e8f5e9;
+    --ok-ink: #1b5e20;
+    --warn: #fff3e0;
+    --warn-ink: #8c4a0e;
+    --grid: #e5e7eb;
+    --rose: #fbe7ee;
+  }
+
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  }
+
+  .wrap {
+    max-width: 1100px;
+    margin: 28px auto;
+    padding: 0 16px 48px;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  header h1 {
+    font-size: 22px;
+    margin: 0;
+  }
+  header .sub {
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 16px;
+  }
+  @media (max-width: 980px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--grid);
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  }
+
+  /* Table styling */
+  .table-wrap {
+    overflow: auto;
+    border-radius: 14px;
+  }
+  table {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+    min-width: 740px;
+  }
+  th, td {
+    border-bottom: 1px solid var(--grid);
+    padding: 12px 14px;
+    vertical-align: top;
+    text-align: left;
+  }
+  thead th {
+    position: sticky;
+    top: 0;
+    background: var(--card);
+    z-index: 2;
+    font-weight: 700;
+    border-bottom: 2px solid var(--grid);
+  }
+  /* First column: variable name with tooltip */
+  tbody th {
+    white-space: nowrap;
+    background: #fff;
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    border-right: 1px solid var(--grid);
+    font-weight: 600;
+  }
+
+  /* Column group headers */
+  .group {
+    background: var(--rose);
+    color: #6b1237;
+    font-weight: 700;
+    border-bottom: 2px solid var(--grid);
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 9px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+  }
+
+  /* Right-side selection block */
+  .aside {
+    padding: 16px;
+  }
+  .aside h2 {
+    margin: 0 0 10px;
+    font-size: 16px;
+  }
+  .note {
+    background: #fde8ef;
+    border: 1px dashed #f3b6c7;
+    color: #6b1237;
+    padding: 8px 10px;
+    border-radius: 10px;
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+  .sel {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .sel th, .sel td {
+    border-bottom: 1px solid var(--grid);
+    padding: 8px 10px;
+    vertical-align: top;
+    text-align: left;
+  }
+  .sel thead th {
+    background: var(--rose);
+    border-bottom: 2px solid var(--grid);
+  }
+
+  /* Tooltip */
+  .var {
+    position: relative;
+    cursor: help;
+    border-bottom: 1px dashed rgba(0,0,0,.25);
+  }
+  .var[data-tip]:hover::after,
+  .var[data-tip]:focus::after {
+    content: attr(data-tip);
+    position: absolute;
+    left: 0;
+    top: calc(100% + 8px);
+    min-width: 280px;
+    max-width: 520px;
+    padding: 10px 12px;
+    background: #111827;
+    color: #f9fafb;
+    font-size: 13px;
+    line-height: 1.35;
+    border-radius: 10px;
+    box-shadow: 0 6px 22px rgba(0,0,0,.2);
+    z-index: 5;
+    white-space: normal;
+  }
+  .var[data-tip]:hover::before,
+  .var[data-tip]:focus::before {
+    content: "";
+    position: absolute;
+    left: 12px;
+    top: 100%;
+    border: 7px solid transparent;
+    border-bottom-color: #111827;
+  }
+
+  .muted { color: var(--muted); }
+  .tight { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Cut Definitions & Working Points</h1>
+      <div class="sub">Hover any variable name to see its definition & calculation.</div>
+    </header>
+
+    <div class="grid">
+      <!-- LEFT: big table -->
+      <div class="card table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Variable</th>
+              <th class="group">Internal&nbsp;Note <span class="badge">Basic cut</span></th>
+              <th class="group">brief_1 <span class="badge">Basic cut</span></th>
+              <th class="group">2 <span class="badge">Basic cut</span></th>
+              <th class="group">detail_3 <span class="badge">Basic cut</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th><span class="var" data-tip="Missing-ET significance. 
+Defined as MET / σ(MET), where σ(MET) is the per-event MET resolution from the soft/jet terms used in the reconstruction. A larger value indicates MET inconsistent with zero given the event’s resolution.">metsig</span></th>
+              <td>&gt; 6</td>
+              <td>&gt; 7</td>
+              <td>20 &gt; metsig &gt; 7</td>
+              <td>20 &gt; metsig &gt; 7</td>
+            </tr>
+
+            <tr>
+              <th><span class="var" data-tip="Absolute pseudorapidity of the leading photon. 
+abs(η) = | −ln[tan(θ/2)] | evaluated from the photon’s direction; index [0] means the highest-pT photon.">abs(ph_eta[0])</span></th>
+              <td>&lt; 1.75</td>
+              <td>&lt; 1.74</td>
+              <td>&lt; 1.74</td>
+              <td>&lt; 1.74</td>
+            </tr>
+
+            <tr>
+              <th><span class="var" data-tip="Δφ between the MET vector and the photon term (phterm) direction. 
+Compute Δφ = |φ(MET) − φ(phterm)| wrapped to [0, π].">dphi_met_phterm</span></th>
+              <td>&gt; 1.25</td>
+              <td>&gt; 1.23</td>
+              <td>&gt; 1.23</td>
+              <td>&gt; 1.23</td>
+            </tr>
+
+            <tr>
+              <th><span class="var" data-tip="Signed MET projection along the photon direction (or an analysis-specific transverse imbalance). 
+Positive values indicate MET aligned with the photon; negative indicates opposite. Units: GeV.">dmet</span></th>
+              <td>&gt; −10 GeV</td>
+              <td>&gt; −21 GeV</td>
+              <td>41.6 &gt; dmet &gt; −21.2</td>
+              <td>41.6 &gt; dmet &gt; −21.2</td>
+            </tr>
+
+            <tr>
+              <th><span class="var" data-tip="Central dijet–photon topology variable (analysis-specific). 
+Typically the |Δφ| or |Δη| between two leading central jets with respect to the photon or event plane; smaller values select more central topologies.">dphi_jj_central</span></th>
+              <td>&lt; 2.5</td>
+              <td>&lt; 2.37</td>
+              <td>&lt; 2.37</td>
+              <td>&lt; 2.37</td>
+            </tr>
+
+            <tr>
+              <th><span class="var" data-tip="Δφ between the MET vector and the jet term vector (jetterm). 
+Compute Δφ = |φ(MET) − φ(jeterm)| wrapped to [0, π].">dphi_met_jetterm</span></th>
+              <td>&lt; 0.75</td>
+              <td>&lt; 0.73</td>
+              <td>&lt; 0.73</td>
+              <td>&lt; 0.73</td>
+            </tr>
+
+            <tr>
+              <th><span class="var" data-tip="Balance variable: (MET + pT(γ₁)) / Σ pT(jet_central). 
+If ΣpT(jets) = 0, analysis sets a sentinel or excludes event. Values &gt; 0.91 favor events where MET+γ balances central jet activity.">balance</span></th>
+              <td></td><td></td><td></td><td>&gt; 0.91</td>
+            </tr>
+
+            <tr>
+              <th><span class="var" data-tip="Jet term magnitude used in MET composition, typically the scalar/vec pT contribution from jets to the MET. 
+Here a hard lower bound selects events with substantial jet term. Units: MeV unless noted.">jetterm</span></th>
+              <td></td><td></td><td></td><td>&gt; 92000</td>
+            </tr>
+
+            <tr>
+              <th><span class="var" data-tip="Δφ between the photon term and the jet term: 
+Δφ = |φ(phterm) − φ(jeterm)| ∈ [0, π]. 
+Selecting 1.6–3.1 isolates specific recoil topologies.">dphi_phterm_jeterm</span></th>
+              <td></td><td></td><td></td><td>3.1 &gt; dphi_phterm_jeterm &gt; 1.6</td>
+            </tr>
+
+            <tr>
+              <th><span class="var" data-tip="Resolution proxy for MET significance calculation (analysis-specific). 
+Events with smaller metsigres have better-determined MET. Units follow your MET tool output.">metsigres</span></th>
+              <td></td><td></td><td></td><td>&lt; 36000</td>
+            </tr>
+
+            <tr>
+              <th><span class="var" data-tip="No-JVT (Jet Vertex Tagger) MET: MET recomputed without JVT selections on jets. 
+A minimum ensures robust MET even when vertex association is looser. Units: MeV unless noted.">met_noJVT</span></th>
+              <td></td><td></td><td></td><td>&gt; 90000</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- RIGHT: selection block -->
+      <aside class="card aside">
+        <h2>Baseline Object / Kinematic Selections</h2>
+        <div class="note">Applied after the basic cuts (summary list).</div>
+        <table class="sel">
+          <thead><tr><th>Variable</th><th>Cut</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="var" data-tip="Photon multiplicity after baseline ID and kinematic selections.">n_ph</span></td>
+              <td>== 1</td>
+            </tr>
+            <tr>
+              <td><span class="var" data-tip="Number of baseline leptons (e/μ). 
+Baseline ID includes loose ID, isolation, and overlap removal as defined in the analysis.">n_[lep]_baseline</span></td>
+              <td>== 0</td>
+            </tr>
+            <tr>
+              <td><span class="var" data-tip="Number of central jets passing baseline selection (|η| within central region, pT threshold, JVT etc.).">n_jet_central</span></td>
+              <td>&le; 3</td>
+            </tr>
+            <tr>
+              <td><span class="var" data-tip="Leading photon transverse momentum.">ph_pt[0]</span></td>
+              <td>&gt; 50 GeV</td>
+            </tr>
+            <tr>
+              <td><span class="var" data-tip="Track-soft-term MET magnitude used in the analysis. Units typically GeV.">met_tst_et</span></td>
+              <td>&gt; 100 GeV</td>
+            </tr>
+            <tr>
+              <td><span class="var" data-tip="Transverse mass built from MET and the photon (or relevant object): 
+mT = √(2·pT(obj)·MET·(1 − cosΔφ(obj,MET))). 
+Window 100–140 GeV selects the target topology.">mT</span></td>
+              <td>140 &gt; mT &gt; 100 GeV</td>
+            </tr>
+            <tr>
+              <td><span class="var" data-tip="Vertex BDT score (photon-MET recoil vertexing). 
+Higher values indicate better primary-vertex consistency with γ+MET topology.">VertexBDTScore</span></td>
+              <td>&gt; 0.1</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="tight">Units: numbers shown as in your ntuples (MeV vs GeV per variable); adjust labels if you standardize.</p>
+      </aside>
+    </div>
+
+    <p class="tight">Tip: if you need to tweak any definitions, just edit the <code>data-tip</code> text on each <code>&lt;span class="var"&gt;</code>.</p>
+  </div>
+</body>
+</html>
