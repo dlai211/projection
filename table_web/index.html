@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="/">
+    <title>Dark Photon Performance Plots</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="table_web/style.css">
+    <link rel="stylesheet" href="table_web/style_table.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+
+<!-- Variable definition modal -->
+<div id="var-modal" class="var-modal" aria-hidden="true">
+  <div class="var-modal__backdrop" data-close="true"></div>
+  <figure class="var-modal__dialog" role="dialog" aria-modal="true">
+    <img id="var-modal-img" alt="Variable definition">
+    <figcaption id="var-modal-cap"></figcaption>
+  </figure>
+</div>
+
+<body>
+    <h1>Dark Photon Performance Plots</h1>
+
+
+    <nav id="cut-nav">
+        <ul>
+            <li>mT Cut Table: </li>
+            <li><a href="table_web/table_100_140.html#mt100" id="btn-mt100" class="cut-btn active">140 &gt; mT &gt; 100 GeV</a></li>
+            <li class="nav-divider"></li>
+            <li><a href="table_web/table_100_140.html#mt80"  id="btn-mt80"  class="cut-btn">mT &gt; 80 GeV</a></li>
+        </ul>
+    </nav>
+
+
+    <!-- performance or selection plots -->
+    <nav id="mode-nav">
+        <ul id="mode-list"></ul>
+    </nav>
+
+
+    <!-- Cut Table Section -->
+    <!-- Table for Basic + Selection Cuts ( 140 > mT > 100 GeV ) -->
+    <section id="cut-table-mt100" class="cut-section active">
+    <h2>Table for Basic + Selection Cuts ( 140 &gt; mT &gt; 100 GeV )</h2>
+
+    <div class="table-outer">
+        <div class="table-wrap">
+            <table class="cut-table">
+            <thead>
+                <tr>
+                <th>Cut Variables</th>
+                <th>Internal&nbsp;Note</th>
+                <th>selection_1</th>
+                <th>detail_2</th>
+                </tr>
+            </thead>
+            <tbody>
+
+                <!-- ===== Basic cut rows ===== -->
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/mt_def.png"
+                    data-tip="Transverse mass: mT = √(2·pT·MET·(1 − cosΔφ)). Unit: GeV.">
+                    mT</span>
+                </th>
+                <td class="basic0" colspan="4">140 &gt; mT &gt; 100 GeV</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/n_ph_def.png"
+                    data-tip="Number of photons">
+                    n_ph</span>
+                </th>
+                <td class="basic1" colspan="4">= 1</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/n_lep_def.png"
+                    data-tip="Number of baseline leptons (e/μ/τ)">
+                    n_[lep]_baseline</span>
+                </th>
+                <td class="basic1" colspan="4">= 0</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/n_jet_def.png"
+                    data-tip="Number of central jets">
+                    n_jet_central</span>
+                </th>
+                <td class="basic1" colspan="4">&le; 3</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-tip="trigger_HLT_g50_tight_xe40_cell_xe70_pfopufit_80mTAC_L1eEM26M">
+                    trigger</span>
+                </th>
+                <td class="basic1" colspan="4">True</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/ph_pt_def.png"
+                    data-tip="Leading photon transverse momentum. Unit: GeV">
+                    ph_pt[0]</span>
+                </th>
+                <td class="basic1" colspan="4">&gt; 50 GeV</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/met_def.png"
+                    data-tip="Missing transverse energy (MET). Unit: GeV">
+                    met_tst_et</span>
+                </th>
+                <td class="basic1" colspan="4">&gt; 100 GeV</td>
+                </tr>
+
+
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/vertexbdtscore_def.png" 
+                    data-tip="Vertex BDT score for γ+MET topology; higher = better PV consistency.">
+                    VertexBDTScore</span>
+                </th>
+                <td class="basic1" colspan="4">&gt; 0.1</td>
+                </tr>
+
+                <!-- ===== Selection cut rows ===== -->
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/metsig_def.png"
+                    data-tip="Iteration Range: [0, 10], with step of 1. Missing-ET significance. Float.">
+                    metsig</span>
+                </th>
+                <td class="basic2">&gt; 6</td>
+                <td class="basic2">&gt; 7</td>
+                <td class="basic2">&gt; 7</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/ph_eta_def.png"
+                    data-tip="Iteration Range: [1, 2.5], with step of 0.05. Absolute value of pseudorapidity of the leading photon. abs(η) = |−ln[tan(θ/2)]|; [0] indexes the leading-pT photon.">
+                    abs(ph_eta[0])</span>
+                </th>
+                <td class="basic2">&lt; 1.75</td>
+                <td class="basic2">&lt; 1.75</td>
+                <td class="basic2">&lt; 1.75</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/dphi_met_phterm_def.png"
+                    data-tip="Iteration Range:[1, 2], with step of 0.05. Δφ between MET and photon term (π - photon direction): Δφ = |φ(MET) − φ(phterm)| wrapped to [0, π].">
+                    dphi_met_phterm</span>
+                </th>
+                <td class="basic2">&gt; 1.25</td>
+                <td class="basic2">&gt; 1.20</td>
+                <td class="basic2">&gt; 1.20</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/dmet_def.png"
+                    data-tip="Iteration Range: [-30, 10]GeV, with step of 5GeV. MET_noJVT (Missing Transverse Energy without Jet Vertex Tagging) - MET. Units: GeV.">
+                    dmet</span>
+                </th>
+                <td class="basic2">&gt; −10 GeV</td>
+                <td class="basic2">&gt; −20 GeV</td>
+                <td class="basic2">&gt; −20 GeV</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/dphi_jj_def.png"
+                    data-tip="Iteration Range: [1, 3.1], with step of 0.05. Δφ between leading jets and subleading jets: Δφ = |φ(jet1) − φ(jet2)| in [0, π].">
+                    dphi_jj_central</span>
+                </th>
+                <td class="basic2">&lt; 2.5</td>
+                <td class="basic2">&lt; 2.5</td>
+                <td class="basic2">&lt; 2.5</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/dphi_met_jetterm_def.png"
+                    data-tip="Iteration Range: [0.5, 1], with step of 0.05. Δφ between MET and jet term (π - leading jet direction) vector: Δφ = |φ(MET) − φ(jeterm)| in [0, π].">
+                    dphi_met_jetterm</span>
+                </th>
+                <td class="basic2">&lt; 0.75</td>
+                <td class="basic2">&lt; 0.75</td>
+                <td class="basic2">&lt; 0.75</td>
+                </tr>
+
+                <!-- ===== Selection cut 2 rows ===== -->
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/balance_def.png"
+                    data-tip="Iteration Range: [0.3, 1.5], with step of 0.05. Unitless.">
+                    balance</span>
+                </th>
+                <td class="basic3"></td>
+                <td class="basic3"></td>
+                <td class="basic3">&gt; 0.90</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-tip="Iteration Range: [0, 150]GeV, with step of 10GeV. met_jetterm_et. Unit: GeV">
+                    jetterm</span>
+                </th>
+                <td class="basic3"></td>
+                <td class="basic3"></td>
+                <td class="basic3">&gt; 80 GeV</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/dphi_phterm_jetterm_def.png"
+                    data-tip="Iteration Range: [1, 4], with step of 0.1. Δφ between the photon term and jet term: |φ(phterm) − φ(jeterm)| ∈ [0, π].">
+                    dphi_phterm_jetterm</span>
+                </th>
+                <td class="basic3"></td>
+                <td class="basic3"></td>
+                <td class="basic3">3.1 &gt; Δφ &gt; 1.6</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/metsigres_def.png"
+                    data-tip="Iteration Range: [12, 60]GeV, with step of 10GeV. MET / MET significance. Unit: GeV">
+                    metsigres</span>
+                </th>
+                <td class="basic3"></td>
+                <td class="basic3"></td>
+                <td class="basic3">&lt; 42 GeV</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/met_nojvt_def.png"
+                    data-tip="Iteration Range: [50, 120]GeV, with step of 10GeV. Missing transverse energy without Jet Vertex Tagging. Unit: GeV">
+                    met_noJVT</span>
+                </th>
+                <td class="basic3"></td>
+                <td class="basic3"></td>
+                <td class="basic3">&gt; 90 GeV</td>
+                </tr>
+
+                <!-- ===== Significance ===== -->
+                <tr>
+                <th>
+                    <span class="var" data-tip="Significance">
+                    S/sqrt(B)
+                    </span>
+                </th>
+                <td class="basic4">2.940</td>
+                <td class="basic4">3.089</td>
+                <td class="basic4">3.257</td>
+                </tr>
+
+                <tr>
+                <th>
+                    <span class="var" data-tip="Significance">
+                    S/sqrt(S+B)
+                    </span>
+                </th>
+                <td class="basic4">2.875</td>
+                <td class="basic4">3.012</td>
+                <td class="basic4">3.161</td>
+                </tr>
+
+                <tr>
+                <th>
+                    <span class="var" data-tip="Significance">
+                    S/sqrt(S+1.3B)
+                    </span>
+                </th>
+                <td class="basic4">2.535</td>
+                <td class="basic4">2.657</td>
+                <td class="basic4">2.791</td>
+                </tr>
+
+                <tr>
+                <th>
+                    <span class="var" data-tip="Binomial Expected Z">
+                    Zbi (σ_b = 30%)
+                    </span>
+                </th>
+                <td class="basic4">-0.047</td>
+                <td class="basic4">-0.028</td>
+                <td class="basic4">0.005</td>
+                </tr>
+
+                <tr>
+                <th>
+                    <span class="var" data-tip="Detailed number of events after each cut for each process">
+                    Unified Cutflow
+                    </span>
+                </th>
+                <td class="basic5">
+                    <a href="https://github.com/dlai211/dark_photon/blob/main/code_jet_faking_ML/jet-faking/n-1_selection/cutlogs_135_internal/cutflow_unified.csv" target="_blank">link</a>
+                </td>
+                <td class="basic5">
+                    <a href="https://github.com/dlai211/dark_photon/blob/main/code_jet_faking_ML/jet-faking/cutflow/cutlogs_100mT_selection1/cutflow_unified.csv" target="_blank">link</a>
+                </td>
+                <td class="basic5">
+                    <a href="https://github.com/dlai211/dark_photon/blob/main/code_jet_faking_ML/jet-faking/cutflow/cutlogs_100mT_detail2/cutflow_unified.csv" target="_blank">link</a>
+                </td>
+                </tr>
+
+
+            </tbody>
+            </table>
+        </div>
+    </div>
+
+    <p class="small-note">
+    In <em>unified cutflow</em>, there is one cut named <strong>CUT&nbsp;1 (preprocessing)</strong>. It means:
+    </p>
+
+    <ul class="small-note" style="text-align:left; margin-top:6px;">
+    <li><strong>MC (CUT 1 preprocessing)</strong>:
+        <ul>
+        <li><code>n_ph == 1</code></li>
+        <li><code>goodPV</code> (signal only)</li>
+        <li><code>ph_truth_type == 2</code> (Zjets &amp; Wjets)</li>
+        </ul>
+    </li>
+    <li><strong>Data-driven (CUT 1 preprocessing)</strong>:
+        <ul>
+        <li><code>n_ph_baseline == 1</code></li>
+        <li><code>(ph_topoetcone40[0] - 2450.) / ph_pt[0] &gt; 0.1</code></li>
+        </ul>
+    </li>
+    </ul>
+
+    </section>
+
+
+
+    <!-- Table for Basic + Selection Cuts ( mT > 80 GeV ) -->
+    <section id="cut-table-mt80" class="cut-section">
+    <h2>Table for Basic + Selection Cuts ( mT &gt; 80 GeV )</h2>
+
+    <div class="table-outer">
+        <div class="table-wrap">
+            <table class="cut-table">
+            <thead>
+                <tr>
+                <th>Cut Variables</th>
+                <th>Internal&nbsp;Note</th>
+                <th>selection_1</th>
+                <th>detail_2</th>
+                </tr>
+            </thead>
+            <tbody>
+
+                <!-- ===== Basic cut rows ===== -->
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/mt_def.png"
+                    data-tip="Transverse mass: mT = √(2·pT·MET·(1 − cosΔφ)). Unit: GeV.">
+                    mT</span>
+                </th>
+                <td class="basic0" colspan="4">mT &gt; 80 GeV</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/n_ph_def.png"
+                    data-tip="Number of photons">
+                    n_ph</span>
+                </th>
+                <td class="basic1" colspan="4">= 1</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/n_lep_def.png"
+                    data-tip="Number of baseline leptons (e/μ/τ)">
+                    n_[lep]_baseline</span>
+                </th>
+                <td class="basic1" colspan="4">= 0</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/n_jet_def.png"
+                    data-tip="Number of central jets">
+                    n_jet_central</span>
+                </th>
+                <td class="basic1" colspan="4">&le; 3</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-tip="trigger_HLT_g50_tight_xe40_cell_xe70_pfopufit_80mTAC_L1eEM26M">
+                    trigger</span>
+                </th>                
+                <td class="basic1" colspan="4">True</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/ph_pt_def.png"
+                    data-tip="Leading photon transverse momentum. Unit: GeV">
+                    ph_pt[0]</span>
+                </th>
+                <td class="basic1" colspan="4">&gt; 50 GeV</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/met_def.png"
+                    data-tip="Missing transverse energy (MET). Unit: GeV">
+                    met_tst_et</span>
+                </th>
+                <td class="basic1" colspan="4">&gt; 100 GeV</td>
+                </tr>
+
+
+
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/vertexbdtscore_def.png" 
+                    data-tip="Vertex BDT score for γ+MET topology; higher = better PV consistency.">
+                    VertexBDTScore</span>
+                </th>
+                <td class="basic1" colspan="4">&gt; 0.1</td>
+                </tr>
+
+                <!-- ===== Selection cut rows ===== -->
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/metsig_def.png"
+                    data-tip="Iteration Range: [0, 10], with step of 1. Missing-ET significance. Float.">
+                    metsig</span>
+                </th>
+                <td class="basic2">&gt; 6</td>
+                <td class="basic2">&gt; 7</td>
+                <td class="basic2">&gt; 7</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/ph_eta_def.png"
+                    data-tip="Iteration Range: [1, 2.5], with step of 0.05. Absolute value of pseudorapidity of the leading photon. abs(η) = |−ln[tan(θ/2)]|; [0] indexes the leading-pT photon.">
+                    abs(ph_eta[0])</span>
+                </th>
+                <td class="basic2">&lt; 1.75</td>
+                <td class="basic2">&lt; 1.75</td>
+                <td class="basic2">&lt; 1.75</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/dphi_met_phterm_def.png"
+                    data-tip="Iteration Range:[1, 2], with step of 0.05. Δφ between MET and photon term (π - photon direction): Δφ = |φ(MET) − φ(phterm)| wrapped to [0, π].">
+                    dphi_met_phterm</span>
+                </th>
+                <td class="basic2">&gt; 1.25</td>
+                <td class="basic2">&gt; 1.35</td>
+                <td class="basic2">&gt; 1.35</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/dmet_def.png"
+                    data-tip="Iteration Range: [-30, 10]GeV, with step of 5GeV. MET_noJVT (Missing Transverse Energy without Jet Vertex Tagging) - MET. Units: GeV.">
+                    dmet</span>
+                </th>
+                <td class="basic2">&gt; −10 GeV</td>
+                <td class="basic2">&gt; −20 GeV</td>
+                <td class="basic2">&gt; −20 GeV</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/dphi_jj_def.png"
+                    data-tip="Iteration Range: [1, 3.1], with step of 0.05. Δφ between leading jets and subleading jets: Δφ = |φ(jet1) − φ(jet2)| in [0, π].">
+                    dphi_jj_central</span>
+                </th>
+                <td class="basic2">&lt; 2.5</td>
+                <td class="basic2">&lt; 2.5</td>
+                <td class="basic2">&lt; 2.5</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/dphi_met_jetterm_def.png"
+                    data-tip="Iteration Range: [0.5, 1], with step of 0.05. Δφ between MET and jet term (π - leading jet direction) vector: Δφ = |φ(MET) − φ(jeterm)| in [0, π].">
+                    dphi_met_jetterm</span>
+                </th>
+                <td class="basic2">&lt; 0.75</td>
+                <td class="basic2">&lt; 0.75</td>
+                <td class="basic2">&lt; 0.75</td>
+                </tr>
+
+                <!-- ===== Selection cut 2 rows ===== -->
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/balance_def.png"
+                    data-tip="Iteration Range: [0.3, 1.5], with step of 0.05. Unitless.">
+                    balance</span>
+                </th>
+                <td class="basic3"></td>
+                <td class="basic3"></td>
+                <td class="basic3">&gt; 0.90</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-tip="Iteration Range: [0, 150]GeV, with step of 10GeV. met_jetterm_et. Unit: GeV">
+                    jetterm</span>
+                </th>
+                <td class="basic3"></td>
+                <td class="basic3"></td>
+                <td class="basic3">&gt; 80 GeV</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/dphi_phterm_jetterm_def.png"
+                    data-tip="Iteration Range: [1, 4], with step of 0.1. Δφ between the photon term and jet term: |φ(phterm) − φ(jeterm)| ∈ [0, π].">
+                    dphi_phterm_jetterm</span>
+                </th>
+                <td class="basic3"></td>
+                <td class="basic3"></td>
+                <td class="basic3">3.1 &gt; Δφ &gt; 1.8</td>
+                </tr>
+
+                <tr>
+                <th><span class="var" 
+                    data-img="table_web/def_image/met_nojvt_def.png"
+                    data-tip="Iteration Range: [50, 120]GeV, with step of 10GeV. Missing transverse energy without Jet Vertex Tagging. Unit: GeV">
+                    met_noJVT</span>
+                </th>
+                <td class="basic3"></td>
+                <td class="basic3"></td>
+                <td class="basic3">&gt; 90 GeV</td>
+                </tr>
+
+                <!-- ===== Significance ===== -->
+                <tr>
+                <th>
+                    <span class="var" data-tip="Significance">
+                    S/sqrt(B)
+                    </span>
+                </th>
+                <td class="basic4">2.470</td>
+                <td class="basic4">2.508</td>
+                <td class="basic4">2.626</td>
+                </tr>
+
+                <tr>
+                <th>
+                    <span class="var" data-tip="Significance">
+                    S/sqrt(S+B)
+                    </span>
+                </th>
+                <td class="basic4">2.441</td>
+                <td class="basic4">2.475</td>
+                <td class="basic4">2.584</td>
+                </tr>
+
+                <tr>
+                <th>
+                    <span class="var" data-tip="Significance">
+                    S/sqrt(S+1.3B)
+                    </span>
+                </th>
+                <td class="basic4">2.146</td>
+                <td class="basic4">2.177</td>
+                <td class="basic4">2.275</td>
+                </tr>
+
+                <tr>
+                <th>
+                    <span class="var" data-tip="Binomial Expected Z">
+                    Zbi (σ_b = 30%)
+                    </span>
+                </th>
+                <td class="basic4">-0.118</td>
+                <td class="basic4">-0.108</td>
+                <td class="basic4">-0.090</td>
+                </tr>
+
+                <tr>
+                <th>
+                    <span class="var" data-tip="Detailed number of events after each cut for each process">
+                    Unified Cutflow
+                    </span>
+                </th>
+                <td class="basic5">
+                    <a href="https://github.com/dlai211/dark_photon/blob/main/code_jet_faking_ML/jet-faking/n-1_selection_80/cutlogs_135_internal/cutflow_unified.csv" target="_blank">link</a>
+                </td>
+                <td class="basic5">
+                    <a href="https://github.com/dlai211/dark_photon/blob/main/code_jet_faking_ML/jet-faking/cutflow/cutlogs_80mT_selection1/cutflow_unified.csv" target="_blank">link</a>
+                </td>
+                <td class="basic5">
+                    <a href="https://github.com/dlai211/dark_photon/blob/main/code_jet_faking_ML/jet-faking/cutflow/cutlogs_80mT_detail2/cutflow_unified.csv" target="_blank">link</a>
+                </td>
+                </tr>
+
+
+            </tbody>
+            </table>
+        </div>
+    </div>
+
+    <p class="small-note">
+    In <em>unified cutflow</em>, there is one cut named <strong>CUT&nbsp;1 (preprocessing)</strong>. It means:
+    </p>
+
+    <ul class="small-note" style="text-align:left; margin-top:6px;">
+    <li><strong>MC (CUT 1 preprocessing)</strong>:
+        <ul>
+        <li><code>n_ph == 1</code></li>
+        <li><code>goodPV</code> (signal only)</li>
+        <li><code>ph_truth_type == 2</code> (Zjets &amp; Wjets)</li>
+        </ul>
+    </li>
+    <li><strong>Data-driven (CUT 1 preprocessing)</strong>:
+        <ul>
+        <li><code>n_ph_baseline == 1</code></li>
+        <li><code>(ph_topoetcone40[0] - 2450.) / ph_pt[0] &gt; 0.1</code></li>
+        </ul>
+    </li>
+    </ul>
+
+    </section>
+
+
+    <!-- Sidebar -->
+    <div id="sidebar">
+        <h3>Test Plots</h3>
+        <ul>
+            <li><a href="index.html#main" id="main-btn"><b>Selection Cut study 1:</b> Main</a></li>
+            <li><a href="index.html#mt100" id="test-btn"><b>Selection Cut Study 2:</b> Add mT>100 in basic cut</a></li>
+            <li><a href="index.html#dphi_diff" id="test-btn"><b>Selection Cut Study 3:</b> Switch out dphi_diff in selection cut</a></li>
+            <li><a href="index.html#significance" id="test-btn"><b>Selection Cut Study 4:</b> Different Significance Study</a></li>
+            <li><a href="index.html#jets_faking_photons" id="test-btn"><b>Selection Cut Study 5:</b> Jets-faking Photons</a></li>
+            <li><a href="index.html#jets_faking_photons2" id="test-btn"><b>Selection Cut Study 5.5:</b> Jets-faking Photons (reduced)</a></li>
+            <li><a href="common.html#jets_faking_photons3" id="test-btn"><b>Selection Cut Study 5.5.5:</b> Jets-faking Photons (new)</a></li>
+            <li><a href="index.html#electrons_faking_photons" id="test-btn"><b>Selection Cut Study 6:</b> Electrons-faking Photons</a></li>
+            <li><a href="common.html#2d" id="test-btn">2D plots of met_ph_jet</a></li>
+            <li><a href="common.html#phjet" id="test-btn">ph - jet study</a></li>
+            <li><a href="common.html#absWeightBasic" id="test-btn">abs(weight) Study (basic cut)</a></li>
+            <li><a href="common.html#absWeightSelection" id="test-btn">abs(weight) study (selection cut)</a></li>
+            <li><a href="common.html#compare" id="test-btn">compare binomial exp z</a></li>
+            <li><a href="common.html#jets_faking" id="test-btn">jets_faking Comparsion Study</a></li>
+            <li><a href="table_web/table_100_140_2.html" id="test-btn">Table of Basic + Selection cuts (140 > mT > 100 GeV)</a></li>
+        </ul>
+    </div>
+
+    <div id="sidebar-toggle"><i class="fas fa-angle-right"></i></div>
+
+
+    <!-- <footer>
+        &copy; 2025 Dark Photon Project
+    </footer> -->
+
+    <script src="table_web/modal.js"></script>
+    <script src="table_web/overtable.js"></script>
+    <script src="sidebar.js"></script>
+</body>
+</html>

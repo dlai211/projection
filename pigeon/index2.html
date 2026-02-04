@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Loop Video + Music</title>
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #111;
+      overflow: hidden;
+    }
+
+    video {
+      max-width: 80%;
+      max-height: 80%;
+      object-fit: contain;
+      pointer-events: none; /* no clicks / no UI feel */
+      display: block;
+    }
+
+    /* Optional: a small hint if autoplay is blocked */
+    #tapHint {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-family: system-ui, Arial, sans-serif;
+      font-size: 14px;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      display: none;
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+
+  <video autoplay loop muted playsinline>
+    <source src="pigeon_dance.mp4" type="video/mp4" />
+  </video>
+
+  <!-- Background music -->
+  <audio id="bgm" src="uwu_funk.mp3" autoplay loop preload="auto"></audio>
+
+  <div id="tapHint">Tap / click to enable sound</div>
+
+  <script>
+    const bgm = document.getElementById("bgm");
+    const tapHint = document.getElementById("tapHint");
+
+    // Try to start music on page load (works if browser allows autoplay)
+    window.addEventListener("load", async () => {
+      try {
+        bgm.currentTime = 0;     // restart from beginning on refresh
+        bgm.volume = 0.5;        // adjust volume (0.0 - 1.0)
+        await bgm.play();        // may be blocked by browser
+      } catch (e) {
+        // Autoplay blocked -> show hint, start on first user interaction
+        tapHint.style.display = "block";
+      }
+    });
+
+    // Fallback: start music on first click anywhere
+    const startOnFirstClick = async () => {
+      try {
+        bgm.currentTime = 0;
+        await bgm.play();
+        tapHint.style.display = "none";
+        window.removeEventListener("click", startOnFirstClick);
+        window.removeEventListener("touchstart", startOnFirstClick);
+      } catch (e) {
+        // still blocked, leave hint visible
+      }
+    };
+
+    window.addEventListener("click", startOnFirstClick);
+    window.addEventListener("touchstart", startOnFirstClick);
+  </script>
+
+</body>
+</html>
