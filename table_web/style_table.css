@@ -1,0 +1,233 @@
+:root {
+--basic-color-0: #f2fafb;
+--basic-color-1: #e5ffc0;
+--basic-color-2: #cdeaa3;
+--basic-color-3: #c0d99d;
+--basic-color-4: #cfe5f4;
+--basic-color-5: #f9deee;
+}
+
+/* show/hide table sections */
+.cut-section { display: none; }
+.cut-section.active { display: block; }
+
+
+.table-outer {
+width: 90%;
+margin: 24px auto;
+overflow-x: auto;      /* keep horizontal scrolling */
+overflow-y: visible;   /* allow tooltips to overflow vertically */
+border-radius: 14px;
+box-shadow: 0 4px 10px rgba(0,0,0,.08);
+border: 2px solid var(--color-2);
+background: #fff;
+}
+
+.table-wrap {
+    overflow: visible; /* was auto before; important! */
+    border: 0;         /* border now on .table-outer */
+    box-shadow: none;  /* shadow now on .table-outer */
+}
+
+.cut-table {
+border-collapse: separate;
+border-spacing: 0;
+width: 100%;
+min-width: 860px;
+color: #546A7B;
+text-align: left;
+}
+
+/* sticky header */
+.cut-table thead th {
+position: sticky;
+top: 0;
+z-index: 3;
+background: var(--color-0);
+color: #ffffff;
+font-weight: 700;
+letter-spacing: .3px;
+border-bottom: 2px solid var(--color-2);
+}
+
+/* first column sticky (variable names) */
+.cut-table tbody th {
+position: sticky;
+left: 0;
+z-index: 1;
+background: #ffffff;
+font-weight: 700;
+white-space: nowrap;
+border-right: 1px solid rgba(0,0,0,.06);
+}
+
+.cut-table th, .cut-table td {
+padding: 12px 14px;
+border-bottom: 1px solid rgba(0,0,0,.08);
+vertical-align: top;
+}
+
+.cut-table td.basic1[colspan] { text-align: center; } /* center "basic cut" cells */
+
+/* section header row inside tbody */
+.section-row th, .section-row td {
+background: var(--color-1);
+color: #fff;
+font-weight: 800;
+text-transform: uppercase;
+letter-spacing: .4px;
+border-bottom: 2px solid var(--color-2);
+}
+
+/* “Basic cut” cells – pink highlight */
+.basic0, .basic1, .basic2, .basic3, .basic4, .basic5 {
+background: var(--color-1);
+color: #2c470a;
+font-weight: 700;
+border-left: 1px solid #707070;
+border-right: 1px solid #707070;
+text-align: center;
+}
+
+.basic0 { background: var(--basic-color-0); }
+.basic1 { background: var(--basic-color-1); }
+.basic2 { background: var(--basic-color-2); }
+.basic3 { background: var(--basic-color-3); }
+.basic4 { background: var(--basic-color-4); }
+.basic5 { background: var(--basic-color-5); }
+
+
+/* Tooltip on variable names */
+.var {
+position: relative;
+cursor: help;
+border-bottom: 1px dashed rgba(0,0,0,.25);
+}
+
+/* Optional tiny footnote text */
+.small-note {
+width: 90%;
+margin: 8px auto 0;
+color: #ffffff;
+opacity: .9;
+font-size: 13px;
+text-align: left;
+border-bottom: 1em solid transparent;
+}
+
+
+/* Disable the old CSS ::before/::after tooltips when body has this class */
+body.use-body-tooltips .var[data-tip]::after,
+body.use-body-tooltips .var[data-tip]::before { display: none !important; }
+
+/* Floating tooltip injected into <body> */
+#dp-tooltip {
+position: fixed;
+max-width: 560px;
+padding: 10px 12px;
+background: #111827;
+color: #f9fafb;
+font-size: 13px;
+line-height: 1.35;
+border-radius: 10px;
+box-shadow: 0 6px 22px rgba(0,0,0,.25);
+z-index: 999999;        /* above everything */
+pointer-events: none;   /* ignore mouse */
+}
+#dp-tooltip[data-hidden="true"] { display: none; }
+
+
+/* prevent background scroll when modal is open */
+html.no-scroll, html.no-scroll body { overflow: hidden; }
+
+/* small floating preview near cursor */
+.img-tip {
+  position: absolute;
+  z-index: 2000;
+  background: rgba(0,0,0,0.85);
+  padding: 8px;
+  border-radius: 8px;
+  max-width: min(50vw, 420px);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+  color: #fff;
+  pointer-events: none; /* so hover target doesn't lose focus */
+}
+.img-tip img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+.img-tip-cap {
+  margin-top: 6px;
+  font-size: 15px;
+  line-height: 1.3;
+  opacity: 0.85;
+}
+
+/* fullscreen modal */
+.var-modal[aria-hidden="true"] { display: none; }
+.var-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center; /* vertical centering */
+  justify-content: center; /* horizontal centering */
+  padding: 4vh 4vw;
+}
+.var-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+}
+.var-modal__dialog {
+  position: relative;
+  z-index: 1;
+  background: #111;
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  display: grid;
+  grid-template-rows: 1fr auto;  /* image, then caption */
+  max-width: min(1000px, 92vw);  /* cap width */
+  max-height: 90vh;              /* cap height */
+  overflow: hidden;
+}
+.var-modal__close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.var-modal__close:hover {
+  background: rgba(255,255,255,0.22);
+}
+/* responsive image */
+#var-modal-img {
+  display: relative;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  height: auto;
+  max-height: calc(10vh - 44px); /* dialog height minus caption area */
+  object-fit: contain;           /* keep aspect ratio and fit */
+  background: white;
+}
+
+/* caption */
+#var-modal-cap {
+  color: #ddd;
+  font-size: 18px;
+  padding: 8px 12px 10px;
+  text-align: center;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  white-space: pre-line;
+}
