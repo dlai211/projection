@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Tek It</title>
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet" />
+</head>
+<body>
+    <video id="bgVideo" class="bg-video" src="pigeon2.mp4" muted loop playsinline></video>
+    <div class="glass-panel">
+      <div class="container">
+        <!-- <img class="cover" id="cover" src="music_pic/music_2.webp" alt="Cover" /> -->
+        <div class="media-box">
+            <video class="cover-video" id="coverVideo" src="real_pigeon.mp4" muted loop playsinline></video>
+        </div>
+        <div class="info">
+            <h1 id="song-name" class="bouncy-text"></h1>
+            <p id="artist-name" class="bouncy-text">pigeon</p>
+            <canvas id="visualizer"></canvas>
+            <p id="lyric">We started off in such a nice place</p>
+            <div class="outline-wrapper"> <!-- here just for line gradient border -->
+              <button id="playBtn">
+                <span class="btn-text">▶ Play</span>
+              </button>
+            </div>
+        </div>
+      </div>
+      <div class="progress-container">
+        <span id="current-time">0:00</span>
+        <span id="total-time">0:00</span>
+        <div class="progress-bar">
+          <div class="progress-fill"></div>
+        </div>
+      </div>
+    </div>
+    <div id="wheel-container"></div>
+
+    <audio id="audio" controls></audio>
+
+
+    <script src="config.js"></script>
+    <!-- <script src="rainyday.js"></script> -->
+    <script src="script.js"></script>
+    <script src="main.js"></script>
+    <!-- <script src="wheel.js"></script> -->
+
+
+</body>
+</html>

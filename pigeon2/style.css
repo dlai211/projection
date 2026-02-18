@@ -1,0 +1,330 @@
+.glass-panel {
+  backdrop-filter: blur(13px);
+  -webkit-backdrop-filter: blur(13px);
+  /* background-color: rgba(255, 255, 255, 0.3); semi-transparent */
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.2), rgba(0, 0, 0, 0.3));
+  border-radius: 20px;
+  padding: 40px;
+  width: 90%;
+  height: 85%;
+  box-shadow: 0 0 20px rgba(0,0,0,0.25);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #dceee0;
+  font-family: 'Patrick Hand', sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  overflow: hidden;
+
+  background-image: linear-gradient(to bottom, #dceee0, rgba(255, 255, 255, 0.2)), url("music_pic/music_2.webp");
+  background-position: center;  
+  background-repeat: no-repeat;
+  background-size: 100% auto;        
+  background-blend-mode: normal; 
+}
+/* 
+#background-img {
+  position: fixed;
+  justify-content: center;
+  z-index: 0;
+  width: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  filter: brightness(1.0);
+}
+ */
+
+
+.container {
+  display: flex;
+  align-items: center;
+  gap: 15%;
+  position: absolute;
+  width: 65%;
+  /* margin-top: 10%; */
+  /* border: 10px solid black; */
+}
+
+.cover {
+  width: 40%;
+  height: 100%;
+  object-fit: cover;
+  box-shadow: 10px 10px 20px rgba(0,0,0,0.5);
+  border-radius: 10%;
+  /* transform: translateX(-15%); shift left */
+}
+
+.info {
+  text-align: center;
+  letter-spacing: .3em;
+}
+
+.info h1 {
+  margin: 0;
+  font-size: 3.5vw;
+  font-weight: normal;
+}
+
+
+.info p {
+  font-size: 1.2vw;
+  margin: 8% 0;
+}
+
+canvas {
+  width: 116%;
+  height: 50%;
+  margin: 10px auto;
+  border-bottom: 0.5px solid black;
+  background: transparent;
+  display: flex;
+  transform: translateX(-8%);
+}
+
+#visualizer {
+  display: block;
+  background: transparent;
+  margin-right: 30px;
+}
+
+.lyric {
+  font-size: 1.2vw;
+  margin-top: 10%;
+}
+
+audio { 
+    display: none;
+}
+
+/* Cannot have outline with a line gradient, so using a outline-wrapper */
+.outline-wrapper {
+  display: inline-block;
+  padding: 3px;
+  border-radius: 10vw;
+  background: linear-gradient(135deg, #F78DA7, #A8C0FF);
+}
+
+/* 
+#playBtn {
+  padding: 0.6vb 1.3vw;
+  font-family: 'Patrick Hand', cursive;
+  font-size: 1.4em;
+  font-weight: 100;
+  letter-spacing: 0.15em;
+
+  background: #f5f5f5;
+  border: none;
+  border-radius: 10vw;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.outline-wrapper:hover {
+  transform: scale(1.05);
+  box-shadow: 2px 2px 12px rgba(255, 255, 255, 0.6);
+} */
+
+
+#playBtn {
+  padding: 0.6vb 1.3vw;
+  font-family: 'Patrick Hand', cursive;
+  font-size: 1.4em;
+  font-weight: 100;
+  letter-spacing: 0.15em;
+
+  background: linear-gradient(to bottom, #f5f5f5, #e6e6e6); /* soft grey */
+  border: none;
+  border-radius: 10vw;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-text {
+  background: linear-gradient(135deg, #F78DA7, #A8C0FF);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.outline-wrapper:hover {
+  transform: scale(1.05);
+  box-shadow: 2px 3.5px 10px rgba(255, 255, 255, 0.6);
+}
+
+
+
+
+/* Wheel songs */
+
+#wheel-container {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  transition: transform 0.2s ease-in-out;
+  width: 250px;
+  height: 400px;
+  overflow: hidden;
+  pointer-events: auto;
+  z-index: 10;
+
+  touch-action: none;   
+  -webkit-user-select: none; 
+}
+
+.wheel-item {
+  position: absolute;
+  left: 40px;
+  transform-origin: left center;
+  font-size: 1em;
+  font-family: 'Patrick Hand', sans-serif;
+  color: #333;
+  transition: transform 0.2s, opacity 0.2s, font-size 0.2s;
+
+  user-select: none; /* Prevent text selection */
+}
+
+.wheel-item.active {
+  font-size: 1.3em;
+  transform-origin: left center;
+  color: #000;
+  font-weight: bold;
+}
+
+#wheel-container:hover {
+  transform: translateY(-50%) scale(1.4);
+}
+
+
+
+.bouncy-text span {
+  display: inline-block;
+  animation: bounce 3s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 0.1s); /* stagger each letter */
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+
+/* Progress bar */
+.progress-container {
+  width: 100%;
+  position: absolute;
+  bottom: 20px;
+  margin-top: 30px;
+  padding: 0 20px;
+  box-sizing: border-box;
+}
+
+.progress-container span {
+  font-size: 0.9em;
+  color: #333;
+  position: absolute;
+  font-family: 'Patrick Hand', sans-serif;
+}
+
+#current-time, #total-time {
+  font-size: 1.2em;
+  font-weight: bold;
+  bottom: 1.5vb;
+}
+
+#current-time {
+  left: 20px;
+}
+
+#total-time {
+  right: 20px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 5px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.progress-fill {
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(135deg, #F78DA7, #A8C0FF);
+  transition: width 0.1s linear;
+  pointer-events: none;
+}
+
+
+
+
+/* Rain */
+#rain-glass {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0; /* Must be above background but below UI text */
+}
+
+
+.bg-video {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -2;
+  filter: brightness(0.9);
+  transform: scale(1);
+  transition: transform 0.8s ease;
+}
+
+body.playing .bg-video {
+  transform: scale(1.08); /* <-- background "zoom in" while playing */
+}
+
+
+.media-box {
+  width: 40%;              /* <-- CHANGE THIS to resize the MP4 box */
+  aspect-ratio: 1 / 1;     /* square box; remove if you want free height */
+  border-radius: 10%;
+  overflow: hidden;
+  box-shadow: 10px 10px 20px rgba(0,0,0,0.5);
+  transition: transform 0.25s ease;
+}
+
+.media-box:hover {
+  transform: scale(1.03);
+}
+
+.cover-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
