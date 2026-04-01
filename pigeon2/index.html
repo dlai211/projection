@@ -1,50 +1,51 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Tek It</title>
-  <link rel="stylesheet" href="style.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+
+<title>A Fun Video</title>
 </head>
+
 <body>
-    <video id="bgVideo" class="bg-video" src="real_pigeon.mp4" muted loop playsinline></video>
-    <div class="glass-panel">
-      <div class="container">
-        <!-- <img class="cover" id="cover" src="music_pic/music_2.webp" alt="Cover" /> -->
-        <div class="media-box">
-            <video class="cover-video" id="coverVideo" src="real_pigeon.mp4" muted loop playsinline></video>
-        </div>
-        <div class="info">
-            <h1 id="song-name" class="bouncy-text"></h1>
-            <p id="artist-name" class="bouncy-text">pigeon</p>
-            <canvas id="visualizer"></canvas>
-            <p id="lyric">We started off in such a nice place</p>
-            <div class="outline-wrapper"> <!-- here just for line gradient border -->
-              <button id="playBtn">
-                <span class="btn-text">▶ Play</span>
-              </button>
-            </div>
-        </div>
-      </div>
-      <div class="progress-container">
-        <span id="current-time">0:00</span>
-        <span id="total-time">0:00</span>
-        <div class="progress-bar">
-          <div class="progress-fill"></div>
-        </div>
-      </div>
+
+  <!-- VIDEO -->
+  <div class="video-wrapper">
+    <div class="video-frame">
+      <div class="credit">Animation by @nbykos</div>
+      <video id="video" muted loop playsinline>
+        <source src="nbykos.mp4" type="video/mp4">
+      </video>
     </div>
-    <div id="wheel-container"></div>
+  </div>
 
-    <audio id="audio" controls></audio>
+  <!-- AUDIO -->
+  <audio id="music" loop>
+    <source src="track_in_time.mp3" type="audio/mpeg">
+  </audio>
 
+  <!-- PLAY BUTTON -->
+  <div class="controls">
+    <div class="outline-wrapper">
+      <button id="playBtn">
+        <span class="btn-text">▶ Play</span>
+      </button>
+    </div>
+  </div>
 
-    <script src="config.js"></script>
-    <!-- <script src="rainyday.js"></script> -->
-    <script src="script.js"></script>
-    <script src="main.js"></script>
-    <!-- <script src="wheel.js"></script> -->
+  <!-- PROGRESS BAR -->
+  <div class="progress-container">
+    <div class="progress-bar" id="progressBar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <span id="current-time">0:00</span>
+    <span id="total-time">0:00</span>
+  </div>
 
+<script src="script.js"></script>
 
 </body>
 </html>

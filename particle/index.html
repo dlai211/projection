@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Feynman Diagram Drawer</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="wrap">
+    <h1>Feynman Diagram Drawer</h1>
+    <p class="sub">
+      Type a process like <code>e- e+ -> mu- mu+</code> and draw a simple tree-level diagram.
+    </p>
+  </header>
+
+  <main class="wrap grid">
+    <section class="card">
+      <h2>Input</h2>
+
+      <label class="lbl">Process</label>
+      <input id="process" class="inp" value="e- e+ -> mu- mu+" />
+
+      <div class="row">
+        <div class="col">
+          <label class="lbl">Topology</label>
+          <select id="topology" class="inp">
+            <option value="auto">Auto (basic)</option>
+            <option value="s">2→2 s-channel</option>
+            <option value="t">2→2 t-channel</option>
+            <option value="decay">1→2 decay</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="lbl">Mediator</label>
+          <select id="mediator" class="inp">
+            <option value="auto">Auto</option>
+            <option value="gamma">γ (photon)</option>
+            <option value="g">g (gluon)</option>
+            <option value="Z">Z</option>
+            <option value="W">W</option>
+            <option value="h">h (Higgs/scalar)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <label class="lbl">Style</label>
+          <select id="theme" class="inp">
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </div>
+        <div class="col btnrow">
+          <button id="draw" class="btn">Draw</button>
+          <button id="download" class="btn btn2">Download SVG</button>
+        </div>
+      </div>
+
+      <div id="msg" class="msg"></div>
+
+      <details class="help">
+        <summary>Examples</summary>
+        <ul>
+          <li><code>e- e+ -> mu- mu+</code> (s-channel)</li>
+          <li><code>q qbar -> g g</code> (s-channel)</li>
+          <li><code>mu- -> e- nu nubar</code> (decay: will draw 1→2 only unless you extend)</li>
+          <li><code>e- gamma -> e- gamma</code> (t-channel)</li>
+        </ul>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2>Diagram</h2>
+      <div class="canvasWrap">
+        <svg id="svg" width="760" height="420" viewBox="0 0 760 420" role="img" aria-label="Feynman diagram"></svg>
+      </div>
+      <p class="hint">
+        Notes: this draws simple topologies (2→2 s/t, 1→2). Extend <code>inferMediator()</code> and <code>draw*</code> for more physics.
+      </p>
+    </section>
+  </main>
+
+  <footer class="wrap foot">
+    <span>Pure HTML/CSS/JS — works on GitHub Pages.</span>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

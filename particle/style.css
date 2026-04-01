@@ -1,0 +1,90 @@
+:root {
+  --bg: #ffffff;
+  --fg: #0b1220;
+  --muted: #5a657a;
+  --card: #f6f7fb;
+  --border: #d9deea;
+  --btn: #1f6feb;
+  --btn2: #2ea043;
+}
+
+[data-theme="dark"]{
+  --bg: #0b1220;
+  --fg: #e6edf3;
+  --muted: #9aa4b2;
+  --card: #0f172a;
+  --border: #23304a;
+  --btn: #2f81f7;
+  --btn2: #3fb950;
+}
+
+*{ box-sizing: border-box; }
+body{
+  margin:0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.wrap{ max-width: 1100px; margin: 0 auto; padding: 18px 16px; }
+
+header h1{ margin: 10px 0 6px; font-size: 28px; }
+.sub{ margin: 0; color: var(--muted); }
+
+.grid{
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 420px 1fr;
+}
+@media (max-width: 980px){
+  .grid{ grid-template-columns: 1fr; }
+}
+
+.card{
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.lbl{ display:block; margin: 10px 0 6px; color: var(--muted); font-size: 13px; }
+.inp{
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--fg);
+  outline: none;
+}
+
+.row{ display:flex; gap: 10px; margin-top: 10px; }
+.col{ flex:1; }
+
+.btnrow{ display:flex; align-items: end; gap: 10px; }
+.btn{
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 12px;
+  background: var(--btn);
+  color: white;
+  cursor: pointer;
+  font-weight: 650;
+}
+.btn2{ background: var(--btn2); }
+
+.msg{ margin-top: 10px; color: var(--muted); min-height: 20px; font-size: 13px; }
+
+.canvasWrap{
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  border-radius: 16px;
+  padding: 10px;
+  overflow: auto;
+}
+
+.hint{ margin: 10px 0 0; color: var(--muted); font-size: 13px; }
+.foot{ color: var(--muted); font-size: 13px; }
+.help{ margin-top: 12px; color: var(--muted); }
+code{ padding: 2px 6px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notes to Letters / Numbers</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <h1>Notes to Letters / Numbers</h1>
+
+  <div id="toolbar">
+    <button id="addRightBtn">Add Right-Hand Note</button>
+    <button id="addLeftBtn">Add Left-Hand Note</button>
+    <button id="removeBtn">Remove Selected Note</button>
+    <button id="addBreakBtn">Insert Bar (solid) Line</button>
+    <button id="addSlotBtn">Insert Slot (dashed)Line</button>
+
+    <label for="keySelect"><strong>Major Key:</strong></label>
+    <select id="keySelect">
+      <option value="C">C major</option>
+      <option value="G">G major</option>
+      <option value="D">D major</option>
+      <option value="A">A major</option>
+      <option value="E">E major</option>
+      <option value="B">B major</option>
+      <option value="F">F major</option>
+      <option value="Bb">Bb major</option>
+      <option value="Eb">Eb major</option>
+      <option value="Ab">Ab major</option>
+    </select>
+
+    <span class="status" id="statusText"></span>
+  </div>
+
+  <section>
+  </section>
+
+  <div class="sheet-wrap">
+    <svg id="sheet" viewBox="0 0 1400 700"></svg>
+  </div>
+
+  <div class="legend">
+  </div>
+  <script type="module" src="drawing.js"></script>
+</body>
+</html>
+
+
+

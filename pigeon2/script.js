@@ -1,77 +1,59 @@
-// Animation for the text
-function animateLetters(textElement, text) {
-  textElement.innerHTML = [...text].map((char, i) => {
-    const content = char === " " ? "&nbsp;" : char;
-    return `<span style="--i:${i}">${content}</span>`;
-  }).join('');
-}
-
-const songNameEl = document.getElementById("song-name");
-
-
-
-// Progress bar 
-const progressFill = document.querySelector(".progress-fill");
+const video = document.getElementById("video");
+const music = document.getElementById("music");
+const playBtn = document.getElementById("playBtn");
+const progressFill = document.getElementById("progressFill");
+const progressBar = document.getElementById("progressBar");
 const currentTimeEl = document.getElementById("current-time");
 const totalTimeEl = document.getElementById("total-time");
 
-audio.addEventListener("loadedmetadata", () => {
-  totalTimeEl.textContent = formatTime(audio.duration);
-});
+let isPlaying = false;
 
-audio.addEventListener("timeupdate", () => {
-  currentTimeEl.textContent = formatTime(audio.currentTime);
-  const percent = (audio.currentTime / audio.duration) * 100;
-  progressFill.style.width = `${percent}%`;
-});
 
-function formatTime(seconds) {
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60).toString().padStart(2, '0');
-  return `${mins}:${secs}`;
+function formatTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s < 10 ? "0" : ""}${s}`;
 }
 
+/* --- Play / Pause --- */
+async function togglePlay() {
+  if (!isPlaying) {
+    try {
+      await video.play();
+      await music.play();
+      playBtn.innerHTML = '<span class="btn-text">⏸ Pause</span>';
+      isPlaying = true;
+    } catch (e) {
+      console.log("Autoplay blocked:", e);
+    }
+  } else {
+    video.pause();
+    music.pause();
+    playBtn.innerHTML = '<span class="btn-text">▶ Play</span>';
+    isPlaying = false;
+  }
+}
 
-const progressBar = document.querySelector(".progress-bar");
+playBtn.addEventListener("click", togglePlay);
+
+
+music.addEventListener("timeupdate", () => {
+  const percent = (music.currentTime / music.duration) * 100;
+  progressFill.style.width = percent + "%";
+
+  currentTimeEl.textContent = formatTime(music.currentTime);
+});
+
+music.addEventListener("loadedmetadata", () => {
+  totalTimeEl.textContent = formatTime(music.duration);
+});
 
 progressBar.addEventListener("click", (e) => {
   const rect = progressBar.getBoundingClientRect();
-  const clickX = e.clientX - rect.left;
-  const percent = clickX / rect.width;
-  audio.currentTime = percent * audio.duration;
+  const ratio = (e.clientX - rect.left) / rect.width;
+
+  music.currentTime = ratio * music.duration;
+
+  // sync video to music
+  video.currentTime = music.currentTime % video.duration;
 });
-
-
-let draggingProgress = false;
-
-progressBar.addEventListener("mousedown", (e) => {
-  draggingProgress = true;
-  seekToPosition(e);
-});
-
-progressBar.addEventListener("mousemove", (e) => {
-  if (draggingProgress) {
-    seekToPosition(e);
-  }
-});
-
-progressBar.addEventListener("mouseup", () => {
-  draggingProgress = false;
-});
-
-document.addEventListener("mouseup", () => {
-  draggingProgress = false;
-});
-
-
-function seekToPosition(e) {
-  const rect = progressBar.getBoundingClientRect();
-  const x = Math.min(Math.max(e.clientX - rect.left, 0), rect.width); // clamp
-  const percent = x / rect.width;
-  audio.currentTime = percent * audio.duration;
-}
-
-
-
-
-// Rain
