@@ -3,35 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2D Particle Fire Countdown</title>
+    <title>Exam Timer</title>
     <style>
         body {
             margin: 0;
             padding: 0;
             height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background-color: #0a0a0a;
-            font-family: 'Courier New', Courier, monospace;
+            background-color: #0a0a0a; /* Deep black background */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             overflow: hidden;
+            color: white; /* Base text color is white */
         }
 
-        #timer-container {
+        /* UI Layer to organize elements above the canvas */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between; /* Spaces out top, middle, bottom */
+            align-items: center;
+            padding: 30px 0;
+            box-sizing: border-box;
             z-index: 10;
-            pointer-events: none;
+            pointer-events: none; /* Lets clicks pass through to canvas if needed */
+        }
+
+        /* Top Instruction Banner */
+        #instruction-message {
+            color: white; /* Clean white text on dark card */
+            padding: 5em 3em;
+            font-size: 1.85vw;
+            text-align: center;
+        }
+
+        /* Middle Timer Section */
+        #timer-container {
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column; /* Stack label and timer */
+        }
+
+        /* Inner container to hold label and number in a tidy block */
+        #timer-inner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #timer-label {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Clean font like image */
+            font-size: 2vw; /* Standard size label */
+            color: white; /* Standard white text */
+            margin-bottom: 10px; /* Space above number */
         }
 
         #timer {
-            font-size: 15vw;
+            font-family: 'Courier New', Courier, monospace; /* Classic font */
+            font-size: 15vw; /* Much larger number, like image */
             font-weight: 900;
-            transition: color 1s linear;
-            -webkit-text-stroke: 4px black;
-            text-shadow: 
-                0px 5px 0px #000, 
-                0px 10px 0px #111,
-                0px 15px 20px rgba(0,0,0,0.9),
-                0px 0px 50px rgba(0,0,0,0.8);
+            transition: color 1s linear; /* Keep transition */
+            color: white; /* Initial white color, will transition to yellow/red */
+            
+            /* Old black outline and shadow are removed for a clean look like image */
+            -webkit-text-stroke: 0;
+            text-shadow: none;
+        }
+
+        /* Bottom Control Panel */
+        #controls {
+            pointer-events: auto; /* Re-enable clicks for controls */
+            background: rgba(0, 0, 0, 0.9); /* Dark semi-transparent card */
+            color: white; /* Clean white text on dark card */
+            padding: 15px 25px;
+            border-radius: 50px;
+            box-shadow: 0 4px 15px rgba(255,255,255,0.05); /* Subtle light shadow */
+            border: 1px solid #333; /* Dark border */
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-weight: bold;
+        }
+        
+        #controls button {
+            cursor: pointer;
+            padding: 8px 16px;
+            background: #222; /* Darker button on dark card */
+            color: white; /* Standard white text */
+            border: 1px solid #555; /* Darker border */
+            border-radius: 20px;
+            font-weight: bold;
+            transition: 0.2s;
+            font-size: 14px;
+        }
+
+        #controls button:hover {
+            background: #444; /* Hover state for button */
+        }
+
+        #controls input[type="range"] {
+            cursor: pointer;
+            width: 250px;
+            accent-color: #e63946; /* Red styling for slider */
         }
 
         canvas {
@@ -43,58 +121,29 @@
             z-index: 1;
             pointer-events: none;
         }
-
-        /* Debug controls */
-        #controls {
-            position: absolute;
-            top: 15px;
-            left: 15px;
-            z-index: 100;
-            color: white;
-            font-family: sans-serif;
-            background: rgba(0,0,0,0.7);
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid #333;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        
-        #controls button {
-            cursor: pointer;
-            padding: 8px 12px;
-            background: #222;
-            color: white;
-            border: 1px solid #555;
-            border-radius: 4px;
-            transition: 0.2s;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        #controls button:hover {
-            background: #444;
-        }
-
-        #controls input[type="range"] {
-            cursor: pointer;
-            width: 200px;
-        }
     </style>
 </head>
 <body>
 
-    <div id="controls">
-        <button id="playPauseBtn">⏸ Pause</button>
-        <label for="timeSlider">Time:</label>
-        <input type="range" id="timeSlider" min="0" value="3000">
-    </div>
+    <div id="ui-layer">
+        
+        <div id="instruction-message">
+            Please write your <strong>Name & Student ID</strong> on each <strong>answered</strong> sheet.
+        </div>
 
-    <div id="timer-container">
-        <div id="timer">50:00</div>
+        <div id="timer-container">
+            <div id="timer-inner">
+                <div id="timer-label">Time Left:</div>
+                <div id="timer">50:00</div>
+            </div>
+        </div>
+
+        <div id="controls">
+            <button id="playPauseBtn">⏸ Pause</button>
+            <label for="timeSlider">Time:</label>
+            <input type="range" id="timeSlider" min="0" value="3000">
+        </div>
+
     </div>
     
     <canvas id="scene"></canvas>
@@ -186,7 +235,8 @@
                     let g = Math.floor(this.life * 255);
                     let b = 0;
                     let a = this.life;
-                    if (this.life < 0.3) { r = g = b = 100; }
+                    // Adjusted smoke to be much lighter for visibility on the black background
+                    if (this.life < 0.3) { r = g = b = 150; } 
                     ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
                 } else {
                     ctx.fillStyle = `rgba(100, 200, 255, ${this.life})`;
@@ -210,7 +260,6 @@
             }
 
             findTarget() {
-                // Find a fire zone that still has health
                 let validZones = fireZones.filter(z => z.health > 0);
                 if (validZones.length > 0) {
                     this.target = validZones[Math.floor(Math.random() * validZones.length)];
@@ -220,7 +269,6 @@
             }
 
             update() {
-                // If target dies while walking to it or spraying, leave
                 if (this.target && this.target.health <= 0) {
                     this.target = null;
                     this.state = 'exiting';
@@ -301,10 +349,12 @@
         function updateDisplay() {
             let m = Math.floor(currentSeconds / 60);
             let s = currentSeconds % 60;
+            // JavaScript now only updates the timer number element
             timerElement.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 
             let colorRatio = currentSeconds / totalSeconds;
             let greenValue = Math.floor(colorRatio * 255);
+            // Color transition is still applied to the timer number
             timerElement.style.color = `rgb(255, ${greenValue}, 0)`;
         }
 
@@ -314,7 +364,7 @@
             fireZones.push({
                 x: width / 2 + Math.cos(angle) * radius,
                 y: height / 2 + Math.sin(angle) * radius,
-                health: 200 // It will take ~2-3 firefighter sprays to deplete this
+                health: 200 
             });
         }
 
@@ -326,20 +376,16 @@
                 let targetFireZones = Math.floor(firePhaseRatio * 15) + 1; 
                 let targetFirefighters = Math.floor(firePhaseRatio * 5) + 1; 
 
-                // Trim excess fires if user dragged the slider backwards to a safer time
                 if (fireZones.length > targetFireZones) {
                     fireZones.length = targetFireZones;
                 }
 
-                // Add new fire zones if we are below the target (e.g., if one was put out!)
                 while (fireZones.length < targetFireZones) {
                     spawnFireZone();
                 }
 
-                // Emit particles from active fire zones
                 fireZones.forEach(zone => {
                     if (zone.health > 0) {
-                        // Intensity scales down slightly as health drops
                         let intensity = Math.max(1, Math.floor(zone.health / 100));
                         for (let k = 0; k < intensity; k++) {
                             particles.push(new Particle(zone.x + (Math.random()*40-20), zone.y + (Math.random()*20-10), 'fire'));
@@ -355,23 +401,20 @@
                 fireZones = [];
             }
 
-            // Update & Draw Particles (and check Water collisions)
             for (let i = particles.length - 1; i >= 0; i--) {
                 let p = particles[i];
                 p.update();
                 p.draw();
 
-                // Check collision if it's a water particle
                 if (p.type === 'water') {
                     for (let j = 0; j < fireZones.length; j++) {
                         let zone = fireZones[j];
                         let dx = p.x - zone.x;
                         let dy = p.y - zone.y;
                         
-                        // If water is within 50px of the fire center
                         if (dx*dx + dy*dy < 2500) { 
-                            zone.health -= 1.5; // Damage the fire
-                            p.life = 0; // Destroy the water particle
+                            zone.health -= 1.5; 
+                            p.life = 0; 
                             break; 
                         }
                     }
@@ -382,14 +425,12 @@
                 }
             }
 
-            // Clean up dead fires (so they respawn elsewhere next frame)
             for (let i = fireZones.length - 1; i >= 0; i--) {
                 if (fireZones[i].health <= 0) {
                     fireZones.splice(i, 1);
                 }
             }
 
-            // Update & Draw Firefighters
             for (let i = firefighters.length - 1; i >= 0; i--) {
                 let f = firefighters[i];
                 f.update();
@@ -406,7 +447,7 @@
         function tick() {
             if (isPlaying && currentSeconds > 0) {
                 currentSeconds--;
-                timeSlider.value = currentSeconds; // Sync slider with time
+                timeSlider.value = currentSeconds; 
                 updateDisplay();
             }
         }
