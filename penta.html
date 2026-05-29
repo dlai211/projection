@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hunter Pentagram</title>
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #222;
+    }
+    canvas {
+      background-color: white;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="plotCanvas" width="700" height="700"></canvas>
+
+  <script>
+    const canvas = document.getElementById('plotCanvas');
+    const ctx = canvas.getContext('2d');
+
+
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.scale(1, -1);
+
+    const r = [0, 60, 120, 180, 240, 300];
+    const d = [2, 3, 4, 5, 1];
+
+    const deg2rad = (deg) => deg * (Math.PI / 180);
+
+    const x0 = 0;
+    const y0 = r[d[0]];
+
+    const x1 = r[d[1]] * Math.cos(deg2rad(18));
+    const y1 = r[d[1]] * Math.sin(deg2rad(18));
+
+    const x2 = r[d[2]] * Math.cos(deg2rad(54));
+    const y2 = -r[d[2]] * Math.sin(deg2rad(54));
+
+    const x3 = -r[d[3]] * Math.cos(deg2rad(54));
+    const y3 = -r[d[3]] * Math.sin(deg2rad(54));
+
+    const x4 = -r[d[4]] * Math.cos(deg2rad(18));
+    const y4 = r[d[4]] * Math.sin(deg2rad(18));
+
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.lineTo(x3, y3);
+    ctx.lineTo(x4, y4);
+    ctx.closePath(); 
+
+    ctx.strokeStyle = '#1f77b4'; 
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+
+    ctx.strokeStyle = 'lightgray'; 
+    ctx.lineWidth = 1.5;
+    
+    for (let i = 0; i < 6; i++) {
+      ctx.beginPath();
+      // arc(x, y, radius, startAngle, endAngle)
+      ctx.arc(0, 0, r[i], 0, 2 * Math.PI);
+      ctx.stroke();
+    }
+
+
+  </script>
+
+
+</body>
+</html>

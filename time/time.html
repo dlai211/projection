@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D Particle Fire Countdown</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #0a0a0a;
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+        }
+
+        #timer-container {
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        #timer {
+            font-size: 15vw;
+            font-weight: 900;
+            transition: color 1s linear;
+            -webkit-text-stroke: 4px black;
+            text-shadow: 
+                0px 5px 0px #000, 
+                0px 10px 0px #111,
+                0px 15px 20px rgba(0,0,0,0.9),
+                0px 0px 50px rgba(0,0,0,0.8);
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* Debug controls */
+        #controls {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            z-index: 100;
+            color: white;
+            font-family: sans-serif;
+            background: rgba(0,0,0,0.7);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        #controls button {
+            cursor: pointer;
+            padding: 8px 12px;
+            background: #222;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 4px;
+            transition: 0.2s;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        #controls button:hover {
+            background: #444;
+        }
+
+        #controls input[type="range"] {
+            cursor: pointer;
+            width: 200px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="controls">
+        <button id="playPauseBtn">⏸ Pause</button>
+        <label for="timeSlider">Time:</label>
+        <input type="range" id="timeSlider" min="0" value="3000">
+    </div>
+
+    <div id="timer-container">
+        <div id="timer">50:00</div>
+    </div>
+    
+    <canvas id="scene"></canvas>
+
+    <script>
+        // --- TIMER SETUP ---
+        const START_MINUTES = 50;
+        const FIRE_START_MINUTES = 35;
+        let totalSeconds = START_MINUTES * 60;
+        let currentSeconds = totalSeconds;
+        let isPlaying = true;
+        
+        let timerElement = document.getElementById('timer');
+        let timeSlider = document.getElementById('timeSlider');
+        let playPauseBtn = document.getElementById('playPauseBtn');
+
+        // Configure Slider
+        timeSlider.max = totalSeconds;
+        timeSlider.value = currentSeconds;
+
+        timeSlider.addEventListener('input', (e) => {
+            currentSeconds = parseInt(e.target.value);
+            updateDisplay();
+        });
+
+        playPauseBtn.addEventListener('click', () => {
+            isPlaying = !isPlaying;
+            playPauseBtn.textContent = isPlaying ? "⏸ Pause" : "▶ Play";
+        });
+
+        // --- ICON SETUP ---
+        const iconImg = new Image();
+        iconImg.src = 'firefighter.png'; // Make sure this matches your local file
+
+        // --- CANVAS SETUP ---
+        const canvas = document.getElementById('scene');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- PARTICLE ENGINES ---
+        let particles = [];
+        let fireZones = [];
+        let firefighters = [];
+
+        class Particle {
+            constructor(x, y, type) {
+                this.x = x;
+                this.y = y;
+                this.type = type; 
+                
+                if (this.type === 'fire') {
+                    this.size = Math.random() * 20 + 10;
+                    this.vx = Math.random() * 2 - 1;
+                    this.vy = Math.random() * -3 - 1;
+                    this.life = 1.0;
+                    this.decay = Math.random() * 0.02 + 0.015;
+                } else if (this.type === 'water') {
+                    this.size = Math.random() * 4 + 2;
+                    this.vx = 0;
+                    this.vy = 0;
+                    this.life = 1.0;
+                    this.decay = Math.random() * 0.03 + 0.02;
+                }
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life -= this.decay;
+                if (this.type === 'fire') {
+                    this.size *= 0.95; 
+                } else {
+                    this.vy += 0.2; // Gravity for water
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, Math.max(0, this.size), 0, Math.PI * 2);
+                if (this.type === 'fire') {
+                    let r = 255;
+                    let g = Math.floor(this.life * 255);
+                    let b = 0;
+                    let a = this.life;
+                    if (this.life < 0.3) { r = g = b = 100; }
+                    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
+                } else {
+                    ctx.fillStyle = `rgba(100, 200, 255, ${this.life})`;
+                }
+                ctx.fill();
+            }
+        }
+
+        // --- FIREFIGHTER ICON ---
+        class Firefighter {
+            constructor() {
+                this.isRightSide = Math.random() > 0.5;
+                this.x = this.isRightSide ? width + 50 : -50;
+                this.y = height / 2 + (Math.random() * 300 - 150); 
+                
+                this.target = null;
+                this.state = 'entering';
+                this.speed = 2;
+                this.sprayTimer = 0;
+                this.iconSize = 50; 
+            }
+
+            findTarget() {
+                // Find a fire zone that still has health
+                let validZones = fireZones.filter(z => z.health > 0);
+                if (validZones.length > 0) {
+                    this.target = validZones[Math.floor(Math.random() * validZones.length)];
+                } else {
+                    this.state = 'exiting';
+                }
+            }
+
+            update() {
+                // If target dies while walking to it or spraying, leave
+                if (this.target && this.target.health <= 0) {
+                    this.target = null;
+                    this.state = 'exiting';
+                }
+
+                if (this.state === 'entering') {
+                    if (!this.target) this.findTarget();
+                    
+                    if (this.target) {
+                        let dx = this.target.x - this.x;
+                        let dy = this.target.y - this.y;
+                        let dist = Math.sqrt(dx*dx + dy*dy);
+                        
+                        if (dist > 150) {
+                            this.x += (dx / dist) * this.speed;
+                            this.y += (dy / dist) * this.speed;
+                        } else {
+                            this.state = 'spraying';
+                            this.sprayTimer = 180; 
+                        }
+                    } else {
+                        this.state = 'exiting';
+                    }
+                } 
+                else if (this.state === 'spraying') {
+                    this.sprayTimer--;
+                    
+                    if (this.sprayTimer % 2 === 0 && this.target) {
+                        let p = new Particle(this.x, this.y - 10, 'water');
+                        let dx = this.target.x - this.x;
+                        let dy = this.target.y - this.y;
+                        let dist = Math.sqrt(dx*dx + dy*dy);
+                        p.vx = (dx / dist) * 8 + (Math.random() - 0.5) * 2;
+                        p.vy = (dy / dist) * 8 - 4; 
+                        particles.push(p);
+                    }
+
+                    if (this.sprayTimer <= 0) {
+                        this.state = 'exiting';
+                    }
+                } 
+                else if (this.state === 'exiting') {
+                    let targetEdge = this.x > width / 2 ? width + 50 : -50;
+                    if (Math.abs(this.x - targetEdge) > 5) {
+                        this.x += this.x > width / 2 ? this.speed : -this.speed;
+                    } else {
+                        this.dead = true; 
+                    }
+                }
+            }
+
+            draw() {
+                if (!iconImg.complete) return;
+
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+                let facingRight = true;
+                if (this.state === 'entering' && this.target && this.target.x < this.x) facingRight = false;
+                if (this.state === 'exiting' && this.x < width/2) facingRight = false;
+                if (this.state === 'spraying' && this.target && this.target.x < this.x) facingRight = false;
+                
+                if (!facingRight) ctx.scale(-1, 1);
+
+                ctx.drawImage(
+                    iconImg, 
+                    -this.iconSize / 2, 
+                    -this.iconSize / 2, 
+                    this.iconSize, 
+                    this.iconSize
+                );
+
+                ctx.restore();
+            }
+        }
+
+        // --- GAME LOOP ---
+        function updateDisplay() {
+            let m = Math.floor(currentSeconds / 60);
+            let s = currentSeconds % 60;
+            timerElement.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+
+            let colorRatio = currentSeconds / totalSeconds;
+            let greenValue = Math.floor(colorRatio * 255);
+            timerElement.style.color = `rgb(255, ${greenValue}, 0)`;
+        }
+
+        function spawnFireZone() {
+            let angle = Math.random() * Math.PI * 2;
+            let radius = 150 + Math.random() * (width / 3);
+            fireZones.push({
+                x: width / 2 + Math.cos(angle) * radius,
+                y: height / 2 + Math.sin(angle) * radius,
+                health: 200 // It will take ~2-3 firefighter sprays to deplete this
+            });
+        }
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, width, height);
+
+            if (currentSeconds <= FIRE_START_MINUTES * 60) {
+                let firePhaseRatio = 1 - (currentSeconds / (FIRE_START_MINUTES * 60));
+                let targetFireZones = Math.floor(firePhaseRatio * 15) + 1; 
+                let targetFirefighters = Math.floor(firePhaseRatio * 5) + 1; 
+
+                // Trim excess fires if user dragged the slider backwards to a safer time
+                if (fireZones.length > targetFireZones) {
+                    fireZones.length = targetFireZones;
+                }
+
+                // Add new fire zones if we are below the target (e.g., if one was put out!)
+                while (fireZones.length < targetFireZones) {
+                    spawnFireZone();
+                }
+
+                // Emit particles from active fire zones
+                fireZones.forEach(zone => {
+                    if (zone.health > 0) {
+                        // Intensity scales down slightly as health drops
+                        let intensity = Math.max(1, Math.floor(zone.health / 100));
+                        for (let k = 0; k < intensity; k++) {
+                            particles.push(new Particle(zone.x + (Math.random()*40-20), zone.y + (Math.random()*20-10), 'fire'));
+                        }
+                    }
+                });
+
+                let activeFighters = firefighters.filter(f => !f.dead).length;
+                if (activeFighters < targetFirefighters && Math.random() < 0.02) {
+                    firefighters.push(new Firefighter());
+                }
+            } else {
+                fireZones = [];
+            }
+
+            // Update & Draw Particles (and check Water collisions)
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.update();
+                p.draw();
+
+                // Check collision if it's a water particle
+                if (p.type === 'water') {
+                    for (let j = 0; j < fireZones.length; j++) {
+                        let zone = fireZones[j];
+                        let dx = p.x - zone.x;
+                        let dy = p.y - zone.y;
+                        
+                        // If water is within 50px of the fire center
+                        if (dx*dx + dy*dy < 2500) { 
+                            zone.health -= 1.5; // Damage the fire
+                            p.life = 0; // Destroy the water particle
+                            break; 
+                        }
+                    }
+                }
+
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            // Clean up dead fires (so they respawn elsewhere next frame)
+            for (let i = fireZones.length - 1; i >= 0; i--) {
+                if (fireZones[i].health <= 0) {
+                    fireZones.splice(i, 1);
+                }
+            }
+
+            // Update & Draw Firefighters
+            for (let i = firefighters.length - 1; i >= 0; i--) {
+                let f = firefighters[i];
+                f.update();
+                f.draw();
+                if (f.dead) {
+                    firefighters.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- CLOCK TICK ---
+        function tick() {
+            if (isPlaying && currentSeconds > 0) {
+                currentSeconds--;
+                timeSlider.value = currentSeconds; // Sync slider with time
+                updateDisplay();
+            }
+        }
+
+        // Init
+        updateDisplay();
+        setInterval(tick, 1000);
+        gameLoop();
+
+    </script>
+</body>
+</html>
