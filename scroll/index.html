@@ -141,7 +141,7 @@
         .font-courier { font-family: 'Courier New', Courier, monospace; }
         .font-garamond { font-family: 'Garamond', 'Baskerville', serif; }
         .font-monaco { font-family: 'Monaco', 'Consolas', monospace; }
-
+        .font-comic-sans { font-family: 'Comic Sans MS', 'Comic Sans', cursive; }      
 
         /* --- Text Styles --- */
         .style-classic { color: #cecece; text-shadow: none; font-weight: normal; }
@@ -182,6 +182,7 @@
                     <option value="font-monaco">Monaco</option>
                     <option value="font-cursive">Cursive</option>
                     <option value="font-monospace">Monospace</option>
+		    <option value="font-comic-sans">Comic Sans</option>
                 </select>
             </label>
             <label>
@@ -257,7 +258,7 @@
 
         fontInput.addEventListener('change', (e) => {
             const newFont = e.target.value;
-            const allFonts = ['font-san-serif', 'font-times-new-roman', 'font-optima', 'font-courier', 'font-garamond', 'font-monaco', 'font-cursive', 'font-monospace'];
+            const allFonts = ['font-san-serif', 'font-times-new-roman', 'font-optima', 'font-courier', 'font-garamond', 'font-monaco', 'font-cursive', 'font-monospace', 'font-comic-sans'];
             
             text1.classList.remove(...allFonts);
             text2.classList.remove(...allFonts);
