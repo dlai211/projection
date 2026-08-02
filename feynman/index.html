@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dark Photon Performance Plots</title>
+    <base href="/dark_photon/">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="web/main/style_group.css">
+</head>
+<aside id="group-toc">
+  <h3>Groups</h3>
+  <ul id="group-links"></ul>
+</aside>
+<body>
+    <h1>Feynman Diagram Generator (Tree-level particle physics)</h1>
+
+    <!-- selection cut -->
+    <nav id="cut-nav">
+        <ul id="cut-links"></ul>
+    </nav>
+
+    <!-- performance or selection plots -->
+    <nav id="mode-nav">
+        <ul>
+            <li><a href="#" id="performance-btn" class="mode-btn">Performance</a></li>
+            <li><a href="#" id="significance-btn" class="mode-btn">Significance</a></li>
+
+            <li class="nav-divider"></li>
+            
+            <li><a href="#" id="n-1-btn" class="n-btn">n-1</a></li>
+
+            <li class="nav-divider"></li>
+
+            <li><a href="#" id="lumi-26-btn" class="lumi-btn">mT > 80 GeV</a></li>
+            <li><a href="#" id="lumi-135-btn" class="lumi-btn">140 > mT > 100 GeV</a></li>
+
+
+        </ul>
+        <!-- <ul id="cut-links"></ul> -->
+    </nav>
+
+    <!-- Section to display images -->
+    <section>
+        <h2 id="cut-title">Select a cut to view plots</h2>
+        <div class="wrapper" id="image-container">
+            <!-- Images will be dynamically added here -->
+        </div>
+    </section>
+
+    <!-- Modal for Fullscreen Image -->
+    <div id="image-modal" class="modal">
+        <span class="close">&times;</span>
+        <img class="modal-content" id="modal-img">
+    </div>
+
+
+    <!-- Sidebar -->
+    <div id="sidebar">
+    <h3>Test Plots</h3>
+    <ul>
+        <li><a href="index.html#main" id="main-btn"><b></b> Main </a></li>
+    </ul>
+    </div>
+
+<div id="sidebar-toggle"><i class="fas fa-angle-right"></i></div>
+
+
+    <!-- <footer>
+        &copy; 2025 Dark Photon Project
+    </footer> -->
+
+    <script src="classifier.js"></script>
+    <script src="sidebar.js"></script>
+    
+</body>
+</html>

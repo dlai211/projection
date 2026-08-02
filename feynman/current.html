@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Standard Model · Feynman Diagrams | particles & antiparticles</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- LEFT SIDE: Standard Model categories as individual boxes -->
+  <div class="left-panel">
+    <div class="title-box">
+      <h1>
+        <i class="fas fa-atom"></i> Standard Model
+        <small>particles & antiparticles</small>
+      </h1>
+    </div>
+
+    <!--  QUARKS  -->
+    <div class="category quark">
+      <h2><i class="fas fa-circle" style="color: #1f5e8e;"></i> 
+        Quarks
+        <span class="group-count">Spin 1/2</span>
+      </h2>
+      <div class="particle-group">
+        <div class="group-label">up-type</div>
+        <!-- Up -->
+        <div class="particle">
+          <div class="entry"><span class="particle-icon" draggable="true">u</span><div class="particle-info"><span class="particle-name">Up</span><div class="particle-meta"><span class="charge-badge">+⅔</span></div></div></div>
+          <div class="entry anti Quark"><span class="particle-icon" draggable="true">ū</span><div class="particle-info"><span class="particle-name">Anti‑up</span><div class="particle-meta"><span class="charge-badge">−⅔</span><span>2.16 ± 0.04 MeV</span></div></div></div>
+        </div>
+        <!-- Charm -->
+        <div class="particle">
+          <div class="entry"><span class="particle-icon" draggable="true">c</span><div class="particle-info"><span class="particle-name">Charm</span><div class="particle-meta"><span class="charge-badge">+⅔</span></div></div></div>
+          <div class="entry anti Quark"><span class="particle-icon" draggable="true">c̄</span><div class="particle-info"><span class="particle-name">Anti‑charm</span><div class="particle-meta"><span class="charge-badge">−⅔</span><span>1.2729 ± 0.0027 GeV</span></div></div></div>
+        </div>
+        <!-- Top -->
+        <div class="particle">
+          <div class="entry"><span class="particle-icon" draggable="true">t</span><div class="particle-info"><span class="particle-name">Top</span><div class="particle-meta"><span class="charge-badge">+⅔</span></div></div></div>
+          <div class="entry anti Quark"><span class="particle-icon" draggable="true">t̄</span><div class="particle-info"><span class="particle-name">Anti‑top</span><div class="particle-meta"><span class="charge-badge">−⅔</span><span>172.60 ± 0.27 GeV</span></div></div></div>
+        </div>
+      </div>
+      <div class="particle-group">
+        <div class="group-label">down-type</div>
+        <!-- Down -->
+        <div class="particle">
+          <div class="entry"><span class="particle-icon" draggable="true">d</span><div class="particle-info"><span class="particle-name">Down</span><div class="particle-meta"><span class="charge-badge">−⅓</span></div></div></div>
+          <div class="entry anti Quark"><span class="particle-icon" draggable="true">d̄</span><div class="particle-info"><span class="particle-name">Anti‑down</span><div class="particle-meta"><span class="charge-badge">+⅓</span><span>4.70 ± 0.04 MeV</span></div></div></div>
+        </div>
+        <!-- Strange -->
+        <div class="particle">
+          <div class="entry"><span class="particle-icon" draggable="true">s</span><div class="particle-info"><span class="particle-name">Strange</span><div class="particle-meta"><span class="charge-badge">−⅓</span></div></div></div>
+          <div class="entry anti Quark"><span class="particle-icon" draggable="true">s̄</span><div class="particle-info"><span class="particle-name">Anti‑strange</span><div class="particle-meta"><span class="charge-badge">+⅓</span><span>92.9 ± 0.4MeV</span></div></div></div>
+        </div>
+        <!-- Bottom -->
+        <div class="particle">
+          <div class="entry"><span class="particle-icon" draggable="true">b</span><div class="particle-info"><span class="particle-name">Bottom</span><div class="particle-meta"><span class="charge-badge">−⅓</span></div></div></div>
+          <div class="entry anti Quark"><span class="particle-icon" draggable="true">b̄</span><div class="particle-info"><span class="particle-name">Anti‑bottom</span><div class="particle-meta"><span class="charge-badge">+⅓</span><span>4.1859 ± 0.0034 GeV</span></div></div></div>
+        </div>
+      </div>
+    </div>
+
+<!--  LEPTONS  -->
+    <div class="category lepton">
+      <h2><i class="fas fa-circle" style="color: #2b6b5c;"></i> 
+        Leptons
+        <span class="group-count">Spin 1/2</span>
+      </h2>
+      <div class="particle-group">
+        <div class="group-label">charged</div>
+        <!-- Electron -->
+        <div class="particle">
+          <div class="entry"><span class="particle-icon" draggable="true">e⁻</span><div class="particle-info"><span class="particle-name">Electron</span><div class="particle-meta"><span class="charge-badge">−1</span></div></div></div>
+          <div class="entry anti Lepton"><span class="particle-icon" draggable="true">e⁺</span><div class="particle-info"><span class="particle-name">Positron</span><div class="particle-meta"><span class="charge-badge">+1</span><span>0.511 MeV</span></div></div></div>
+        </div>
+        <!-- Muon -->
+        <div class="particle">
+          <div class="entry"><span class="particle-icon" draggable="true">μ⁻</span><div class="particle-info"><span class="particle-name">Muon</span><div class="particle-meta"><span class="charge-badge">−1</span></div></div></div>
+          <div class="entry anti Lepton"><span class="particle-icon" draggable="true">μ⁺</span><div class="particle-info"><span class="particle-name">Anti‑muon</span><div class="particle-meta"><span class="charge-badge">+1</span><span>105.65 MeV</span></div></div></div>
+        </div>
+        <!-- Tau -->
+        <div class="particle">
+          <div class="entry"><span class="particle-icon" draggable="true">τ⁻</span><div class="particle-info"><span class="particle-name">Tau</span><div class="particle-meta"><span class="charge-badge">−1</span></div></div></div>
+          <div class="entry anti Lepton"><span class="particle-icon" draggable="true">τ⁺</span><div class="particle-info"><span class="particle-name">Anti‑tau</span><div class="particle-meta"><span class="charge-badge">+1</span><span>1776.93 ± 0.09 MeV</span></div></div></div>
+        </div>
+      </div>
+      <div class="particle-group">
+        <div class="group-label">neutrinos</div>
+        <!-- electron neutrino -->
+        <div class="particle">
+          <div class="entry"><span class="particle-icon" draggable="true">ν<sub>e</sub></span><div class="particle-info"><span class="particle-name">ν<sub>e</sub></span><div class="particle-meta"><span class="charge-badge">0</span><span>&lt;27 eV</span></div></div></div>
+          <div class="entry anti Lepton"><span class="particle-icon" draggable="true">ν̄<sub>e</sub></span><div class="particle-info"><span class="particle-name">anti‑ν<sub>e</sub></span><div class="particle-meta"><span class="charge-badge">0</span><span>&lt;0.45 eV</span></div></div></div>
+        </div>
+        <!-- muon neutrino -->
+        <div class="particle">
+          <div class="entry"><span class="particle-icon" draggable="true">ν<sub>μ</sub></span><div class="particle-info"><span class="particle-name">ν<sub>μ</sub></span><div class="particle-meta"><span class="charge-badge">0</span><span>&lt;0.19 MeV</span></div></div></div>
+          <div class="entry anti Lepton"><span class="particle-icon" draggable="true">ν̄<sub>μ</sub></span><div class="particle-info"><span class="particle-name">anti‑ν<sub>μ</sub></span><div class="particle-meta"><span class="charge-badge">0</span><span>--</span></div></div></div>
+        </div>
+        <!-- tau neutrino -->
+        <div class="particle">
+          <div class="entry"><span class="particle-icon" draggable="true">ν<sub>τ</sub></span><div class="particle-info"><span class="particle-name">ν<sub>τ</sub></span><div class="particle-meta"><span class="charge-badge">0</span><span>&lt;18.2 MeV</span></div></div></div>
+          <div class="entry anti Lepton"><span class="particle-icon" draggable="true">ν̄<sub>τ</sub></span><div class="particle-info"><span class="particle-name">anti‑ν<sub>τ</sub></span><div class="particle-meta"><span class="charge-badge">0</span><span>--</span></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!--  BOSONS  -->
+    <div class="category boson">
+      <h2><i class="fas fa-circle" style="color: #9b5e3b;"></i> 
+        Bosons
+        <span class="group-count">Spin 1</span>
+      </h2>
+      <div class="particle-group">
+        <div class="group-label">gauge</div>
+        <!-- Photon -->
+        <div class="particle">
+          <div class="entry"><span class="particle-icon" draggable="true">γ</span><div class="particle-info"><span class="particle-name">Photon</span><div class="particle-meta"><span class="charge-badge">0</span><span>0</span></div></div></div>
+        </div>
+        <!-- Gluon -->
+        <div class="particle">
+          <div class="entry"><span class="particle-icon" draggable="true">g</span><div class="particle-info"><span class="particle-name">Gluon</span><div class="particle-meta"><span class="charge-badge">0</span><span>0</span></div></div></div>
+        </div>
+        <!-- W+ / W- -->
+        <div class="particle">
+          <div class="entry"><span class="particle-icon" draggable="true">W⁺</span><div class="particle-info"><span class="particle-name">W⁺</span><div class="particle-meta"><span class="charge-badge">+1</span></div></div></div>
+          <div class="entry anti Boson"><span class="particle-icon" draggable="true">W⁻</span><div class="particle-info"><span class="particle-name">W⁻</span><div class="particle-meta"><span class="charge-badge">−1</span><span>80.3625 ± 0.0077 GeV</span></div></div></div>
+        </div>
+        <!-- Z -->
+        <div class="particle">
+          <div class="entry"><span class="particle-icon" draggable="true">Z⁰</span><div class="particle-info"><span class="particle-name">Z⁰</span><div class="particle-meta"><span class="charge-badge">0</span><span>91.1879 ± 0.0020 GeV</span></div></div></div>
+        </div>
+      </div>
+      <div class="particle-group">
+        <div class="group-label">scalar</div>
+        <!-- Higgs -->
+        <div class="particle">
+          <div class="entry"><span class="particle-icon" draggable="true">H</span><div class="particle-info"><span class="particle-name">Higgs</span><div class="particle-meta"><span class="charge-badge">0</span><span class="group-count">Spin 0</span><span>125.13 ± 0.11 GeV</span></div></div></div>
+        </div>
+      </div>
+      <div style="margin-top: 0.8rem; font-size: 0.7rem; color: #6b7e9b; padding-left: 0.5rem; border-left: 2px solid #d7dfed;">
+        <span><i class="fas fa-table"></i> charge · mass</span>
+        <br>
+
+        <i class="fas fa-sync-alt"></i> γ, g, Z⁰, h are their own antiparticles<br>
+
+        Mass taken from F. Takahashi et al. (Particle Data Group), to be published in Int. J. Mod. Phys. A41, 2630011 (2026)
+        
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT SIDE: Feynman diagram generator as separate boxes -->
+  <div class="right-panel">
+    <div class="title-box">
+      <h1>
+        Feynman Diagram Generator
+        <small>tree - level</small>
+      </h1>
+    </div>
+    <div class="feynman-box">
+      <span class="particle-name">Preset Processes :</span>
+      <div class="preset-buttons">
+        <button class="preset-btn" data-preset="moller">e⁻ e⁻ → e⁻ e⁻</button>
+        <button class="preset-btn" data-preset="annihilation">e⁻ e⁺ → μ⁻ μ⁺</button>
+        <button class="preset-btn" data-preset="compton">e⁻ γ → e⁻ γ</button>
+        <button class="preset-btn" data-preset="bhabha">e⁻ e⁺ → e⁻ e⁺</button>
+        <button class="preset-btn" data-preset="muon-decay">μ⁻ decay</button>
+      </div>
+    </div>  
+    <div class="feynman-box">
+      <div class="input-panel">
+        <div class="state-group">
+          <label>Initial state</label>
+          <div class="drop-zone" id="initialDropZone"></div>
+        </div>
+        <div class="state-arrow" aria-hidden="true">
+          <i class="fas fa-arrow-right"></i>
+        </div>
+        <div class="state-group">
+          <label>Final state</label>
+          <div class="drop-zone" id="finalDropZone"></div>
+        </div>
+        <button class="generate-btn" id="generateBtn"> Generate</button>
+      </div>
+      <div id="errorDisplay" class="error-message" style="margin-top:0.6rem; display: none;"></div>
+
+
+    <div class="feynman-box">
+      <div class="canvas-box">
+        <canvas id="feynmanCanvas" width="700" height="400"></canvas>
+        <div class="legend">
+          <span><span style="display:inline-block; width:25px; height:2px; background:#1b221c;"></span> Fermion</span>
+          <span><span style="border-top:2px dashed #9b5e3b; width:30px;"></span> Scalar</span>
+          <span><span style="width:30px; height:8px; background:repeating-linear-gradient(90deg, #b45309 0px, #b45309 3px, transparent 3px, transparent 6px);"></span> Boson</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>

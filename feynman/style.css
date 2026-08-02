@@ -1,0 +1,503 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    /* background: #f2edea; */
+    background-image: url("bg1.png");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    padding: 2rem 2rem 2rem 2rem;
+    color: #1b221c;
+}
+
+/* ===== LEFT PANEL: Standard Model particles as separate boxes ===== */
+.left-panel {
+    flex: 0 1 100%;
+    max-width: 47.5%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.2rem;
+    align-items: start;
+    min-width: 0;
+}
+
+.title-box {
+    grid-column: 1 / -1;
+}
+
+.category {
+    width: 100%;
+    min-width: 0;
+    max-width: 30em;
+}
+
+/* Title box */
+.title-box {
+    background: rgba(255,255,255,0.25);
+    backdrop-filter: blur(8px);
+    border-radius: 1.8rem;
+    padding: 1.2rem 1.8rem;
+    border: 1px dashed #ccd2eb;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.title-box h1 {
+    font-weight: 500;
+    font-size: 2rem;
+    letter-spacing: -0.01em;
+    color: #1b221c;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+.title-box h1 small {
+    font-size: 0.9rem;
+    font-weight: 400;
+    color: #3a4a3c;
+    margin-left: 0.5rem;
+}
+.title-box i {
+    color: #2c3e2e;
+    font-size: 1.9rem;
+}
+
+/* Category boxes – separate, dashed border */
+.category-box {
+    background: rgba(253, 251, 240, 0.65);
+    backdrop-filter: blur(6px);
+    border-radius: 1.6rem;
+    padding: 1rem 1.2rem 1.4rem;
+    border: 1px dashed #ccd2eb;
+    box-shadow: 0 6px 14px -6px rgba(0,0,0,0.06);
+    transition: all 0.2s;
+}
+.category-box h2 {
+    font-weight: 500;
+    font-size: 1.1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #1b221c;
+    margin-bottom: 1rem;
+    border-bottom: 1px dashed #ccd2eb;
+    padding-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.category-box h2 i {
+    opacity: 0.8;
+}
+
+.particle-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    margin-bottom: 0.5rem;
+}
+.group-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: #4a5b4c;
+    padding-left: 0.5rem;
+    margin-top: 0.1rem;
+}
+.group-count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #1b221c;
+  background: #ccd2eb;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  margin-left: 0.45rem;
+  vertical-align: middle;
+}
+
+/* particle card */
+.particle {
+    background: linear-gradient(
+        135deg,
+        rgba(253, 251, 240, 0.92),
+        rgba(253, 251, 240, 0.56)
+    );
+    border-radius: 1.2rem;
+    padding: 0.6rem 0.8rem 0.6rem 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+    border: 1px dashed #ccd2eb;
+    transition: all 0.15s ease;
+    cursor: default;
+    flex-wrap: wrap;
+}
+.particle:hover {
+    transform: scale(1.03);
+    background: #ffffff;
+    border-color: #9aa8c7;
+    box-shadow: 0 10px 20px -8px rgba(20,30,20,0.2);
+    z-index: 5;
+    position: relative;
+}
+
+.entry {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1 1 auto;
+    /* min-width: 120px; */
+}
+.entry.anti {
+    border-left: 1px dashed #ccd2eb;
+    padding-left: 0.7rem;
+    margin-left: 0.2rem;
+}
+
+/* draggable icon (matches previous icon style) */
+.particle-icon {
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 40%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    color: white;
+    background: #1b221c;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    cursor: grab;
+    user-select: none;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    text-transform: lowercase;
+}
+.particle-icon:active {
+    cursor: grabbing;
+}
+.particle-icon:hover {
+    transform: scale(1.25);
+    box-shadow: 0 6px 14px -4px rgba(0,0,0,0.12);
+}
+.anti .particle-icon {
+    background: #4d5a50;
+    opacity: 0.9;
+}
+
+.particle-info {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+    /* min-width: 60px; */
+}
+.particle-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #1b221c;
+}
+
+.particle-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 0.6rem;
+    font-size: 0.7rem;
+    color: #2e3a30;
+    margin-top: 0.1rem;
+}
+.particle-meta span {
+    background: #e8e3df;
+    padding: 0.05rem 0.5rem;
+    border-radius: 30px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+.charge-badge {
+    background: #dde1e7 !important;
+}
+
+/* color accents keep the same categories */
+.quark .particle-icon { background: #1f5e8e; }
+.lepton .particle-icon { background: #2b6b5c; }
+.boson .particle-icon { background: #9b5e3b; }
+.anti .particle-icon { background: #5b6f88; }
+.Quark .particle-icon { background: #293d4d; }
+.Lepton .particle-icon { background: #253632; }
+.Boson .particle-icon { background: #3f3129; }
+
+.boson-col .particle {
+    background: #f7f3ef;
+    border-color: #d9cfc3;
+}
+
+/* footnote below sync icon */
+.footnote-inline {
+    margin-top: 0.9rem;
+    font-size: 0.8rem;
+    color: #4e5e51;
+    border-top: 1px dashed #ccd2eb;
+    padding-top: 0.9rem;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+.badge {
+    background: #e3ded8;
+    padding: 0.2rem 0.9rem;
+    border-radius: 30px;
+    font-size: 0.7rem;
+    color: #1b221c;
+}
+
+/* ===== RIGHT PANEL: Feynman generator boxes ===== */
+.right-panel {
+    flex: 1 1 580px;
+    display: flex;
+    flex-direction: column;
+    gap: 1.8rem;
+    width: 50%;
+}
+
+.feynman-box {
+    background: linear-gradient(
+        135deg,
+        rgba(253, 251, 240, 0.),
+        rgba(253, 251, 240, 0.56)
+    );
+    backdrop-filter: blur(4px);
+    border-radius: 1.6rem;
+    padding: 1.2rem 1.6rem;
+    border: 1px dashed #ccd2eb;
+    box-shadow: 0 10px 18px -8px rgba(0,0,0,0.06);
+    /* margin-top: 4.5rem; */
+}
+
+.feynman-box h2 {
+    font-weight: 500;
+    font-size: 1.3rem;
+    color: #1b221c;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px dashed #ccd2eb;
+    padding-bottom: 0.5rem;
+}
+.feynman-box h2 span {
+    background: #ccd2eb;
+    color: #1b221c;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.2rem 0.9rem;
+    border-radius: 20px;
+    margin-left: 0.5rem;
+}
+
+.input-panel {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 1.2rem;
+    background: linear-gradient(
+        135deg,
+        rgba(253, 251, 240, 0.92),
+        rgba(253, 251, 240, 0.56)
+    );
+    padding: 1.2rem;
+    border-radius: 1.4rem;
+    border: 1px dashed #ccd2eb;
+    margin-bottom: 1rem;
+}
+.state-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1b221c;
+  opacity: 0.78;
+  font-size: 1.15rem;
+  min-width: 1.5rem;
+}
+.state-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    min-width: 170px;
+    flex: 2;
+}
+.state-group label {
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #2e3a30;
+}
+.drop-zone {
+    background: white;
+    border: 2px dashed #ccd2eb;
+    border-radius: 1rem;
+    padding: 0.4rem;
+    min-height: 48px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
+    transition: 0.2s;
+    background: #ffffff;
+}
+.drop-zone.drag-over {
+    border-color: #1b221c;
+    background: #e8e3df;
+}
+.particle-chip {
+    display: inline-flex;
+    align-items: center;
+    background: #ccd2eb;
+    color: #1b221c;
+    border-radius: 20px;
+    padding: 0.25rem 0.8rem;
+    font-weight: 600;
+    font-size: 0.85rem;
+    gap: 0.3rem;
+    white-space: nowrap;
+}
+.particle-chip button {
+    background: none;
+    border: none;
+    color: #1b221c;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 0 0.2rem;
+    opacity: 0.7;
+}
+.generate-btn {
+    background: #ccd2eb;
+    color: #1b221c;
+    font-weight: 700;
+    font-size: 0.95rem;
+    padding: 0.7rem 1.8rem;
+    border: none;
+    border-radius: 2.5rem;
+    cursor: pointer;
+    letter-spacing: 0.3px;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.08);
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-left: auto;
+    border: 1px dashed #a0aac0;
+}
+.generate-btn:hover {
+    background: #b9c1db;
+    transform: translateY(-1px);
+}
+
+.preset-buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.8rem;
+    margin-bottom: 1.2rem;
+}
+.preset-btn {
+    background: #f2edea;
+    border: 1px dashed #ccd2eb;
+    padding: 0.35rem 0.9rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #1b221c;
+    cursor: pointer;
+    transition: 0.2s;
+}
+.preset-btn:hover {
+    background: #ccd2eb;
+}
+
+.canvas-box {
+    background: linear-gradient(
+        135deg,
+        rgba(253, 251, 240, 0),
+        rgba(253, 251, 240, 0.)
+    );
+    border-radius: 1.4rem;
+    border: 1px dashed #ccd2eb;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    background: linear-gradient(
+        135deg,
+        rgba(253, 251, 240, 0),
+        rgba(253, 251, 240, 0.)
+    );
+    border-radius: 0.8rem;
+}
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.2rem;
+    margin-top: 0.8rem;
+    font-size: 0.8rem;
+    color: #1b221c;
+}
+.error-message {
+    color: #8b3a3a;
+    background: #f5e6e6;
+    padding: 0.4rem 1rem;
+    border-radius: 1rem;
+    font-size: 0.85rem;
+}
+
+
+
+@media (min-width: 2100px) {
+  body {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .left-panel,
+  .right-panel {
+    width: 100%;
+    max-width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .left-panel {
+    order: 1;
+  }
+
+  .right-panel {
+    order: 2;
+  }
+
+  .left-panel {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .category {
+    width: 100%;
+    min-width: 0;
+    max-width: 45em;
+}
+}
