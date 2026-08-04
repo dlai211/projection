@@ -1,45 +1,42 @@
-// Feynman Diagram Topology Classifier
-// Categorizes particle processes into s-channel, t-channel, u-channel, or multi-vertex
-
 class FeynmanTopologyClassifier {
     constructor() {
         // Define particle properties
         this.particleDatabase = {
             // Fermions (matter particles)
-            'e-': { type: 'fermion', charge: -1, generation: 1, lepton: true },
-            'e+': { type: 'antifermion', charge: 1, generation: 1, lepton: true },
-            'mu-': { type: 'fermion', charge: -1, generation: 2, lepton: true },
-            'mu+': { type: 'antifermion', charge: 1, generation: 2, lepton: true },
-            'tau-': { type: 'fermion', charge: -1, generation: 3, lepton: true },
-            'tau+': { type: 'antifermion', charge: 1, generation: 3, lepton: true },
+            'e⁻': { type: 'fermion', charge: -1, generation: 1, lepton: true },
+            'e⁺': { type: 'antifermion', charge: 1, generation: 1, lepton: true },
+            'μ⁻': { type: 'fermion', charge: -1, generation: 2, lepton: true },
+            'μ⁺': { type: 'antifermion', charge: 1, generation: 2, lepton: true },
+            'τ⁻': { type: 'fermion', charge: -1, generation: 3, lepton: true },
+            'τ⁺': { type: 'antifermion', charge: 1, generation: 3, lepton: true },
             've': { type: 'fermion', charge: 0, generation: 1, neutrino: true },
-            've~': { type: 'antifermion', charge: 0, generation: 1, neutrino: true },
-            'vm': { type: 'fermion', charge: 0, generation: 2, neutrino: true },
-            'vm~': { type: 'antifermion', charge: 0, generation: 2, neutrino: true },
+            'ν̄e': { type: 'antifermion', charge: 0, generation: 1, neutrino: true },
+            'vμ': { type: 'fermion', charge: 0, generation: 2, neutrino: true },
+            'ν̄μ': { type: 'antifermion', charge: 0, generation: 2, neutrino: true },
             'vt': { type: 'fermion', charge: 0, generation: 3, neutrino: true },
-            'vt~': { type: 'antifermion', charge: 0, generation: 3, neutrino: true },
+            'ν̄t': { type: 'antifermion', charge: 0, generation: 3, neutrino: true },
             
             // Quarks
             'u': { type: 'fermion', charge: 2/3, generation: 1, quark: true },
-            'u~': { type: 'antifermion', charge: -2/3, generation: 1, quark: true },
+            'ū': { type: 'antifermion', charge: -2/3, generation: 1, quark: true },
             'd': { type: 'fermion', charge: -1/3, generation: 1, quark: true },
-            'd~': { type: 'antifermion', charge: 1/3, generation: 1, quark: true },
+            'd̄': { type: 'antifermion', charge: 1/3, generation: 1, quark: true },
             'c': { type: 'fermion', charge: 2/3, generation: 2, quark: true },
-            'c~': { type: 'antifermion', charge: -2/3, generation: 2, quark: true },
+            'c̄': { type: 'antifermion', charge: -2/3, generation: 2, quark: true },
             's': { type: 'fermion', charge: -1/3, generation: 2, quark: true },
-            's~': { type: 'antifermion', charge: 1/3, generation: 2, quark: true },
+            's̄': { type: 'antifermion', charge: 1/3, generation: 2, quark: true },
             't': { type: 'fermion', charge: 2/3, generation: 3, quark: true },
-            't~': { type: 'antifermion', charge: -2/3, generation: 3, quark: true },
+            't̄': { type: 'antifermion', charge: -2/3, generation: 3, quark: true },
             'b': { type: 'fermion', charge: -1/3, generation: 3, quark: true },
-            'b~': { type: 'antifermion', charge: 1/3, generation: 3, quark: true },
+            'b̄': { type: 'antifermion', charge: 1/3, generation: 3, quark: true },
             
             // Bosons (force carriers)
-            'gamma': { type: 'boson', charge: 0, mediator: 'EM' },
+            'γ': { type: 'boson', charge: 0, mediator: 'EM' },
             'g': { type: 'boson', charge: 0, mediator: 'strong' },
-            'W+': { type: 'boson', charge: 1, mediator: 'weak' },
-            'W-': { type: 'boson', charge: -1, mediator: 'weak' },
-            'Z': { type: 'boson', charge: 0, mediator: 'weak' },
-            'H': { type: 'boson', charge: 0, mediator: 'higgs' },
+            'W⁺': { type: 'boson', charge: 1, mediator: 'weak' },
+            'W⁻': { type: 'boson', charge: -1, mediator: 'weak' },
+            'Z⁰': { type: 'boson', charge: 0, mediator: 'weak' },
+            'h': { type: 'boson', charge: 0, mediator: 'higgs' },
         };
     }
 
@@ -142,7 +139,7 @@ class FeynmanTopologyClassifier {
                 channels.push({
                     type: 's-channel',
                     priority: 1,
-                    mediator: 'gamma/Z',
+                    mediator: 'γ/Z',
                     layout: this.getSChannelLayout()
                 });
             } else if (a.quark && b.antifermion && c.quark && d.antifermion) {
@@ -255,11 +252,11 @@ class FeynmanTopologyClassifier {
     determineMediator(a, b) {
         if (a.charge !== 0 || b.charge !== 0) {
             if (a.quark && b.quark) return 'gluon';
-            if (a.lepton && b.lepton) return 'gamma/Z';
+            if (a.lepton && b.lepton) return 'γ/Z';
             return 'W';
         }
         if (a.quark && b.quark) return 'gluon';
-        return 'gamma';
+        return 'γ';
     }
 
     /**
@@ -439,10 +436,10 @@ class FeynmanTopologyClassifier {
 const classifier = new FeynmanTopologyClassifier();
 
 // Example classifications
-console.log('Møller scattering:', classifier.classifyProcess(['e-', 'e-'], ['e-', 'e-']));
-console.log('Annihilation:', classifier.classifyProcess(['e-', 'e+'], ['mu-', 'mu+']));
-console.log('Muon decay:', classifier.classifyProcess(['mu-'], ['e-', 've~', 'vm']));
-console.log('Compton scattering:', classifier.classifyProcess(['e-', 'gamma'], ['e-', 'gamma']));
+console.log('Møller scattering:', classifier.classifyProcess(['e⁻', 'e⁻'], ['e⁻', 'e⁻']));
+console.log('Annihilation:', classifier.classifyProcess(['e⁻', 'e⁺'], ['μ⁻', 'μ⁺']));
+console.log('Muon decay:', classifier.classifyProcess(['μ⁻'], ['e⁻', 'ν̄e', 'vμ']));
+console.log('Compton scattering:', classifier.classifyProcess(['e⁻', 'γ'], ['e⁻', 'γ']));
 
 // Export for use in your main code
 if (typeof module !== 'undefined' && module.exports) {

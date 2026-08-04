@@ -93,6 +93,11 @@
       function clearError() { document.getElementById('errorDisplay').style.display = 'none'; }
       function showError(msg) { const err = document.getElementById('errorDisplay'); err.style.display = 'block'; err.textContent = msg; }
 
+      // function drawParticle(x1, y1, x2, y2, particle) {
+      //   if particle.type === 'fermion' or particle.type === 'antifermion' {
+
+      // }}
+
       function drawFermion(x1,y1,x2,y2,label,isAnti,isIncoming){
         ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.lineWidth=2.5; ctx.strokeStyle='#1b221c'; ctx.stroke();
         let mx=(x1+x2)/2, my=(y1+y2)/2, angle=Math.atan2(y2-y1,x2-x1);
@@ -107,7 +112,7 @@
         let dx=x2-x1, dy=y2-y1, len=Math.sqrt(dx*dx+dy*dy), angle=Math.atan2(dy,dx);
         ctx.save(); ctx.translate(x1,y1); ctx.rotate(angle); ctx.beginPath(); ctx.lineWidth=2.5; ctx.strokeStyle='#b45309';
         for(let i=0;i<=len;i+=1) ctx.lineTo(i, Math.sin(i*0.5)*5); ctx.stroke(); ctx.restore();
-        if(label){ ctx.font="bold 18px 'Segoe UI'"; ctx.fillStyle='#b45309'; ctx.fillText(label,(x1+x2)/2-10,(y1+y2)/2-18); }
+        if(label){ ctx.font="bold 18px 'Segoe UI'"; ctx.fillStyle='#b45309'; ctx.fillText(label,(x1+x2)/2,(y1+y2)/2-18); }
       }
 
 
@@ -173,8 +178,8 @@
         const verticalSpread = h * 0.2;
 
         const leftX = centerW - spread;
-        const vertex1X = centerW - spread * 0.35;
-        const vertex2X = centerW + spread * 0.35;
+        const vertex1X = centerW - spread * 0.25;
+        const vertex2X = centerW + spread * 0.25;
         const outX = centerW + spread;
         const topY = centerH - verticalSpread;
         const bottomY = centerH + verticalSpread;
@@ -207,7 +212,9 @@
           drawFermion(400,130,550,180,'νμ',true,false);
           drawFermion(250,200,400,300,'ν̄ₑ',false,false);
         } else if(inP.includes('e-') && inP.includes('e+') && outP.includes('mu-') && outP.includes('mu+')){
+          u_channel();
           t_channel();
+          s_channel();
         } else {
           drawFermion(80,160,250,200,inP[0]||'?',false,true);
           if(inP[1]) drawFermion(80,280,250,200,inP[1],false,true);

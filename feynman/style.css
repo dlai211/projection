@@ -6,7 +6,7 @@
 
 body {
     /* background: #f2edea; */
-    background-image: url("bg1.png");
+    background-image: url("bg2.png");
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -22,7 +22,7 @@ body {
 /* ===== LEFT PANEL: Standard Model particles as separate boxes ===== */
 .left-panel {
     flex: 0 1 100%;
-    max-width: 47.5%;
+    max-width: 40.5%;
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 1.2rem;
@@ -223,6 +223,9 @@ body {
     font-weight: 500;
     white-space: nowrap;
 }
+.mass-badge {
+    cursor: help;
+}
 .charge-badge {
     background: #dde1e7 !important;
 }
@@ -308,7 +311,7 @@ body {
 .input-panel {
     display: flex;
     flex-wrap: wrap;
-    align-items: flex-end;
+    align-items: center;
     gap: 1.2rem;
     background: linear-gradient(
         135deg,
@@ -324,6 +327,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-top: 1.35rem;
   color: #1b221c;
   opacity: 0.78;
   font-size: 1.15rem;
@@ -399,6 +403,7 @@ body {
     align-items: center;
     gap: 0.4rem;
     margin-left: auto;
+    margin-top: 1.35rem;
     border: 1px dashed #a0aac0;
 }
 .generate-btn:hover {
@@ -440,9 +445,30 @@ body {
     padding: 1rem;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
 }
-canvas {
+.channel-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+.channel-card {
+    background: linear-gradient(135deg, rgba(253, 251, 240, 0.92), rgba(253, 251, 240, 0.62));
+    border: 1px dashed #ccd2eb;
+    border-radius: 1.2rem;
+    padding: 0.9rem;
+    box-shadow: 0 10px 18px -8px rgba(0,0,0,0.06);
+}
+.channel-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    margin-bottom: 0.5rem;
+    color: #1b221c;
+    text-transform: capitalize;
+}
+.channel-canvas {
     display: block;
     width: 100%;
     height: auto;
@@ -457,9 +483,28 @@ canvas {
     display: flex;
     flex-wrap: wrap;
     gap: 1.2rem;
-    margin-top: 0.8rem;
     font-size: 0.8rem;
     color: #1b221c;
+    align-items: center;
+}
+.legend-line {
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 0.4rem;
+}
+.legend-fermion {
+    width: 25px;
+    height: 2px;
+    background: #1b221c;
+}
+.legend-scalar {
+    border-top: 2px dashed #9b5e3b;
+    width: 30px;
+}
+.legend-boson {
+    width: 30px;
+    height: 8px;
+    background: repeating-linear-gradient(90deg, #b45309 0px, #b45309 3px, transparent 3px, transparent 6px);
 }
 .error-message {
     color: #8b3a3a;
