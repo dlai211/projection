@@ -226,6 +226,9 @@ body {
 .mass-badge {
     cursor: help;
 }
+.custom-tooltip {
+    display: block;
+}
 .charge-badge {
     background: #dde1e7 !important;
 }
