@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My 3D Model</title>
+  
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden; 
+      height: 100vh;
+      background-color: #ccc3ad; 
+    }
+
+    .frame {
+      position: fixed;
+      top: 30px; bottom: 30px; left: 30px; right: 30px;
+      border: 1px solid rgba(74, 69, 57, 0.2); /* Subtle dark border */
+      pointer-events: none;
+      z-index: 4;
+    }
+
+    .corner {
+      position: absolute;
+      width: 10px; height: 10px;
+    }
+    
+    .corner::before, .corner::after {
+      content: '';
+      position: absolute;
+      background-color: rgba(74, 69, 57, 0.5);
+    }
+    .corner::before { top: 4px; left: 0; width: 10px; height: 1px; } /* Horizontal line */
+    .corner::after { top: 0; left: 4px; width: 1px; height: 10px; }  /* Vertical line */
+
+    .tl { top: -5px; left: -5px; }
+    .tr { top: -5px; right: -5px; }
+    .bl { bottom: -5px; left: -5px; }
+    .br { bottom: -5px; right: -5px; }
+
+    .overlay-text {
+      position: fixed;
+      font-family: 'Times New Roman', serif; /* Elegant serif font */
+      color: #4a4539; 
+      font-size: 0.85rem;
+      letter-spacing: 0.1em;
+      pointer-events: none;
+      z-index: 5;
+    }
+    
+    .text-tl { top: 60px; left: 60px; }
+    .text-tl span { display: block; font-size: 0.7rem; margin-top: 6px; opacity: 0.8; }
+    
+    .text-tr { top: 60px; right: 60px; }
+    
+    .text-bl { bottom: 60px; left: 60px; }
+    
+    .text-mr {
+      top: 50%;
+      right: 60px;
+      transform: translateY(-50%);
+      writing-mode: vertical-rl;
+      letter-spacing: 0.4em;
+    }
+
+    .scroll-indicator {
+      position: fixed;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      font-family: 'Times New Roman', serif;
+      color: #a19e96;
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      z-index: 5;
+    }
+    .scroll-line {
+      width: 1px;
+      height: 30px;
+      background-color: #4a4539;
+      margin: 10px auto 0;
+      opacity: 0.4;
+    }
+
+    .title {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, 40%); 
+      
+      width: 100%;
+      text-align: center;
+      font-family: 'Arial Black', Impact, sans-serif;
+      font-size: 10vw; 
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: -0.02em;
+      pointer-events: none; 
+    }
+
+    .solid-text {
+      color: #1a1a1a; 
+      z-index: 1;
+    }
+
+    .outline-text {
+      color: transparent;
+      -webkit-text-stroke: 3px #ccc1a4; 
+      z-index: 3; 
+    }
+
+    #my-model {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    
+    width: 150vw;
+    height: 150vh;
+    transform: translate(-50%, -33%); 
+    outline: none;
+    --camera-orbit-transition: 0.1s ease-out;
+    background-color: transparent;
+    z-index: 2;
+    }
+
+  </style>
+</head>
+<body>
+
+  <div class="frame">
+    <div class="corner tl"></div>
+    <div class="corner tr"></div>
+    <div class="corner bl"></div>
+    <div class="corner br"></div>
+  </div>
+
+  <div class="overlay-text text-tl">
+    Hunter Barndt
+    <span>Physicist</span>
+  </div>
+  <div class="overlay-text text-tr">Physics · Born in Dinosaur Age</div>
+  <div class="overlay-text text-mr">Alaska</div>
+  <div class="overlay-text text-bl">He is THE Dr.Sigma</div>
+  
+  <div class="scroll-indicator">
+    Also has · All the Diseases and Sadness in the World
+    <div class="scroll-line"></div>
+  </div>
+
+  <div class="title solid-text">Mr. Sad Sick</div>
+  <div class="title outline-text">Mr. Sad Sick</div>
+
+  <model-viewer 
+    id="my-model"
+    src="model/hunter.glb" 
+    alt="A 3D model of my object"
+    camera-orbit="10deg 90deg auto">
+  </model-viewer>
+
+  <script>
+    const model = document.getElementById('my-model');
+
+    function updateRotation(xPos, yPos) {
+      const rotateX = xPos * 2; 
+      const rotateY = yPos * 2;
+      
+      const theta = 10 + rotateX;  
+      const phi = 90 + rotateY;
+
+      model.setAttribute('camera-orbit', `${theta}deg ${phi}deg auto`);
+    }
+
+    updateRotation(0, 0);
+
+    document.addEventListener('mousemove', (event) => {
+      const xPos = (event.clientX / window.innerWidth) * 2 - 1;
+      const yPos = (event.clientY / window.innerHeight) * 2 - 1;
+      
+      updateRotation(xPos, yPos);
+    });
+  </script>
+
+</body>
+</html>

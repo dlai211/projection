@@ -78,12 +78,62 @@
         channelGrid.innerHTML = '';
     }
 
+    const fullscreenOverlay = document.createElement('div');
+    fullscreenOverlay.className = 'diagram-overlay';
+
+    const fullscreenPanel = document.createElement('div');
+    fullscreenPanel.className = 'diagram-overlay-panel';
+
+    const fullscreenClose = document.createElement('button');
+    fullscreenClose.className = 'diagram-overlay-close';
+    fullscreenClose.type = 'button';
+    fullscreenClose.textContent = '×';
+    fullscreenClose.setAttribute('aria-label', 'Close fullscreen plot');
+
+    const fullscreenTitle = document.createElement('div');
+    fullscreenTitle.className = 'diagram-overlay-title';
+
+    const fullscreenImage = document.createElement('img');
+    fullscreenImage.className = 'diagram-overlay-image';
+    fullscreenImage.alt = 'Expanded Feynman diagram';
+
+    fullscreenPanel.appendChild(fullscreenClose);
+    fullscreenPanel.appendChild(fullscreenTitle);
+    fullscreenPanel.appendChild(fullscreenImage);
+    fullscreenOverlay.appendChild(fullscreenPanel);
+    document.body.appendChild(fullscreenOverlay);
+
+    function openFullscreenPlot(canvasElement, titleText) {
+        const dataUrl = canvasElement.toDataURL('image/png');
+        fullscreenImage.src = dataUrl;
+        fullscreenTitle.textContent = titleText;
+        fullscreenOverlay.classList.add('visible');
+    }
+
+    function closeFullscreenPlot() {
+        fullscreenOverlay.classList.remove('visible');
+        fullscreenImage.removeAttribute('src');
+    }
+
+    fullscreenOverlay.addEventListener('click', (event) => {
+        if (event.target === fullscreenOverlay) {
+            closeFullscreenPlot();
+        }
+    });
+
+    fullscreenClose.addEventListener('click', closeFullscreenPlot);
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && fullscreenOverlay.classList.contains('visible')) {
+            closeFullscreenPlot();
+        }
+    });
+
     // Enhanced drawing functions with particle database integration
     function getParticleInfo(symbol) {
         return classifier.getParticleInfo(symbol);
     }
 
-    function drawFermion(context, x1, y1, x2, y2, symbol, isIncoming) {
+    function drawFermion(context, x1, y1, x2, y2, symbol, type, labelOffset=[0, 0]) {
         const info = getParticleInfo(symbol);
         const isAnti = info.type === 'antifermion';
         
@@ -103,17 +153,19 @@
         context.lineTo(mx - 10 * Math.cos(drawAngle + Math.PI / 6), my - 10 * Math.sin(drawAngle + Math.PI / 6));
         context.stroke();
         
-        context.font = "bold 18px 'Segoe UI'";
+        context.font = "bold 32px 'Segoe UI'";
         context.fillStyle = '#1b221c';
-        if (isIncoming) context.fillText(symbol, x1 - 40, y1 - 8);
-        else context.fillText(symbol, x2 + 10, y2 - 8);
+        if (type === 'incoming') context.fillText(symbol, x1 + labelOffset[0], y1 + labelOffset[1]);
+        else if (type === 'outgoing') context.fillText(symbol, x2 + labelOffset[0], y2 + labelOffset[1]);
+        else if (type === 'mediator') context.fillText(symbol, (x1 + x2) / 2 + labelOffset[0], (y1 + y2) / 2 + labelOffset[1]);
+        else showError('Invalid fermion type for drawing');
     }
 
-    function drawBoson(context, x1, y1, x2, y2, label) {
+    function drawBoson(context, x1, y1, x2, y2, symbol, type, labelOffset=[0, 0]) {
         let dx = x2 - x1, dy = y2 - y1, len = Math.sqrt(dx * dx + dy * dy), angle = Math.atan2(dy, dx);
         
-        if (label === 'g' || label === 'gluon') {
-            drawGluon(context, x1, y1, x2, y2, label);
+        if (symbol === 'g' || symbol === 'gluon') {
+            drawGluon(context, x1, y1, x2, y2, symbol);
             return;
         }
         
@@ -122,7 +174,7 @@
         context.rotate(angle);
         context.beginPath();
         context.lineWidth = 2.5;
-        context.strokeStyle = label === 'W+' || label === 'W-' ? '#e74c3c' : '#b45309';
+        context.strokeStyle = symbol === 'W+' || symbol === 'W-' ? '#e74c3c' : '#b45309';
         
         for (let i = 0; i <= len; i += 1) {
             context.lineTo(i, Math.sin(i * 0.5) * 5);
@@ -130,14 +182,18 @@
         context.stroke();
         context.restore();
         
-        if (label) {
-            context.font = "bold 18px 'Segoe UI'";
-            context.fillStyle = label === 'W+' || label === 'W-' ? '#e74c3c' : '#b45309';
-            context.fillText(label, (x1 + x2) / 2, (y1 + y2) / 2 - 18);
-        }
+        context.font = "bold 30px 'Segoe UI'";
+        context.fillStyle = symbol === 'W+' || symbol === 'W-' ? '#e74c3c' : '#b45309';
+        
+        console.log('type: ',  type)
+        if (type === 'incoming') context.fillText(symbol, x1 + labelOffset[0], y1 + labelOffset[1]);
+        else if (type === 'outgoing') context.fillText(symbol, x2 + labelOffset[0], y2 + labelOffset[1]);
+        else if (type === 'mediator') {context.font = "bold 27px 'Segoe UI'";
+        context.fillText(symbol, (x1 + x2) / 2 + labelOffset[0], (y1 + y2) / 2 + labelOffset[1]);}
+        else showError('Invalid boson type for drawing');
     }
 
-    function drawGluon(context, x1, y1, x2, y2, label) {
+    function drawGluon(context, x1, y1, x2, y2, symbol) {
         let dx = x2 - x1, dy = y2 - y1, len = Math.sqrt(dx * dx + dy * dy), angle = Math.atan2(dy, dx);
         
         context.save();
@@ -162,14 +218,14 @@
         
         context.restore();
         
-        if (label) {
-            context.font = "bold 18px 'Segoe UI'";
+        if (symbol) {
+            context.font = "bold 27px 'Segoe UI'";
             context.fillStyle = '#27ae60';
-            context.fillText(label, (x1 + x2) / 2, (y1 + y2) / 2 - 22);
+            context.fillText(symbol, (x1 + x2) / 2, (y1 + y2) / 2 - 22);
         }
     }
 
-    function drawVirtualParticle(context, x1, y1, x2, y2, label) {
+    function drawVirtualParticle(context, x1, y1, x2, y2, symbol) {
         context.save();
         context.setLineDash([5, 5]);
         context.beginPath();
@@ -181,10 +237,10 @@
         context.setLineDash([]);
         context.restore();
         
-        if (label) {
+        if (symbol) {
             context.font = "italic 16px 'Segoe UI'";
             context.fillStyle = '#8e44ad';
-            context.fillText(label, (x1 + x2) / 2, (y1 + y2) / 2 - 18);
+            context.fillText(symbol, (x1 + x2) / 2, (y1 + y2) / 2 - 24);
         }
     }
 
@@ -201,7 +257,7 @@
             context.font = "bold 14px 'Segoe UI'";
             context.fillStyle = '#666';
             context.textAlign = 'center';
-            context.fillText(label, x, y + radius + 15);
+            context.fillText(label, x, y + radius + 5);
         }
     }
 
@@ -212,8 +268,8 @@
         
         const centerW = w * 0.5;
         const centerH = h * 0.5;
-        const spread = w * 0.22;
-        const verticalSpread = h * 0.2;
+        const spread = w * 0.30;
+        const verticalSpread = h * 0.25;
         
         const leftX = centerW - spread;
         const vertexX = centerW - spread * 0.4;
@@ -232,45 +288,45 @@
 
         let ini0 = classifier.getParticleInfo(initial[0]);
         if (ini0.type === 'fermion' || ini0.type === 'antifermion') {
-            drawFermion(context, leftX, topY, vertexX, centerH, initial[0], true);
+            drawFermion(context, leftX, topY, vertexX, centerH, initial[0], type='incoming', labelOffset=[-20, -6]);
         } else if (ini0.type === 'boson') {
-            drawBoson(context, leftX, topY, vertexX, centerH, initial[0]);
+            drawBoson(context, leftX, topY, vertexX, centerH, initial[0], type='incoming', labelOffset=[-20, -6]);
         } else {
             showError('unknown particle');
         }
 
         let ini1 = classifier.getParticleInfo(initial[1]);
         if (ini1.type === 'fermion' || ini1.type === 'antifermion') {
-            drawFermion(context, leftX, bottomY, vertexX, centerH, initial[1], true);
+            drawFermion(context, leftX, bottomY, vertexX, centerH, initial[1], type='incoming', labelOffset=[-20, 15]);
         } else if (ini1.type === 'boson') {
-            drawBoson(context, leftX, bottomY, vertexX, centerH, initial[1]);
+            drawBoson(context, leftX, bottomY, vertexX, centerH, initial[1], type='incoming', labelOffset=[-20, 15]);
         } else {
             showError('unknown particle');
         }
 
         const mediatorInfo = classifier.getParticleInfo(mediator);
         if (mediatorInfo.type === 'boson' || mediator === 'γ/Z') {
-            drawBoson(context, vertexX, centerH, rightX, centerH, mediator);
+            drawBoson(context, vertexX, centerH, rightX, centerH, mediator, type='mediator', labelOffset=[0, -20]);
         } else if (mediatorInfo.type === 'fermion' || mediatorInfo.type === 'antifermion') {
-            drawFermion(context, vertexX, centerH, rightX, centerH, mediator, false);
+            drawFermion(context, vertexX, centerH, rightX, centerH, mediator, type='mediator', labelOffset=[0, -20]);
         } else {
             showError('unknown mediator');
         }
 
         let final0 = classifier.getParticleInfo(final[0]);
         if (final0.type === 'fermion' || final0.type === 'antifermion') {
-            drawFermion(context, rightX, centerH, outX, upperOutY, final[0], false);
+            drawFermion(context, rightX, centerH, outX, upperOutY, final[0], type='outgoing', labelOffset=[20, -6]);
         } else if (final0.type === 'boson') {
-            drawBoson(context, rightX, centerH, outX, upperOutY, final[0]);
+            drawBoson(context, rightX, centerH, outX, upperOutY, final[0], type='outgoing', labelOffset=[20, -6]);
         } else {
             showError('unknown particle');
         }
 
         let final1 = classifier.getParticleInfo(final[1]);
         if (final1.type === 'fermion' || final1.type === 'antifermion') {
-            drawFermion(context, rightX, centerH, outX, lowerOutY, final[1], false);
+            drawFermion(context, rightX, centerH, outX, lowerOutY, final[1], type='outgoing', labelOffset=[20, 15]);
         } else if (final1.type === 'boson') {
-            drawBoson(context, rightX, centerH, outX, lowerOutY, final[1]);
+            drawBoson(context, rightX, centerH, outX, lowerOutY, final[1], type='outgoing', labelOffset=[20, 15]);
         } else {
             showError('unknown particle');
         }
@@ -282,8 +338,8 @@
         
         const centerW = w * 0.5;
         const centerH = h * 0.5;
-        const spread = w * 0.22;
-        const verticalSpread = h * 0.2;
+        const spread = w * 0.30;
+        const verticalSpread = h * 0.25;
         
         const leftX = centerW - spread;
         const vertex1X = centerW - spread * 0.25;
@@ -296,49 +352,51 @@
         drawBlob(context, vertex2X, bottomY, 6, '');
         
         const result = classifier.classifyProcess(initial, final);
+        console.log('result:', result);
         const mediator = (channelLabel && channelLabel.mediator) || result.primaryChannel?.mediator || 'γ/Z';
 
         let ini0 = classifier.getParticleInfo(initial[0]);
         if (ini0.type === 'fermion' || ini0.type === 'antifermion') {
-            drawFermion(context, leftX, topY, vertex1X, topY, initial[0], true);
+            drawFermion(context, leftX, topY, vertex1X, topY, initial[0], type='incoming', labelOffset=[-20, 5]);
         } else if (ini0.type === 'boson') {
-            drawBoson(context, leftX, topY, vertex1X, topY, initial[0]);
+            drawBoson(context, leftX, topY, vertex1X, topY, initial[0], type='incoming', labelOffset=[-20, 5]);
         } else {
             showError('unknown particle');
         }
 
         let ini1 = classifier.getParticleInfo(initial[1]);
+        console.log('ini1:', ini1);
         if (ini1.type === 'fermion' || ini1.type === 'antifermion') {
-            drawFermion(context, leftX, bottomY, vertex2X, bottomY, initial[1], true);
+            drawFermion(context, leftX, bottomY, vertex2X, bottomY, initial[1], type='incoming', labelOffset=[-20, 7]);
         } else if (ini1.type === 'boson') {
-            drawBoson(context, leftX, bottomY, vertex2X, bottomY, initial[1]);
+            drawBoson(context, leftX, bottomY, vertex2X, bottomY, initial[1], type='incoming', labelOffset=[-20, 7]);
         } else {
             showError('unknown particle');
         }
 
         const mediatorInfo = classifier.getParticleInfo(mediator);
         if (mediatorInfo.type === 'boson' || mediator === 'γ/Z') {
-            drawBoson(context, vertex1X, topY, vertex2X, bottomY, mediator);
+            drawBoson(context, vertex1X, topY, vertex2X, bottomY, mediator, type='mediator', labelOffset=[30, 0]);
         } else if (mediatorInfo.type === 'fermion' || mediatorInfo.type === 'antifermion') {
-            drawFermion(context, vertex1X, topY, vertex2X, bottomY, mediator, false);
+            drawFermion(context, vertex1X, topY, vertex2X, bottomY, mediator, type='mediator', labelOffset=[30, 0]);
         } else {
             showError('unknown mediator');
         }
 
         let final0 = classifier.getParticleInfo(final[0]);
         if (final0.type === 'fermion' || final0.type === 'antifermion') {
-            drawFermion(context, vertex1X, topY, outX, topY, final[0], false);
+            drawFermion(context, vertex1X, topY, outX, topY, final[0], type='outgoing', labelOffset=[25, 5]);
         } else if (final0.type === 'boson') {
-            drawBoson(context, vertex1X, topY, outX, topY, final[0]);
+            drawBoson(context, vertex1X, topY, outX, topY, final[0], type='outgoing', labelOffset=[25, 5]);
         } else {
             showError('unknown particle');
         }
 
         let final1 = classifier.getParticleInfo(final[1]);
         if (final1.type === 'fermion' || final1.type === 'antifermion') {
-            drawFermion(context, vertex2X, bottomY, outX, bottomY, final[1], false);
+            drawFermion(context, vertex2X, bottomY, outX, bottomY, final[1], type='outgoing', labelOffset=[25, 7]);
         } else if (final1.type === 'boson') {
-            drawBoson(context, vertex2X, bottomY, outX, bottomY, final[1]);
+            drawBoson(context, vertex2X, bottomY, outX, bottomY, final[1], type='outgoing', labelOffset=[25, 7]);
         } else {
             showError('unknown particle');
         }
@@ -350,8 +408,8 @@
         
         const centerW = w * 0.5;
         const centerH = h * 0.5;
-        const spread = w * 0.22;
-        const verticalSpread = h * 0.2;
+        const spread = w * 0.30;
+        const verticalSpread = h * 0.25;
         
         const leftX = centerW - spread;
         const vertex1X = centerW - spread * 0.25;
@@ -368,45 +426,45 @@
 
         let ini0 = classifier.getParticleInfo(initial[0]);
         if (ini0.type === 'fermion' || ini0.type === 'antifermion') {
-            drawFermion(context, leftX, topY, vertex1X, topY, initial[0], true);
+            drawFermion(context, leftX, topY, vertex1X, topY, initial[0], type='incoming', labelOffset=[-20, 5]);
         } else if (ini0.type === 'boson') {
-            drawBoson(context, leftX, topY, vertex1X, topY, initial[0]);
+            drawBoson(context, leftX, topY, vertex1X, topY, initial[0], type='incoming', labelOffset=[-20, 5]);
         } else {
             showError('unknown particle');
         }
 
         let ini1 = classifier.getParticleInfo(initial[1]);
         if (ini1.type === 'fermion' || ini1.type === 'antifermion') {
-            drawFermion(context, leftX, bottomY, vertex2X, bottomY, initial[1], true);
+            drawFermion(context, leftX, bottomY, vertex2X, bottomY, initial[1], type='incoming', labelOffset=[-20, 7]);
         } else if (ini1.type === 'boson') {
-            drawBoson(context, leftX, bottomY, vertex2X, bottomY, initial[1]);
+            drawBoson(context, leftX, bottomY, vertex2X, bottomY, initial[1], type='incoming', labelOffset=[-20, 7]);
         } else {
             showError('unknown particle');
         }
 
         const mediatorInfo = classifier.getParticleInfo(mediator);
         if (mediatorInfo.type === 'boson' || mediator === 'γ/Z') {
-            drawBoson(context, vertex1X, topY, vertex2X, bottomY, mediator);
+            drawBoson(context, vertex1X, topY, vertex2X, bottomY, mediator, type='mediator', labelOffset=[-38, 5]);
         } else if (mediatorInfo.type === 'fermion' || mediatorInfo.type === 'antifermion') {
-            drawFermion(context, vertex1X, topY, vertex2X, bottomY, mediator, false);
+            drawFermion(context, vertex1X, topY, vertex2X, bottomY, mediator, type='mediator', labelOffset=[-38, 5]);
         } else {
             showError('unknown mediator');
         }
 
         let final0 = classifier.getParticleInfo(final[0]);
         if (final0.type === 'fermion' || final0.type === 'antifermion') {
-            drawFermion(context, vertex1X, topY, outX, bottomY, final[1], false);
+            drawFermion(context, vertex1X, topY, outX, bottomY, final[0], type='outgoing', labelOffset=[20, 15]);
         } else if (final0.type === 'boson') {
-            drawBoson(context, vertex1X, topY, outX, bottomY, final[0]);
+            drawBoson(context, vertex1X, topY, outX, bottomY, final[0], type='outgoing', labelOffset=[20, 15]);
         } else {
             showError('unknown particle');
         }
 
         let final1 = classifier.getParticleInfo(final[1]);
         if (final1.type === 'fermion' || final1.type === 'antifermion') {
-            drawFermion(context, vertex2X, bottomY, outX, topY, final[1], false);
+            drawFermion(context, vertex2X, bottomY, outX, topY, final[1], type='outgoing', labelOffset=[20, -6]);
         } else if (final1.type === 'boson') {
-            drawBoson(context, vertex2X, bottomY, outX, topY, final[1]);
+            drawBoson(context, vertex2X, bottomY, outX, topY, final[1], type='outgoing', labelOffset=[20, -6]);
         } else {
             showError('unknown particle');
         }
@@ -511,6 +569,7 @@
         channels.forEach((channel, index) => {
             const card = document.createElement('div');
             card.className = 'channel-card';
+            card.style.cursor = 'pointer';
 
             const title = document.createElement('div');
             title.className = 'channel-title';
@@ -524,6 +583,9 @@
             card.appendChild(canvasElement);
 
             renderSingleChannelDiagram(canvasElement, channel, inP, outP);
+            card.addEventListener('click', () => {
+                openFullscreenPlot(canvasElement, title.textContent);
+            });
             channelGrid.appendChild(card);
         });
     }

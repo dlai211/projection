@@ -118,9 +118,9 @@ body {
   font-size: 0.72rem;
   font-weight: 700;
   color: #1b221c;
-  background: #ccd2eb;
+  background: #ccd2eb !important;
   padding: 0.15rem 0.5rem;
-  border-radius: 999px;
+  border-radius: 8px !important;
   margin-left: 0.45rem;
   vertical-align: middle;
 }
@@ -199,8 +199,16 @@ body {
 .particle-info {
     display: flex;
     flex-direction: column;
+    align-items: flex-start;
+    gap: 0.16rem;
     line-height: 1.2;
     /* min-width: 60px; */
+}
+.particle-name-row {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    flex-wrap: wrap;
 }
 .particle-name {
     font-weight: 600;
@@ -211,26 +219,46 @@ body {
 .particle-meta {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.3rem 0.6rem;
+    align-items: center;
+    gap: 0.2rem 0.45rem;
     font-size: 0.7rem;
     color: #2e3a30;
-    margin-top: 0.1rem;
+    margin-top: 0;
+}
+.particle-info > .particle-meta {
+    margin-left: 0;
 }
 .particle-meta span {
     background: #e8e3df;
     padding: 0.05rem 0.5rem;
-    border-radius: 30px;
     font-weight: 500;
     white-space: nowrap;
+    border-radius: 30px;
 }
 .mass-badge {
     cursor: help;
+}
+.mass-badge:hover {
+    transform: scale(1.2);
+    background: #e8e3df;
+    box-shadow: 0 10px 20px -8px rgba(20,30,20,0.2);
+    z-index: 5;
+    position: relative;
 }
 .custom-tooltip {
     display: block;
 }
 .charge-badge {
-    background: #dde1e7 !important;
+    border-radius: 5px !important;
+    border: 1px dashed #ccd2eb;
+    padding: 0;
+    margin: 0;
+    font-size: 0.7rem;
+    font-weight: 200;
+
+
+    background: rgba(221, 225, 231, 0.2) !important;
+
 }
 
 /* color accents keep the same categories */
@@ -463,13 +491,18 @@ body {
     padding: 0.9rem;
     box-shadow: 0 10px 18px -8px rgba(0,0,0,0.06);
 }
+.channel-card:hover{
+    transform: scale(1.08);
+    box-shadow: 0 10px 20px -8px rgba(20,30,20,0.2);
+    z-index: 5;
+    position: relative;
+}
 .channel-title {
     font-size: 0.82rem;
     font-weight: 700;
     letter-spacing: 0.03em;
     margin-bottom: 0.5rem;
     color: #1b221c;
-    text-transform: capitalize;
 }
 .channel-canvas {
     display: block;
@@ -481,6 +514,59 @@ body {
         rgba(253, 251, 240, 0.)
     );
     border-radius: 0.8rem;
+}
+.diagram-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(16, 18, 22, 0.45);
+    backdrop-filter: blur(4px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    z-index: 1000;
+}
+.diagram-overlay.visible {
+    display: flex;
+}
+.diagram-overlay-panel {
+    position: relative;
+    width: min(40vw, 700px);
+    min-width: 320px;
+    max-width: 700px;
+    background: linear-gradient(135deg, rgba(253, 251, 240, 0.98), rgba(253, 251, 240, 0.85));
+    border: 1px dashed #ccd2eb;
+    border-radius: 1.2rem;
+    padding: 1.25rem;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+}
+.diagram-overlay-close {
+    position: absolute;
+    right: 0.65rem;
+    top: 0.65rem;
+    width: 2rem;
+    height: 2rem;
+    border: none;
+    border-radius: 999px;
+    background: #ccd2eb;
+    color: #1b221c;
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+}
+.diagram-overlay-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #1b221c;
+    margin-bottom: 0.7rem;
+    padding-right: 2.25rem;
+}
+.diagram-overlay-image {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 0.9rem;
+    background: #fdfcf8;
 }
 .legend {
     display: flex;
