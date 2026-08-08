@@ -127,6 +127,20 @@
     z-index: 2;
     }
 
+    .signature {
+      position: fixed;
+      
+      top: 60%; 
+      left: 10%;
+      
+      transform: translate(0%, 0%) rotate(-15deg); 
+      
+      width: 15vw; 
+      
+      z-index: 4;
+      pointer-events: none;
+    }
+
   </style>
 </head>
 <body>
@@ -153,6 +167,8 @@
 
   <div class="title solid-text">Mr. Sad Sick</div>
   <div class="title outline-text">Mr. Sad Sick</div>
+
+  <img src="model/signature.png" alt="Signature" class="signature">
 
   <model-viewer 
     id="my-model"
