@@ -60,18 +60,18 @@
         .instructions {
             font-size: 12px;
             color: #99aabf;
-            max-width: 200px;
+            max-width: 250px;
             line-height: 1.4;
         }
     </style>
-    <title>Multi-Black Hole & N-Body Orbit</title>
+    <title>Dynamic Black Holes & Growing Planets</title>
 </head>
 <body>
     <div id="ui-panel">
         <button id="btn-planet" class="toggle-btn active">Mode: Place Planet</button>
         <button id="btn-bh" class="toggle-btn">Mode: Place Black Hole</button>
         <div class="instructions" id="inst-text">
-            Drag and release to sling a planet. Planets exert gravity on each other and will merge upon collision.
+            Hold mouse down to GROW a stationary planet. Drag before releasing to sling it!
         </div>
     </div>
 
@@ -82,20 +82,24 @@
         const ctx = canvas.getContext('2d');
 
         // Physics Constants
-        const G_BH = 10;           // Restored the strong screen-space gravity 
-        const G_PLANET = 0.01;     // Planet-to-planet gravity modifier
+        const G_BH = 1;           
+        const G_PLANET = 0.1;  
+        const G_BH_BH = 0.01;    
+        
+        // Visual Constants for Lensing
+        const LENS_RADIUS_MULTIPLIER = 3; 
+        const MAX_STRETCH = 100;
         
         let blackHoles = [];
         let stars = [];
         let balls = [];
         
-        // Soft, non-jarring color palette for planets
         const planetColors = ['#F0C1E1', '#A9DEF9', '#D0F4DE', '#FCF6BD', '#E4C1F9', '#FFD1BA'];
 
-        let drawOverlay = false;
+        let activeGrowing = null; 
         let dragging = false;
         let startX = 0, startY = 0, endX = 0, endY = 0;
-        let placementMode = 'PLANET'; // 'PLANET' or 'BLACKHOLE'
+        let placementMode = 'PLANET'; 
 
         // UI Listeners
         document.getElementById('btn-planet').addEventListener('click', (e) => {
@@ -103,23 +107,25 @@
             placementMode = 'PLANET';
             document.getElementById('btn-planet').classList.add('active');
             document.getElementById('btn-bh').classList.remove('active');
-            document.getElementById('inst-text').innerText = "Drag and release to sling a planet. Planets merge on collision.";
+            document.getElementById('inst-text').innerText = "Hold mouse down to GROW a stationary planet. Drag before releasing to sling it!";
         });
         document.getElementById('btn-bh').addEventListener('click', (e) => {
             e.stopPropagation();
             placementMode = 'BLACKHOLE';
             document.getElementById('btn-bh').classList.add('active');
             document.getElementById('btn-planet').classList.remove('active');
-            document.getElementById('inst-text').innerText = "Click anywhere to spawn a new stationary Black Hole.";
+            document.getElementById('inst-text').innerText = "Hold mouse down to GROW a stationary Black Hole. Drag to sling it!";
         });
 
         function init() {
             resizeCanvas();
-            // Start with one central black hole
             blackHoles.push({
                 x: canvas.width / window.devicePixelRatio / 2,
                 y: canvas.height / window.devicePixelRatio / 2,
-                radius: 45
+                radius: 25,
+                vx: 0,
+                vy: 0,
+                dead: false
             });
             seedStars();
             updatePhysics();
@@ -133,7 +139,7 @@
         window.addEventListener('resize', resizeCanvas);
 
         function seedStars() {
-            stars = Array.from({ length: 8000 }, () => ({
+            stars = Array.from({ length: 16000 }, () => ({
                 x: (Math.random() - 0.5) * 5000 + window.innerWidth/2, 
                 y: (Math.random() - 0.5) * 5000 + window.innerHeight/2, 
                 r: Math.random() * 1.5 + 0.3,
@@ -143,8 +149,8 @@
             }));
         }
 
-        // --- MULTI-LENSING OPTICS ---
-        function lensPoint(x, y) {
+        // Added excludeBH parameter for mutual lensing
+        function lensPoint(x, y, excludeBH = null) {
             let finalX = x;
             let finalY = y;
             let dominantStretch = 1;
@@ -153,7 +159,9 @@
             let maxInfluence = -1;
 
             for (const bh of blackHoles) {
-                const RE = bh.radius * 3;
+                if (bh === excludeBH) continue; // Skip self
+
+                const RE = bh.radius * LENS_RADIUS_MULTIPLIER; 
                 const dx = x - bh.x;
                 const dy = y - bh.y;
                 const r = Math.sqrt(dx * dx + dy * dy);
@@ -169,18 +177,13 @@
                 const influence = RE / r;
                 if (influence > maxInfluence) {
                     maxInfluence = influence;
-                    dominantStretch = Math.min(rApp / r, 80);
+                    dominantStretch = Math.min(rApp / r, MAX_STRETCH); 
                     dominantSquish = r / rApp;
                     dominantAngle = Math.atan2(dy, dx);
                 }
             }
 
-            return { 
-                x: finalX, y: finalY, 
-                stretch: dominantStretch, 
-                squish: dominantSquish, 
-                angle: dominantAngle 
-            };
+            return { x: finalX, y: finalY, stretch: dominantStretch, squish: dominantSquish, angle: dominantAngle };
         }
 
         function drawBackground() {
@@ -203,89 +206,66 @@
             }
         }
 
+        // Updated to apply lensing to black holes themselves
         function drawBlackHoles() {
             for (const bh of blackHoles) {
-                const RE = bh.radius * 1.5;
+                const RE = bh.radius * LENS_RADIUS_MULTIPLIER;
                 
-                // Draw Shadow
+                const lensed = lensPoint(bh.x, bh.y, bh);
+
+                ctx.save();
+                ctx.translate(lensed.x, lensed.y);
+                ctx.rotate(lensed.angle);
+
+                // Draw Shadow as ellipse
                 ctx.beginPath();
-                ctx.arc(bh.x, bh.y, RE - 0.5, 0, Math.PI * 2);
+                ctx.ellipse(0, 0, (RE - 0.5) * lensed.squish, (RE - 0.5) * lensed.stretch, 0, 0, Math.PI * 2);
                 ctx.fillStyle = '#000000';
                 ctx.fill();
 
-                // Photon Ring
+                // Photon Ring as ellipse
                 ctx.beginPath();
-                ctx.arc(bh.x, bh.y, RE, 0, Math.PI * 2);
+                ctx.ellipse(0, 0, RE * lensed.squish, RE * lensed.stretch, 0, 0, Math.PI * 2);
                 ctx.lineWidth = 1.5;
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
                 ctx.stroke();
+
+                ctx.restore();
             }
         }
 
         function drawOverlayUI() {
-            if (!drawOverlay || placementMode !== 'PLANET') return;
-
-            // Solid Aim Line
-            ctx.save();
-            ctx.beginPath();
-            ctx.moveTo(startX, startY);
-            ctx.lineTo(endX, endY);
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-            ctx.lineWidth = 1.2;
-            ctx.stroke();
-
-            // Calculate Prediction Path (Accounting for all BHs)
-            let vx = -(endX - startX) / 10;
-            let vy = -(endY - startY) / 10;
-            const points = [{ x: startX, y: startY }];
-            let collided = false;
-
-            for (let i = 0; i < 250 && !collided; i++) {
-                const prev = points[points.length - 1];
-                let nextX = prev.x + vx;
-                let nextY = prev.y + vy;
-
-                for (const bh of blackHoles) {
-                    const dx = bh.x - nextX;
-                    const dy = bh.y - nextY;
-                    const distSq = dx * dx + dy * dy;
-                    if (distSq < bh.radius * bh.radius) {
-                        collided = true;
-                        break;
-                    }
-                    const force = G_BH / distSq;
-                    vx += force * dx; // Fixed: Strong prediction gravity
-                    vy += force * dy;
-                }
-                
-                if (!collided) {
-                    points.push({ x: nextX, y: nextY });
+            if (activeGrowing) {
+                ctx.beginPath();
+                ctx.arc(activeGrowing.x, activeGrowing.y, activeGrowing.radius, 0, Math.PI * 2);
+                if (activeGrowing.type === 'PLANET') {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                    ctx.fill();
+                } else {
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                    ctx.lineWidth = 2;
+                    ctx.fill();
+                    ctx.stroke();
                 }
             }
 
-            // Draw Lensed Prediction
-            ctx.setLineDash([4, 6]);
-            ctx.beginPath();
-            const startLensed = lensPoint(points[0].x, points[0].y);
-            ctx.moveTo(startLensed.x, startLensed.y);
-            for (let i = 1; i < points.length; i++) {
-                const lensed = lensPoint(points[i].x, points[i].y);
-                ctx.lineTo(lensed.x, lensed.y);
+            if (dragging && activeGrowing && (startX !== endX || startY !== endY)) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(endX, endY);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                ctx.lineWidth = 1.2;
+                ctx.stroke();
+                ctx.restore();
             }
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-            ctx.stroke();
-            ctx.restore();
-
-            // Markers
-            ctx.beginPath(); ctx.arc(startX, startY, 7, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
-            ctx.beginPath(); ctx.arc(endX, endY, 3, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
         }
 
         function drawScene() {
             drawBackground();
             drawBlackHoles();
 
-            // Draw Trails
             ctx.save();
             balls.forEach((ball) => {
                 if (ball.trail.length > 1) {
@@ -305,7 +285,6 @@
             });
             ctx.restore();
 
-            // Draw Planets 
             for (const ball of balls) {
                 const lensed = lensPoint(ball.x, ball.y);
                 ctx.save();
@@ -322,7 +301,66 @@
         }
 
         function updatePhysics() {
-            // N-Body Gravity & Merging
+            
+            if (activeGrowing) {
+                const dragDist = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+                
+                if (dragDist < 5) {
+                    activeGrowing.radius += (activeGrowing.type === 'PLANET' ? 0.1 : 0.3);
+                }
+            }
+
+            // --- BLACK HOLE INTERACTION (Gravity & Merging) ---
+            for (let i = 0; i < blackHoles.length; i++) {
+                if (blackHoles[i].dead) continue;
+                for (let j = i + 1; j < blackHoles.length; j++) {
+                    if (blackHoles[j].dead) continue;
+
+                    const bh1 = blackHoles[i];
+                    const bh2 = blackHoles[j];
+                    const dx = bh2.x - bh1.x;
+                    const dy = bh2.y - bh1.y;
+                    const distSq = dx * dx + dy * dy;
+                    const dist = Math.sqrt(distSq);
+
+                    // Radius Collision check
+                    if (dist < bh1.radius + bh2.radius) {
+                        const a1 = bh1.radius * bh1.radius;
+                        const a2 = bh2.radius * bh2.radius;
+                        const totalA = a1 + a2;
+                        
+                        const vx = (bh1.vx * a1 + bh2.vx * a2) / totalA;
+                        const vy = (bh1.vy * a1 + bh2.vy * a2) / totalA;
+                        const newRadius = bh1.radius + bh2.radius;
+
+                        if (a1 > a2) {
+                            bh1.vx = vx; bh1.vy = vy; bh1.radius = newRadius;
+                            bh2.dead = true;
+                        } else {
+                            bh2.vx = vx; bh2.vy = vy; bh2.radius = newRadius;
+                            bh1.dead = true;
+                        }
+                    } else {
+                        const force = G_BH_BH / distSq;
+                        bh1.vx += force * dx * (bh2.radius * bh2.radius);
+                        bh1.vy += force * dy * (bh2.radius * bh2.radius);
+                        bh2.vx -= force * dx * (bh1.radius * bh1.radius);
+                        bh2.vy -= force * dy * (bh1.radius * bh1.radius);
+                    }
+                }
+
+                // Orbital Decay: apply a small friction multiplier
+                blackHoles[i].vx *= 0.998;
+                blackHoles[i].vy *= 0.998;
+
+                // Apply velocity to black hole
+                blackHoles[i].x += blackHoles[i].vx;
+                blackHoles[i].y += blackHoles[i].vy;
+            }
+            
+            blackHoles = blackHoles.filter(bh => !bh.dead);
+
+            // --- PLANET INTERACTIONS (Gravity & Merging) ---
             for (let i = 0; i < balls.length; i++) {
                 if (balls[i].dead) continue;
                 for (let j = i + 1; j < balls.length; j++) {
@@ -336,7 +374,6 @@
                     const dist = Math.sqrt(distSq);
 
                     if (dist < b1.radius + b2.radius) {
-                        // Collision -> Merge
                         const m1 = b1.radius * b1.radius; 
                         const m2 = b2.radius * b2.radius;
                         const totalM = m1 + m2;
@@ -345,7 +382,6 @@
                         const vy = (b1.vy * m1 + b2.vy * m2) / totalM;
                         const newRadius = Math.sqrt(totalM);
 
-                        // Keep the properties of the larger planet
                         if (m1 > m2) {
                             b1.vx = vx; b1.vy = vy; b1.radius = newRadius;
                             b2.dead = true;
@@ -354,8 +390,7 @@
                             b1.dead = true;
                         }
                     } else {
-                        // Corrected gravity between planets
-                        const force = G_PLANET / distSq;
+                        const force = G_PLANET / distSq / distSq;
                         b1.vx += force * dx * (b2.radius * b2.radius);
                         b1.vy += force * dy * (b2.radius * b2.radius);
                         b2.vx -= force * dx * (b1.radius * b1.radius);
@@ -364,7 +399,7 @@
                 }
             }
 
-            // Apply Black Hole Gravity & Update Positions
+            // --- PLANETS FALLING INTO BLACK HOLES ---
             balls = balls.filter((ball) => {
                 if (ball.dead) return false;
 
@@ -378,22 +413,32 @@
                     const distSq = dx * dx + dy * dy;
                     
                     if (Math.sqrt(distSq) < bh.radius) {
-                        bh.radius += (ball.radius * 0.05); 
+                        
+                        const areaBH = Math.PI * bh.radius * bh.radius;
+                        const areaPlanet = Math.PI * ball.radius * ball.radius;
+                        
+                        const newArea = areaBH + (areaPlanet * 0.01); 
+                        bh.radius = Math.sqrt(newArea / Math.PI); 
+
                         swallowed = true;
                         break;
                     }
+                    const dist = Math.sqrt(distSq); 
 
-                    // Fixed: Reverted back to the strong screen-space formula
-                    const force = G_BH / distSq;
-                    ball.vx += force * dx;
-                    ball.vy += force * dy;
+                    const massBH = bh.radius * bh.radius * 10; 
+                    const Acceleration = (G_BH * massBH) / distSq;
+
+                    ball.vx += Acceleration * (dx / dist);
+                    ball.vy += Acceleration * (dy / dist);
                 }
 
                 if (swallowed) return false;
 
                 ball.trail.push({ x: ball.x, y: ball.y });
+                
                 const speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
-                const dynamicTailLength = Math.floor(100 + (speed * 15)); // Base length + scaled by speed
+                const dynamicTailLength = Math.floor((speed * 10));
+                
                 while (ball.trail.length > dynamicTailLength) {
                     ball.trail.shift();
                 }
@@ -408,71 +453,89 @@
         // --- CONTROLS ---
         canvas.addEventListener('mousedown', (e) => {
             if (e.target !== canvas) return;
-            if (placementMode === 'PLANET') {
-                dragging = true;
-                drawOverlay = true;
-                startX = e.clientX; startY = e.clientY;
-                endX = e.clientX; endY = e.clientY;
-            } else if (placementMode === 'BLACKHOLE') {
-                blackHoles.push({
-                    x: e.clientX,
-                    y: e.clientY,
-                    radius: 35 
-                });
-                drawScene();
-            }
+            dragging = true;
+            startX = e.clientX; startY = e.clientY;
+            endX = e.clientX; endY = e.clientY;
+            
+            activeGrowing = {
+                type: placementMode,
+                x: startX,
+                y: startY,
+                radius: placementMode === 'PLANET' ? 4 : 15 
+            };
         });
 
         canvas.addEventListener('mousemove', (e) => {
-            if (!dragging || placementMode !== 'PLANET') return;
+            if (!dragging) return;
             endX = e.clientX;
             endY = e.clientY;
         });
 
         canvas.addEventListener('mouseup', (e) => {
-            if (!dragging || placementMode !== 'PLANET') return;
-            const vx = -(e.clientX - startX) / 10;
-            const vy = -(e.clientY - startY) / 10;
-            const color = planetColors[Math.floor(Math.random() * planetColors.length)];
+            if (!dragging) return;
+            const vx = -(endX - startX) / 25;
+            const vy = -(endY - startY) / 25;
             
-            balls.push({ 
-                x: startX, y: startY, 
-                radius: 6, vx, vy, 
-                color: color, 
-                trail: [], 
-                dead: false 
-            });
+            if (placementMode === 'PLANET') {
+                const color = planetColors[Math.floor(Math.random() * planetColors.length)];
+                balls.push({ 
+                    x: startX, y: startY, 
+                    radius: activeGrowing.radius, 
+                    vx, vy, 
+                    color: color, 
+                    trail: [], 
+                    dead: false 
+                });
+            } else if (placementMode === 'BLACKHOLE') {
+                blackHoles.push({ 
+                    x: startX, y: startY, 
+                    radius: activeGrowing.radius, 
+                    vx: vx / 2, 
+                    vy: vy / 2,
+                    dead: false 
+                });
+            }
             
             dragging = false;
-            drawOverlay = false;
+            activeGrowing = null;
         });
 
+        // Touch Support
         canvas.addEventListener('touchstart', (e) => {
             if (e.target !== canvas) return;
             e.preventDefault();
-            if (placementMode === 'PLANET') {
-                dragging = true; drawOverlay = true;
-                startX = e.touches[0].clientX; startY = e.touches[0].clientY;
-                endX = startX; endY = startY;
-            }
+            dragging = true; 
+            startX = e.touches[0].clientX; startY = e.touches[0].clientY;
+            endX = startX; endY = startY;
+
+            activeGrowing = {
+                type: placementMode,
+                x: startX,
+                y: startY,
+                radius: placementMode === 'PLANET' ? 4 : 15
+            };
         }, { passive: false });
 
         canvas.addEventListener('touchmove', (e) => {
-            if (!dragging || placementMode !== 'PLANET') return;
+            if (!dragging) return;
             e.preventDefault();
             endX = e.touches[0].clientX; endY = e.touches[0].clientY;
         }, { passive: false });
 
         canvas.addEventListener('touchend', (e) => {
-            if (placementMode === 'BLACKHOLE' && !dragging && e.changedTouches.length > 0) {
-                blackHoles.push({ x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY, radius: 35 });
-            } else if (dragging && placementMode === 'PLANET') {
-                const vx = -(endX - startX) / 10;
-                const vy = -(endY - startY) / 10;
+            if (!dragging) return;
+            const vx = -(endX - startX) / 10;
+            const vy = -(endY - startY) / 10;
+            
+            if (placementMode === 'PLANET') {
                 const color = planetColors[Math.floor(Math.random() * planetColors.length)];
-                balls.push({ x: startX, y: startY, radius: 6, vx, vy, color, trail: [], dead: false });
-                dragging = false; drawOverlay = false;
+                balls.push({ x: startX, y: startY, radius: activeGrowing.radius, vx, vy, color, trail: [], dead: false });
+            } else if (placementMode === 'BLACKHOLE') {
+                blackHoles.push({ x: startX, y: startY, radius: activeGrowing.radius, vx: vx / 2, vy: vy / 2, dead: false });
             }
+            
+            dragging = false;
+            activeGrowing = null;
         });
 
         init();
