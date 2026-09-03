@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My 3D Model</title>
+  <title>Mr. Sad Sick (3D)</title>
   
   <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
 
@@ -90,7 +90,7 @@
       position: absolute;
       top: 50%;
       left: 50%;
-      transform: translate(-50%, 40%); 
+      transform: translate(-50%, 50%); 
       
       width: 100%;
       text-align: center;
@@ -130,8 +130,8 @@
     .signature {
       position: fixed;
       
-      top: 60%; 
-      left: 10%;
+      top: 62%; 
+      left: 9%;
       
       transform: translate(0%, 0%) rotate(-15deg); 
       
@@ -141,9 +141,39 @@
       pointer-events: none;
     }
 
+    .background-sad {
+      position: fixed;
+      top: 75%;
+      left: 0%;
+
+      font-family: 'Arial Black', Impact, sans-serif;
+      font-size: 45vw; 
+      font-weight: 900;
+      line-height: 1;
+      
+      color: transparent;
+      -webkit-text-stroke: 4px rgba(74, 69, 57, 0.15); 
+      
+      white-space: nowrap;
+      pointer-events: none; 
+      z-index: 0;
+      
+      animation: scroll-left 2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes scroll-left {
+      0% {
+        transform: translate(100vw, -50%); 
+      }
+      100% {
+        transform: translate(0%, -50%); 
+      }
+    }
+
   </style>
 </head>
 <body>
+  <div class="background-sad">SAD</div>
 
   <div class="frame">
     <div class="corner tl"></div>
