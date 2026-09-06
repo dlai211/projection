@@ -10,6 +10,7 @@ body {
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
+    background-attachment: fixed;
     font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
     min-height: 100vh;
     display: flex;
@@ -28,6 +29,18 @@ body {
     gap: 1.2rem;
     align-items: start;
     min-width: 0;
+
+    position: sticky;
+    top: 2rem;
+    height: calc(100vh - 4rem); 
+    overflow-y: auto; 
+    padding-right: 0.5rem;
+}
+
+/* Hide scrollbar */
+.left-panel::-webkit-scrollbar {
+    width: 0px;
+    background: transparent;
 }
 
 .title-box {
@@ -628,28 +641,6 @@ body {
     align-items: center;
 }
 .legend-line {
-    display: inline-block;
-    vertical-align: middle;
-    margin-right: 0.4rem;
-}
-.legend-fermion {
-    width: 25px;
-    height: 2px;
-    background: #1b221c;
-}
-.legend-scalar {
-    border-top: 2px dashed #9b5e3b;
-    width: 30px;
-}
-.legend-boson {
-    width: 30px;
-    height: 10px;
-    background: repeating-linear-gradient(90deg, #b45309 0px, #b45309 3px, transparent 3px, transparent 6px);
-}
-.legend-gluon {
-    width: 30px;
-    height: 8px;
-    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12'%3E%3Cpath d='M 0 6 C 3 -4, 9 -4, 12 6 C 9 16, 3 16, 0 6' fill='none' stroke='%2327ae60' stroke-width='1.5'/%3E%3C/svg%3E") repeat-x;
     display: inline-block;
     vertical-align: middle;
     margin-right: 0.4rem;

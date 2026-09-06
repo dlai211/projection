@@ -1,17 +1,6 @@
-import { FeynmanEngine } from './classifier2.js';
+import { FeynmanEngine } from './classifier.js';
 
 const engine = new FeynmanEngine();
-
-const DECAY_MODES = {
-    'μ⁻': { products: ['e⁻', 'ν̄e', 'νμ'] },
-    'μ⁺': { products: ['e⁺', 'νe', 'ν̄μ'] },
-    'τ⁻': { products: ['μ⁻', 'ν̄μ', 'ντ'] },
-    'τ⁺': { products: ['μ⁺', 'νμ', 'ν̄τ'] },
-    'W⁻': { products: ['e⁻', 'ν̄e'] },
-    'W⁺': { products: ['e⁺', 'νe'] },
-    'Z⁰': { products: ['e⁻', 'e⁺'] },
-    'h':  { products: ['b', 'b̄'] }
-};
 
 const initialParticles = [];
 const finalParticles = [];
@@ -311,29 +300,29 @@ function drawContactChannel(context, initial, final, channel) {
 
 function draw2BodyDecay(context, initial, final, channel) {
     const w = 700, h = 400;
-    const v1X = w * 0.4, v1Y = h * 0.5;
+    const v1X = w * 0.5, v1Y = h * 0.5;
     
     drawBlob(context, v1X, v1Y, 6, '');
     
-    drawParticleLine(context, w * 0.1, v1Y, v1X, v1Y, initial[0], 'incoming', [-20, -5]);
-    drawParticleLine(context, v1X, v1Y, w * 0.9, h * 0.2, final[0], 'outgoing', [25, 5]);
-    drawParticleLine(context, v1X, v1Y, w * 0.9, h * 0.8, final[1], 'outgoing', [25, 7]);
+    drawParticleLine(context, w * 0.2, v1Y, v1X, v1Y, initial[0], 'incoming', [-40, 0]);
+    drawParticleLine(context, v1X, v1Y, w * 0.8, h * 0.25, final[0], 'outgoing', [25, 5]);
+    drawParticleLine(context, v1X, v1Y, w * 0.8, h * 0.75, final[1], 'outgoing', [25, 7]);
 }
 
 function draw3BodyDecay(context, initial, final, channel) {
     const w = 700, h = 400;
-    const v1X = w * 0.35, v1Y = h * 0.5;
-    const v2X = w * 0.65, v2Y = h * 0.75; 
+    const v1X = w * 0.45, v1Y = h * 0.5;
+    const v2X = w * 0.65, v2Y = h * 0.68; 
     
     drawBlob(context, v1X, v1Y, 5, '');
     drawBlob(context, v2X, v2Y, 5, '');
     
-    drawParticleLine(context, w * 0.1, v1Y, v1X, v1Y, initial[0], 'incoming', [-20, -5]);
-    drawParticleLine(context, v1X, v1Y, w * 0.9, h * 0.25, channel.p1, 'outgoing', [20, 0]);
-    drawParticleLine(context, v1X, v1Y, v2X, v2Y, channel.mediator, 'mediator', [15, 20]);
+    drawParticleLine(context, w * 0.15, v1Y, v1X, v1Y, initial[0], 'incoming', [-40, 0]);
+    drawParticleLine(context, v1X, v1Y, w * 0.85, h * 0.25, channel.p1, 'outgoing', [20, -10]);
+    drawParticleLine(context, v1X, v1Y, v2X, v2Y, channel.mediator, 'mediator', [15, -10]);
     
-    drawParticleLine(context, v2X, v2Y, w * 0.9, h * 0.65, channel.p2, 'outgoing', [20, 0]);
-    drawParticleLine(context, v2X, v2Y, w * 0.9, h * 0.85, channel.p3, 'outgoing', [20, 0]);
+    drawParticleLine(context, v2X, v2Y, w * 0.85, h * 0.55, channel.p2, 'outgoing', [20, 0]);
+    drawParticleLine(context, v2X, v2Y, w * 0.85, h * 0.85, channel.p3, 'outgoing', [20, 13]);
 }
 
 function renderSingleChannelDiagram(canvasElement, channel, initial, final) {
@@ -356,7 +345,7 @@ function createChannelCard(channel, inP, outP) {
     const title = document.createElement('div');
     title.className = 'channel-title';
     
-    // Show the output particles in the title if generated dynamically
+    // Show the output particles in the title
     const reactionText = finalParticles.length === 0 ? `${inP.join(' ')} → ${outP.join(' ')}  |  ` : '';
     title.textContent = reactionText + (channel.mediator === 'none' ? channel.type : `${channel.type} • ${channel.mediator}`);
     card.appendChild(title);
@@ -421,7 +410,7 @@ function generateDiagram() {
         if (classification.type === 'invalid') return showError(classification.reason);
         classification.channels.forEach(channel => createChannelCard(channel, inP, outP));
     } else {
-        // Discovery mode: find all valid physical processes from this initial state
+        // Find all valid physical processes from this initial state
         const validProcesses = findValidFinalStates(inP);
         if (validProcesses.length === 0) {
             return showError('No valid tree-level processes found for this initial state.');
@@ -441,7 +430,8 @@ document.querySelectorAll('.preset-btn').forEach(btn => {
         else if (p === 'annihilation') initialParticles.push('e⁻', 'e⁺'), finalParticles.push('μ⁻', 'μ⁺');
         else if (p === 'compton') initialParticles.push('e⁻', 'γ'), finalParticles.push('e⁻', 'γ');
         else if (p === 'bhabha') initialParticles.push('e⁻', 'e⁺'), finalParticles.push('e⁻', 'e⁺');
-        else if (p === 'muon-decay') initialParticles.push('μ⁻');
+        else if (p === 'pair-production') initialParticles.push('e⁻', 'e⁺'), finalParticles.push('γ', 'γ');
+        else if (p === 'muon-decay') initialParticles.push('μ⁻'), finalParticles.push('e⁻', 'ν̄e', 'νμ');
         else if (p === 'gluon4') initialParticles.push('g', 'g'), finalParticles.push('g', 'g');
         
         renderDropZone(initialDropZone, initialParticles, 'initial');

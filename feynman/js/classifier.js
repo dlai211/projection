@@ -8,15 +8,31 @@ export class FeynmanEngine {
     }
 
     getParticleInfo(symbol) {
-        if (!this.particles[symbol]) {
-            return { type: 'unknown', symbol, Q: 0, Le: 0, Lmu: 0, Ltau: 0, B: 0 };
-        }
+        if (!this.particles[symbol]) return { type: 'unknown', symbol, Q: 0, Le: 0, Lmu: 0, Ltau: 0, B: 0 };
         return { ...this.particles[symbol], symbol };
     }
 
     getAnti(symbol) {
         const info = this.getParticleInfo(symbol);
         return info.anti || symbol;
+    }
+
+    // Creates a canonical "all incoming" state for symmetry matching
+    getCanonical(inParts, outParts) {
+        const canonical = [...inParts, ...outParts.map(p => this.getAnti(p))];
+        return canonical.sort();
+    }
+
+    checkVertex(inParts, outParts) {
+        const target = this.getCanonical(inParts, outParts);
+        const targetAnti = target.map(p => this.getAnti(p)).sort();
+
+        return this.vertices.some(v => {
+            const base = this.getCanonical(v.in || [], v.out || []);
+            const matchesBase = target.length === base.length && target.every((p, i) => p === base[i]);
+            const matchesAnti = targetAnti.length === base.length && targetAnti.every((p, i) => p === base[i]);
+            return matchesBase || matchesAnti;
+        });
     }
 
     checkConservation(initial, final) {
@@ -43,24 +59,11 @@ export class FeynmanEngine {
         return { valid: true };
     }
 
-    vertexExists(p1, p2, p3) {
-        const target = [p1, p2, p3].sort();
-        return this.vertices.some(v => {
-            if (v.particles.length !== 3) return false;
-            const vParticles = [...v.particles].sort();
-            return target.every((p, i) => p === vParticles[i]);
-        });
-    }
-
     classifyProcess(initial, final) {
-        if (initial.length === 0 || final.length === 0) {
-            return { type: 'invalid', reason: 'Missing particles' };
-        }
+        if (initial.length === 0 || final.length === 0) return { type: 'invalid', reason: 'Missing particles' };
 
         const consCheck = this.checkConservation(initial, final);
-        if (!consCheck.valid) {
-            return { type: 'invalid', reason: consCheck.reason };
-        }
+        if (!consCheck.valid) return { type: 'invalid', reason: consCheck.reason };
 
         let channels = [];
         const possibleMediators = Object.keys(this.particles);
@@ -71,33 +74,28 @@ export class FeynmanEngine {
             const [C, D] = final;
 
             // Check for 4-Point Contact Interaction (e.g. g g -> g g)
-            const target = [...initial, ...final.map(p => this.getAnti(p))].sort();
-            const isContact = this.vertices.some(v => {
-                if (v.particles.length !== 4) return false;
-                const vParts = [...v.particles].sort();
-                return target.every((p, i) => p === vParts[i]);
-            });
-            
-            if (isContact) channels.push({ type: 'contact', mediator: 'none' });
+            if (this.checkVertex([A, B], [C, D])) {
+                channels.push({ type: 'contact', mediator: 'none' });
+            }
 
             possibleMediators.forEach(X => {
-                const X_anti = this.getAnti(X);
-                if (this.vertexExists(A, B, X_anti) && this.vertexExists(X, this.getAnti(C), this.getAnti(D))) {
+                // s-channel: A + B -> X -> C + D
+                if (this.checkVertex([A, B], [X]) && this.checkVertex([X], [C, D])) {
                     channels.push({ type: 's-channel', mediator: X });
                 }
-                if (this.vertexExists(A, this.getAnti(C), X_anti) && this.vertexExists(B, X, this.getAnti(D))) {
+                // t-channel: A -> C + X, B + X -> D
+                if (this.checkVertex([A], [C, X]) && this.checkVertex([B, X], [D])) {
                     channels.push({ type: 't-channel', mediator: X });
                 }
-                if (this.vertexExists(A, this.getAnti(D), X_anti) && this.vertexExists(B, X, this.getAnti(C))) {
+                // u-channel: A -> D + X, B + X -> C
+                if (this.checkVertex([A], [D, X]) && this.checkVertex([B, X], [C])) {
                     channels.push({ type: 'u-channel', mediator: X });
                 }
             });
         } 
         // 1 -> 2 Decay (e.g. W -> e v)
         else if (initial.length === 1 && final.length === 2) {
-            const [A] = initial;
-            const [C, D] = final;
-            if (this.vertexExists(A, this.getAnti(C), this.getAnti(D))) {
+            if (this.checkVertex(initial, final)) {
                 channels.push({ type: '2-body_decay', mediator: 'none' });
             }
         }
@@ -107,31 +105,22 @@ export class FeynmanEngine {
             const [C, D, E] = final;
             
             possibleMediators.forEach(X => {
-                const X_anti = this.getAnti(X);
                 const checkDecay = (p1, p2, p3) => {
-                    if (this.vertexExists(A, this.getAnti(p1), X_anti) && this.vertexExists(X, this.getAnti(p2), this.getAnti(p3))) {
+                    if (this.checkVertex([A], [p1, X]) && this.checkVertex([X], [p2, p3])) {
                         channels.push({ type: '3-body_decay', mediator: X, p1, p2, p3 });
                     }
                 };
-                
                 checkDecay(C, D, E);
                 checkDecay(D, C, E);
                 checkDecay(E, C, D);
             });
         }
 
-        // Deduplicate channels (safeguard for symmetries)
         channels = channels.filter((c, index, self) => 
-            index === self.findIndex((t) => 
-                t.type === c.type && 
-                t.mediator === c.mediator &&
-                t.p1 === c.p1
-            )
+            index === self.findIndex((t) => t.type === c.type && t.mediator === c.mediator && t.p1 === c.p1)
         );
 
-        if (channels.length === 0) {
-            return { type: 'invalid', reason: 'No valid tree-level Feynman diagrams found.' };
-        }
+        if (channels.length === 0) return { type: 'invalid', reason: 'No valid tree-level Feynman diagrams found.' };
 
         return { type: 'valid', channels };
     }

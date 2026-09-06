@@ -70,7 +70,7 @@ export const SM_VERTICES = [
     { in: ['b'], out: ['b', 'Z⁰'] },
 
     // --- Weak Charged Current (W±) ---
-    // By defining the base decay, crossing symmetry handles all 2->1 and 1->2 variants.
+    // crossing symmetry handles all 2->1 and 1->2 variants.
     { in: ['e⁻'], out: ['νe', 'W⁻'] },
     { in: ['μ⁻'], out: ['νμ', 'W⁻'] },
     { in: ['τ⁻'], out: ['ντ', 'W⁻'] },
