@@ -425,7 +425,7 @@ document.querySelectorAll('.preset-btn').forEach(btn => {
         finalParticles.length = 0;
         const p = btn.dataset.preset;
         
-        // Note: Muon-decay no longer manually forces the final state, allowing the engine to discover it
+        // Note: Muon-decay no longer manually forces the final state, allowing the engine to discover it (changed)
         if (p === 'moller') initialParticles.push('e⁻', 'e⁻'), finalParticles.push('e⁻', 'e⁻');
         else if (p === 'annihilation') initialParticles.push('e⁻', 'e⁺'), finalParticles.push('μ⁻', 'μ⁺');
         else if (p === 'compton') initialParticles.push('e⁻', 'γ'), finalParticles.push('e⁻', 'γ');
