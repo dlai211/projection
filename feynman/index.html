@@ -170,15 +170,15 @@
     </div>  
     <div class="feynman-box">
       <div class="input-panel">
-        <div class="state-group">
-          <label>Initial state</label>
+        <div class="state-group" id="initialStateGroup">
+          <label>Initial state <span class="clear-zone" data-zone="initial"><i class="fas fa-times-circle"></i> clear</span></label>
           <div class="drop-zone" id="initialDropZone"></div>
         </div>
         <div class="state-arrow" aria-hidden="true">
           <i class="fas fa-arrow-right"></i>
         </div>
-        <div class="state-group">
-          <label>Final state</label>
+        <div class="state-group" id="finalStateGroup">
+          <label>Final state <span class="clear-zone" data-zone="final"><i class="fas fa-times-circle"></i> clear</span></label>
           <div class="drop-zone" id="finalDropZone"></div>
         </div>
         <button class="generate-btn" id="generateBtn"> Generate</button>
@@ -196,8 +196,11 @@
       </div>
   </div>
 
-  <script src="js/classifier.js"></script>
-  <script src="js/channel.js"></script>
-  <script src="js/directory.js"></script>
+  <script type="module" src="js/particles.js"></script>
+  <script type="module" src="js/vertices.js"></script>
+  <script type="module" src="js/classifier.js"></script>
+  <script type="module" src="js/channel.js"></script>
+  <script type="module" src="js/directory.js"></script>
+
 </body>
 </html>

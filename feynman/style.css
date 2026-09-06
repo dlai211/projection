@@ -364,19 +364,53 @@ body {
   font-size: 1.15rem;
   min-width: 1.5rem;
 }
+.state-group label {
+    font-weight: 550;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #2e3a30;
+    margin-left: 0.3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
 .state-group {
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
     min-width: 170px;
     flex: 2;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 1rem;
+    transition: all 0.2s;
 }
-.state-group label {
-    font-weight: 600;
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    color: #2e3a30;
+
+.state-group.active-group label {
+    color: #2b6b5c;
+}
+
+.state-group.active-group .drop-zone {
+    border-color: #2b6b5c;
+    background: #f7fbf9;
+    box-shadow: 0 4px 12px rgba(43, 107, 92, 0.08);
+}
+
+.clear-zone {
+    font-size: 0.75rem;
+    color: #8b3a3a;
+    text-transform: none;
+    letter-spacing: normal;
+    background: #f5e6e6;
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+    transition: all 0.2s;
+}
+
+.clear-zone:hover {
+    background: #e6c8c8;
 }
 .drop-zone {
     background: white;
