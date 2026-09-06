@@ -8,12 +8,11 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- LEFT SIDE: Standard Model categories as individual boxes -->
   <div class="left-panel">
     <div class="title-box">
       <h1>
-        <i class="fas fa-atom"></i> Standard Model
-        <small>particles & antiparticles</small>
+        <i class="fas fa-atom"></i> Feynman Diagram Generator
+        <small>tree-level</small>
       </h1>
     </div>
 
@@ -152,13 +151,13 @@
 
   <!-- RIGHT SIDE: Feynman diagram generator as separate boxes -->
   <div class="right-panel">
-    <div class="title-box">
+    <!-- <div class="title-box">
       <h1>
         Feynman Diagram Generator
         <small>tree - level</small>
       </h1>
-    </div>
-    <div class="feynman-box">
+    </div> -->
+    <div class="feynman-prebox">
       <span class="particle-name">Preset Processes :</span>
       <div class="preset-buttons">
         <button class="preset-btn" data-preset="moller">e⁻ e⁻ → e⁻ e⁻</button>
@@ -166,6 +165,7 @@
         <button class="preset-btn" data-preset="compton">e⁻ γ → e⁻ γ</button>
         <button class="preset-btn" data-preset="bhabha">e⁻ e⁺ → e⁻ e⁺</button>
         <button class="preset-btn" data-preset="muon-decay">μ⁻ decay</button>
+        <button class="preset-btn" data-preset="gluon4">g g → g g</button>
       </div>
     </div>  
     <div class="feynman-box">
@@ -190,7 +190,8 @@
         <div class="legend">
           <span><span class="legend-line legend-fermion"></span> Fermion</span>
           <span><span class="legend-line legend-scalar"></span> Scalar</span>
-          <span><span class="legend-line legend-boson"></span> Boson</span>
+          <span><span class="legend-line legend-boson"></span> Vector Boson</span>
+          <span><span class="legend-line legend-gluon"></span> Gluon</span>
         </div>
         <div id="channelGrid" class="channel-grid"></div>
       </div>
@@ -198,7 +199,7 @@
 
   <script type="module" src="js/particles.js"></script>
   <script type="module" src="js/vertices.js"></script>
-  <script type="module" src="js/classifier.js"></script>
+  <script type="module" src="js/classifier2.js"></script>
   <script type="module" src="js/channel.js"></script>
   <script type="module" src="js/directory.js"></script>
 

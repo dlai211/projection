@@ -34,7 +34,7 @@ export const PARTICLES = {
 
     // Gauge & Scalar Bosons
     'γ':   { name: 'Photon', type: 'boson', spin: 1, Q:  0, Le: 0, Lmu: 0, Ltau: 0, B: 0, color: 'singlet', anti: 'γ' },
-    'g':   { name: 'Gluon',  type: 'boson', spin: 1, Q:  0, Le: 0, Lmu: 0, Ltau: 0, B: 0, color: 'octet',   anti: 'g' },
+    'g':   { name: 'Gluon',  type: 'gluon', spin: 1, Q:  0, Le: 0, Lmu: 0, Ltau: 0, B: 0, color: 'octet',   anti: 'g' },
     'W⁺':  { name: 'W+ Boson', type: 'boson', spin: 1, Q:  1, Le: 0, Lmu: 0, Ltau: 0, B: 0, color: 'singlet', anti: 'W⁻' },
     'W⁻':  { name: 'W- Boson', type: 'boson', spin: 1, Q: -1, Le: 0, Lmu: 0, Ltau: 0, B: 0, color: 'singlet', anti: 'W⁺' },
     'Z⁰':  { name: 'Z Boson',  type: 'boson', spin: 1, Q:  0, Le: 0, Lmu: 0, Ltau: 0, B: 0, color: 'singlet', anti: 'Z⁰' },

@@ -32,7 +32,6 @@ export class FeynmanEngine {
             dQ -= info.Q; dLe -= info.Le; dLmu -= info.Lmu; dLtau -= info.Ltau; dB -= info.B;
         });
 
-        // Account for floating point inaccuracies
         const isZero = (val) => Math.abs(val) < 1e-5;
         
         if (!isZero(dQ)) return { valid: false, reason: `Charge not conserved (ΔQ = ${dQ.toFixed(2)})` };
@@ -47,6 +46,7 @@ export class FeynmanEngine {
     vertexExists(p1, p2, p3) {
         const target = [p1, p2, p3].sort();
         return this.vertices.some(v => {
+            if (v.particles.length !== 3) return false;
             const vParticles = [...v.particles].sort();
             return target.every((p, i) => p === vParticles[i]);
         });
@@ -70,25 +70,37 @@ export class FeynmanEngine {
             const [A, B] = initial;
             const [C, D] = final;
 
+            // Check for 4-Point Contact Interaction (e.g. g g -> g g)
+            const target = [...initial, ...final.map(p => this.getAnti(p))].sort();
+            const isContact = this.vertices.some(v => {
+                if (v.particles.length !== 4) return false;
+                const vParts = [...v.particles].sort();
+                return target.every((p, i) => p === vParts[i]);
+            });
+            
+            if (isContact) channels.push({ type: 'contact', mediator: 'none' });
+
             possibleMediators.forEach(X => {
                 const X_anti = this.getAnti(X);
-
-                // s-channel: A + B -> X, X -> C + D
                 if (this.vertexExists(A, B, X_anti) && this.vertexExists(X, this.getAnti(C), this.getAnti(D))) {
                     channels.push({ type: 's-channel', mediator: X });
                 }
-
-                // t-channel: A -> C + X, B + X -> D
                 if (this.vertexExists(A, this.getAnti(C), X_anti) && this.vertexExists(B, X, this.getAnti(D))) {
                     channels.push({ type: 't-channel', mediator: X });
                 }
-
-                // u-channel: A -> D + X, B + X -> C
                 if (this.vertexExists(A, this.getAnti(D), X_anti) && this.vertexExists(B, X, this.getAnti(C))) {
                     channels.push({ type: 'u-channel', mediator: X });
                 }
             });
         } 
+        // 1 -> 2 Decay (e.g. W -> e v)
+        else if (initial.length === 1 && final.length === 2) {
+            const [A] = initial;
+            const [C, D] = final;
+            if (this.vertexExists(A, this.getAnti(C), this.getAnti(D))) {
+                channels.push({ type: '2-body_decay', mediator: 'none' });
+            }
+        }
         // 1 -> 3 Decay (e.g. muon decay)
         else if (initial.length === 1 && final.length === 3) {
             const [A] = initial;
@@ -96,23 +108,25 @@ export class FeynmanEngine {
             
             possibleMediators.forEach(X => {
                 const X_anti = this.getAnti(X);
+                const checkDecay = (p1, p2, p3) => {
+                    if (this.vertexExists(A, this.getAnti(p1), X_anti) && this.vertexExists(X, this.getAnti(p2), this.getAnti(p3))) {
+                        channels.push({ type: '3-body_decay', mediator: X, p1, p2, p3 });
+                    }
+                };
                 
-                // Try combinations where A -> C + X, and X -> D + E
-                if (this.vertexExists(A, this.getAnti(C), X_anti) && this.vertexExists(X, this.getAnti(D), this.getAnti(E))) {
-                    channels.push({ type: '3-body_decay', mediator: X, layout: 'decay' });
-                }
-                if (this.vertexExists(A, this.getAnti(D), X_anti) && this.vertexExists(X, this.getAnti(C), this.getAnti(E))) {
-                    channels.push({ type: '3-body_decay', mediator: X, layout: 'decay' });
-                }
-                if (this.vertexExists(A, this.getAnti(E), X_anti) && this.vertexExists(X, this.getAnti(C), this.getAnti(D))) {
-                    channels.push({ type: '3-body_decay', mediator: X, layout: 'decay' });
-                }
+                checkDecay(C, D, E);
+                checkDecay(D, C, E);
+                checkDecay(E, C, D);
             });
         }
 
-        // Deduplicate channels
+        // Deduplicate channels (safeguard for symmetries)
         channels = channels.filter((c, index, self) => 
-            index === self.findIndex((t) => t.type === c.type && t.mediator === c.mediator)
+            index === self.findIndex((t) => 
+                t.type === c.type && 
+                t.mediator === c.mediator &&
+                t.p1 === c.p1
+            )
         );
 
         if (channels.length === 0) {

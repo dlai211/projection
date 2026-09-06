@@ -1,4 +1,4 @@
-import { FeynmanEngine } from './classifier2.js';
+import { FeynmanEngine } from './classifier.js';
 
 const engine = new FeynmanEngine();
 
@@ -168,7 +168,7 @@ function drawBoson(context, x1, y1, x2, y2, symbol, type, labelOffset=[0, 0]) {
     }
 }
 
-function drawGluon(context, x1, y1, x2, y2, symbol, type, labelOffset=[0, 0]) {
+function drawGluon(context, x1, y1, x2, y2, symbol) {
     let dx = x2 - x1, dy = y2 - y1, len = Math.sqrt(dx * dx + dy * dy), angle = Math.atan2(dy, dx);
     context.save();
     context.translate(x1, y1);
@@ -192,23 +192,17 @@ function drawGluon(context, x1, y1, x2, y2, symbol, type, labelOffset=[0, 0]) {
     context.stroke();
     context.restore(); 
     
-    context.font = "bold 27px 'Segoe UI'";
-    context.fillStyle = '#27ae60';
-        // context.fillText(symbol, (x1 + x2) / 2, (y1 + y2) / 2 - 22);
-
-
-    if (type === 'incoming') context.fillText(symbol, x1 + labelOffset[0], y1 + labelOffset[1]);
-    else if (type === 'outgoing') context.fillText(symbol, x2 + labelOffset[0], y2 + labelOffset[1]);
-    else if (type === 'mediator') {
+    if (symbol) {
         context.font = "bold 27px 'Segoe UI'";
-        context.fillText(symbol, (x1 + x2) / 2 + labelOffset[0], (y1 + y2) / 2 + labelOffset[1]);
+        context.fillStyle = '#27ae60';
+        context.fillText(symbol, (x1 + x2) / 2, (y1 + y2) / 2 - 22);
     }
 }
 
 function drawBlob(context, x, y, radius, label) {
     context.beginPath();
     context.arc(x, y, radius, 0, Math.PI * 2);
-    context.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    context.fillStyle = '#1b221c';
     context.fill();
 }
 
@@ -218,8 +212,6 @@ function drawParticleLine(context, x1, y1, x2, y2, symbol, type, labelOffset=[0,
         drawBoson(context, x1, y1, x2, y2, symbol, type, labelOffset);
     } else if (info.type === 'scalar') {
         drawScalar(context, x1, y1, x2, y2, symbol, type, labelOffset);
-    } else if (info.type === 'gluon') {
-        drawGluon(context, x1, y1, x2, y2, symbol, type, labelOffset);
     } else {
         drawFermion(context, x1, y1, x2, y2, symbol, type, labelOffset);
     }
@@ -250,50 +242,46 @@ function drawSChannel(context, initial, final, channel) {
     
     drawBlob(context, vertex1X, centerH, 5, '');
     drawBlob(context, vertex2X, centerH, 5, '');
-    
     const mediator = channel.mediator;
 
-    drawParticleLine(context, w * 0.15, topY, vertex1X, centerH, initial[0], 'incoming', [-35, 0]);
-    drawParticleLine(context, w * 0.15, bottomY, vertex1X, centerH, initial[1], 'incoming', [-35, 13]);
+    drawParticleLine(context, w * 0.1, topY, vertex1X, centerH, initial[0], 'incoming', [-20, -6]);
+    drawParticleLine(context, w * 0.1, bottomY, vertex1X, centerH, initial[1], 'incoming', [-20, 15]);
     drawParticleLine(context, vertex1X, centerH, vertex2X, centerH, mediator, 'mediator', [0, -20]);
-    drawParticleLine(context, vertex2X, centerH, w * 0.85, topY, final[0], 'outgoing', [10, -6]);
-    drawParticleLine(context, vertex2X, centerH, w * 0.85, bottomY, final[1], 'outgoing', [10, 13]);
+    drawParticleLine(context, vertex2X, centerH, w * 0.9, topY, final[0], 'outgoing', [20, -6]);
+    drawParticleLine(context, vertex2X, centerH, w * 0.9, bottomY, final[1], 'outgoing', [20, 15]);
 }
 
 function drawTChannel(context, initial, final, channel) {
     const w = 700, h = 400;
-    const vertex1X = w * 0.43, vertex2X = w * 0.57;
-    const topY = h * 0.25, bottomY = h * 0.75;
+    const vertex1X = w * 0.4, vertex2X = w * 0.6;
+    const topY = h * 0.3, bottomY = h * 0.7;
     
     drawBlob(context, vertex1X, topY, 6, '');
     drawBlob(context, vertex2X, bottomY, 6, '');
-    
     const mediator = channel.mediator;
 
-    drawParticleLine(context, w * 0.15, topY, vertex1X, topY, initial[0], 'incoming', [-40, 5]);
-    drawParticleLine(context, w * 0.15, bottomY, vertex2X, bottomY, initial[1], 'incoming', [-40, 7]);
-    drawParticleLine(context, vertex1X, topY, vertex2X, bottomY, mediator, 'mediator', [20, 0]);
-    drawParticleLine(context, vertex1X, topY, w * 0.85, topY, final[0], 'outgoing', [20, 5]);
-    drawParticleLine(context, vertex2X, bottomY, w * 0.85, bottomY, final[1], 'outgoing', [20, 7]);
+    drawParticleLine(context, w * 0.1, topY, vertex1X, topY, initial[0], 'incoming', [-20, 5]);
+    drawParticleLine(context, w * 0.1, bottomY, vertex2X, bottomY, initial[1], 'incoming', [-20, 7]);
+    drawParticleLine(context, vertex1X, topY, vertex2X, bottomY, mediator, 'mediator', [30, 0]);
+    drawParticleLine(context, vertex1X, topY, w * 0.9, topY, final[0], 'outgoing', [25, 5]);
+    drawParticleLine(context, vertex2X, bottomY, w * 0.9, bottomY, final[1], 'outgoing', [25, 7]);
 }
 
 function drawUChannel(context, initial, final, channel) {
     const w = 700, h = 400;
-    const vertex1X = w * 0.43, vertex2X = w * 0.57;
-    const topY = h * 0.25, bottomY = h * 0.75;
+    const vertex1X = w * 0.4, vertex2X = w * 0.6;
+    const topY = h * 0.3, bottomY = h * 0.7;
     
     drawBlob(context, vertex1X, topY, 6, '');
     drawBlob(context, vertex2X, bottomY, 6, '');
-    
     const mediator = channel.mediator;
 
-    drawParticleLine(context, w * 0.15, topY, vertex1X, topY, initial[0], 'incoming', [-40, 5]);
-    drawParticleLine(context, w * 0.15, bottomY, vertex2X, bottomY, initial[1], 'incoming', [-40, 7]);
-    drawParticleLine(context, vertex1X, topY, vertex2X, bottomY, mediator, 'mediator', [-45, 10]);
+    drawParticleLine(context, w * 0.1, topY, vertex1X, topY, initial[0], 'incoming', [-20, 5]);
+    drawParticleLine(context, w * 0.1, bottomY, vertex2X, bottomY, initial[1], 'incoming', [-20, 7]);
+    drawParticleLine(context, vertex1X, topY, vertex2X, bottomY, mediator, 'mediator', [-38, 5]);
     
-    // Final state crossing fixes U-channel graphical mapping
-    drawParticleLine(context, vertex2X, bottomY, w * 0.85, topY, final[0], 'outgoing', [20, -6]);
-    drawParticleLine(context, vertex1X, topY, w * 0.85, bottomY, final[1], 'outgoing', [20, 15]);
+    drawParticleLine(context, vertex2X, bottomY, w * 0.9, topY, final[0], 'outgoing', [20, -6]);
+    drawParticleLine(context, vertex1X, topY, w * 0.9, bottomY, final[1], 'outgoing', [20, 15]);
 }
 
 function drawContactChannel(context, initial, final, channel) {
@@ -303,10 +291,10 @@ function drawContactChannel(context, initial, final, channel) {
     
     drawBlob(context, centerX, centerY, 6, '');
     
-    drawParticleLine(context, w * 0.3, topY, centerX, centerY, initial[0], 'incoming', [-35, 0]);
-    drawParticleLine(context, w * 0.3, bottomY, centerX, centerY, initial[1], 'incoming', [-35, 13]);
-    drawParticleLine(context, centerX, centerY, w * 0.7, topY, final[0], 'outgoing', [20, -6]);
-    drawParticleLine(context, centerX, centerY, w * 0.7, bottomY, final[1], 'outgoing', [20, 13]);
+    drawParticleLine(context, w * 0.1, topY, centerX, centerY, initial[0], 'incoming', [-20, 5]);
+    drawParticleLine(context, w * 0.1, bottomY, centerX, centerY, initial[1], 'incoming', [-20, 7]);
+    drawParticleLine(context, centerX, centerY, w * 0.9, topY, final[0], 'outgoing', [25, 5]);
+    drawParticleLine(context, centerX, centerY, w * 0.9, bottomY, final[1], 'outgoing', [25, 7]);
 }
 
 function draw2BodyDecay(context, initial, final, channel) {
@@ -348,64 +336,6 @@ function renderSingleChannelDiagram(canvasElement, channel, initial, final) {
     else if (channel.type === '2-body_decay') draw2BodyDecay(ctx, initial, final, channel);
 }
 
-function createChannelCard(channel, inP, outP) {
-    const card = document.createElement('div');
-    card.className = 'channel-card';
-    card.style.cursor = 'pointer';
-
-    const title = document.createElement('div');
-    title.className = 'channel-title';
-    
-    // Show the output particles in the title if generated dynamically
-    const reactionText = finalParticles.length === 0 ? `${inP.join(' ')} → ${outP.join(' ')}  |  ` : '';
-    title.textContent = reactionText + (channel.mediator === 'none' ? channel.type : `${channel.type} • ${channel.mediator}`);
-    card.appendChild(title);
-
-    const canvas = document.createElement('canvas');
-    canvas.width = 700; canvas.height = 400;
-    canvas.className = 'channel-canvas';
-    card.appendChild(canvas);
-
-    renderSingleChannelDiagram(canvas, channel, inP, outP);
-    card.addEventListener('click', () => openFullscreenPlot(canvas, title.textContent));
-    channelGrid.appendChild(card);
-}
-
-// Mathematical combinatorics to find all possible valid final states dynamically
-function findValidFinalStates(inP) {
-    const symbols = Object.keys(engine.particles);
-    const validOutputs = [];
-
-    // Generates combinations with replacement to catch identical particles (e.g., e- e-)
-    function getCombos(arr, k) {
-        if (k === 1) return arr.map(el => [el]);
-        const results = [];
-        arr.forEach((el, i) => {
-            const subCombos = getCombos(arr.slice(i), k - 1);
-            subCombos.forEach(sub => results.push([el, ...sub]));
-        });
-        return results;
-    }
-
-    let possibleFinals = [];
-    if (inP.length === 1) {
-        possibleFinals = [...getCombos(symbols, 2), ...getCombos(symbols, 3)];
-    } else if (inP.length === 2) {
-        possibleFinals = getCombos(symbols, 2);
-    }
-
-    possibleFinals.forEach(outP => {
-        const result = engine.classifyProcess(inP, outP);
-        if (result.type === 'valid') {
-            result.channels.forEach(ch => {
-                validOutputs.push({ outP, channel: ch });
-            });
-        }
-    });
-    
-    return validOutputs;
-}
-
 function generateDiagram() {
     clearError();
     clearChannelGrid();
@@ -415,19 +345,38 @@ function generateDiagram() {
     
     if (inP.length === 0) return showError('Add initial particles');
     
-    if (outP.length > 0) {
-        // Standard single-process classification
-        const classification = engine.classifyProcess(inP, outP);
-        if (classification.type === 'invalid') return showError(classification.reason);
-        classification.channels.forEach(channel => createChannelCard(channel, inP, outP));
-    } else {
-        // Discovery mode: find all valid physical processes from this initial state
-        const validProcesses = findValidFinalStates(inP);
-        if (validProcesses.length === 0) {
-            return showError('No valid tree-level processes found for this initial state.');
-        }
-        validProcesses.forEach(({ outP, channel }) => createChannelCard(channel, inP, outP));
+    if (inP.length === 1 && outP.length === 0 && DECAY_MODES[inP[0]]) {
+        outP = DECAY_MODES[inP[0]].products;
+        finalParticles.length = 0;
+        outP.forEach(p => finalParticles.push(p));
+        renderDropZone(finalDropZone, finalParticles, 'final');
     }
+    
+    const classification = engine.classifyProcess(inP, outP);
+    
+    if (classification.type === 'invalid') {
+        return showError(classification.reason);
+    }
+
+    classification.channels.forEach(channel => {
+        const card = document.createElement('div');
+        card.className = 'channel-card';
+        card.style.cursor = 'pointer';
+
+        const title = document.createElement('div');
+        title.className = 'channel-title';
+        title.textContent = channel.mediator === 'none' ? channel.type : `${channel.type} • ${channel.mediator}`;
+        card.appendChild(title);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 700; canvas.height = 400;
+        canvas.className = 'channel-canvas';
+        card.appendChild(canvas);
+
+        renderSingleChannelDiagram(canvas, channel, inP, outP);
+        card.addEventListener('click', () => openFullscreenPlot(canvas, title.textContent));
+        channelGrid.appendChild(card);
+    });
 }
 
 document.querySelectorAll('.preset-btn').forEach(btn => {
@@ -436,13 +385,11 @@ document.querySelectorAll('.preset-btn').forEach(btn => {
         finalParticles.length = 0;
         const p = btn.dataset.preset;
         
-        // Note: Muon-decay no longer manually forces the final state, allowing the engine to discover it
         if (p === 'moller') initialParticles.push('e⁻', 'e⁻'), finalParticles.push('e⁻', 'e⁻');
         else if (p === 'annihilation') initialParticles.push('e⁻', 'e⁺'), finalParticles.push('μ⁻', 'μ⁺');
         else if (p === 'compton') initialParticles.push('e⁻', 'γ'), finalParticles.push('e⁻', 'γ');
         else if (p === 'bhabha') initialParticles.push('e⁻', 'e⁺'), finalParticles.push('e⁻', 'e⁺');
         else if (p === 'muon-decay') initialParticles.push('μ⁻');
-        else if (p === 'gluon4') initialParticles.push('g', 'g'), finalParticles.push('g', 'g');
         
         renderDropZone(initialDropZone, initialParticles, 'initial');
         renderDropZone(finalDropZone, finalParticles, 'final');
@@ -450,12 +397,10 @@ document.querySelectorAll('.preset-btn').forEach(btn => {
     });
 });
 
-
 document.getElementById('generateBtn').addEventListener('click', generateDiagram);
 renderDropZone(initialDropZone, initialParticles, 'initial');
 renderDropZone(finalDropZone, finalParticles, 'final');
 
-// --- Active State Group Selection & Click-to-Add Mechanics ---
 let activeZone = 'initial';
 const initGroup = document.getElementById('initialStateGroup');
 const finGroup = document.getElementById('finalStateGroup');
@@ -479,7 +424,6 @@ if (initGroup && finGroup) {
     setActiveZone('initial'); 
 }
 
-// Click anywhere on an entry block in the directory to insert the particle 
 document.querySelectorAll('.entry').forEach(entry => {
     entry.style.cursor = 'pointer';
     entry.addEventListener('click', () => {
@@ -488,7 +432,6 @@ document.querySelectorAll('.entry').forEach(entry => {
     });
 });
 
-// Clear zone functionality for both 'initial' and 'final' state drop zones
 document.querySelectorAll('.clear-zone').forEach(btn => {
     btn.addEventListener('click', (e) => {
         e.stopPropagation(); 
