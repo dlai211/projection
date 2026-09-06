@@ -457,6 +457,9 @@ body {
     border-color: #1b221c;
     background: #e8e3df;
 }
+.placeholder-text {
+    color: #a0aac0; font-style: italic; font-size: 0.85rem; pointer-events: none;
+}
 .particle-chip {
     display: inline-flex;
     align-items: center;
