@@ -1,83 +1,50 @@
-import Image from "next/image";
-import FibreArc from "@/components/FibreArc"; // Adjust path if you placed it in /components instead
+import FibreArc from "@/components/FibreArc";
+import Stars from "@/components/Stars";
 
 export default function Home() {
   return (
-    <div className="relative min-h-screen w-full font-sans bg-black overflow-hidden">
+    <div className="relative min-h-screen w-full font-sans overflow-hidden bg-[#02050a]">
       
-      {/* Background Interactive Canvas */}
+      {/* Layer 1: The twinkling stars background */}
       <div className="absolute inset-0 z-0">
+        <Stars />
+      </div>
+
+      {/* Layer 2: Interactive Arc (mix-blend-screen hides the black background) */}
+      <div className="absolute inset-0 z-10 mix-blend-screen">
         <FibreArc 
+          background="#000000" // Must be pure black for the blend mode to work
           accentColor="#FF3366" 
           density={30} 
         />
       </div>
 
-      {/* Foreground Content */}
-      <main className="relative z-10 flex min-h-screen w-full max-w-3xl flex-col items-center justify-center mx-auto py-32 px-16 sm:items-start text-white">
-        <Image
-          className="invert h-5 w-[100px] mb-12"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
+      {/* Layer 3: Foreground Content (Your custom text goes here) */}
+      {/* pointer-events-none lets mouse movements pass through to the arc */}
+      <main className="relative z-20 flex min-h-screen w-full max-w-3xl flex-col items-center justify-center mx-auto py-32 px-16 sm:items-start text-white pointer-events-none">
         
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-white/[.15] px-1.5 py-0.5 font-mono text-[0.9em]">
-              page.tsx
-            </code>{" "}
-            file.
+        {/* pointer-events-auto makes the text and buttons clickable again */}
+        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left pointer-events-auto">
+          <h1 className="max-w-md text-5xl font-bold leading-tight tracking-tight text-white drop-shadow-lg">
+            Welcome to Projection
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js"
-              className="font-medium text-white hover:underline"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn"
-              className="font-medium text-white hover:underline"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="max-w-md text-xl leading-8 text-zinc-300 drop-shadow">
+            This is where you replace the default Next.js instructions with your own description, portfolio details, or introductory text.
           </p>
         </div>
         
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row mt-12">
+        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row mt-12 pointer-events-auto">
           <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white px-5 text-black transition-colors hover:bg-zinc-200 md:w-[158px]"
-            href="https://vercel.com/new"
-            target="_blank"
-            rel="noopener noreferrer"
+            className="flex h-12 w-full items-center justify-center rounded-full bg-white px-8 text-black transition-colors hover:bg-zinc-200"
+            href="#"
           >
-            <Image
-              className="h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
+            Explore Work
           </a>
           <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-white/[.2] px-5 transition-colors hover:bg-white/[.1] md:w-[158px]"
-            href="https://nextjs.org/docs"
-            target="_blank"
-            rel="noopener noreferrer"
+            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-white/[.3] px-8 transition-colors hover:bg-white/[.15] hover:backdrop-blur-sm"
+            href="#"
           >
-            Documentation
+            Contact Me
           </a>
         </div>
       </main>
