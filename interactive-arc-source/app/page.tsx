@@ -18,7 +18,6 @@ export default function Home() {
           density={30} 
         />
       </div>
-
     </div>
   );
 }
