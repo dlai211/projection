@@ -1,47 +1,12 @@
-// // js/vertices.js
-// export const SM_VERTICES = [
-//     // --- QED (Fermion-Antifermion-Photon) ---
-//     // Charged leptons
-//     { particles: ['e⁻', 'e⁺', 'γ'], interaction: 'QED' },
-//     { particles: ['μ⁻', 'μ⁺', 'γ'], interaction: 'QED' },
-//     { particles: ['τ⁻', 'τ⁺', 'γ'], interaction: 'QED' },
-//     // Quarks (flavor conserving)
-//     { particles: ['u', 'ū', 'γ'], interaction: 'QED' },
-//     { particles: ['d', 'd̄', 'γ'], interaction: 'QED' },
-//     { particles: ['s', 's̄', 'γ'], interaction: 'QED' },
-//     { particles: ['c', 'c̄', 'γ'], interaction: 'QED' },
-//     { particles: ['b', 'b̄', 'γ'], interaction: 'QED' },
-//     { particles: ['t', 't̄', 'γ'], interaction: 'QED' },
-
-//     // --- Weak Neutral Current (NC: Fermion-Antifermion-Z0) ---
-//     { particles: ['e⁻', 'e⁺', 'Z⁰'], interaction: 'Weak-NC' },
-//     { particles: ['νe', 'ν̄e', 'Z⁰'], interaction: 'Weak-NC' },
-//     { particles: ['μ⁻', 'μ⁺', 'Z⁰'], interaction: 'Weak-NC' },
-//     { particles: ['νμ', 'ν̄μ', 'Z⁰'], interaction: 'Weak-NC' },
-//     { particles: ['u', 'ū', 'Z⁰'], interaction: 'Weak-NC' },
-//     { particles: ['d', 'd̄', 'Z⁰'], interaction: 'Weak-NC' },
-
-//     // --- Weak Charged Current (CC: Leptons & Quarks via W±) ---
-//     // Leptons (strictly conserve family lepton number)
-//     { particles: ['e⁻', 'ν̄e', 'W⁺'], interaction: 'Weak-CC' }, // or e- -> νe + W-
-//     { particles: ['e⁺', 'νe', 'W⁻'], interaction: 'Weak-CC' },
-//     { particles: ['μ⁻', 'ν̄μ', 'W⁺'], interaction: 'Weak-CC' },
-//     { particles: ['μ⁺', 'νμ', 'W⁻'], interaction: 'Weak-CC' },
-//     // Quarks (CKM mixing allows cross-generation transitions)
-//     { particles: ['u', 'd̄', 'W⁺'], interaction: 'Weak-CC' },
-//     { particles: ['u', 's̄', 'W⁺'], interaction: 'Weak-CC' },
-//     { particles: ['c', 's̄', 'W⁺'], interaction: 'Weak-CC' },
-//     { particles: ['c', 'd̄', 'W⁺'], interaction: 'Weak-CC' },
-
-//     // --- Strong / QCD ---
-//     // Quark-Gluon (color-changing, strictly flavor-conserving)
-//     { particles: ['u', 'ū', 'g'], interaction: 'QCD' },
-//     { particles: ['d', 'd̄', 'g'], interaction: 'QCD' },
-//     { particles: ['s', 's̄', 'g'], interaction: 'QCD' },
-//     { particles: ['g', 'g', 'g'], interaction: 'QCD-3gluon' },
-//     { particles: ['g', 'g', 'g', 'g'], interaction: 'QCD-4gluon' }
-// ];
-
+// js/vertices.js
+//
+// A vertex is written as { in: [...], out: [...] }. Crossing symmetry means the same
+// entry covers every rearrangement: the "all incoming" signature of the vertex is
+//   S = in ∪ { anti(out) }
+// and ANY partition of S into a left part L and a right part R is an equivalent
+// process  L -> anti(R).  So { in:['d'], out:['u','W⁻'] } also gives ū -> d̄ W⁻ and
+// W⁺ -> ū u, and the 4-gluon entry gives g -> g g g. The engine derives all of these
+// automatically -- do not list crossing partners by hand.
 
 export const SM_VERTICES = [
     // --- QED ---
@@ -70,7 +35,7 @@ export const SM_VERTICES = [
     { in: ['b'], out: ['b', 'Z⁰'] },
 
     // --- Weak Charged Current (W±) ---
-    // crossing symmetry handles all 2->1 and 1->2 variants.
+    // Crossing symmetry handles all 2->1 and 1->2 variants.
     { in: ['e⁻'], out: ['νe', 'W⁻'] },
     { in: ['μ⁻'], out: ['νμ', 'W⁻'] },
     { in: ['τ⁻'], out: ['ντ', 'W⁻'] },
@@ -87,8 +52,8 @@ export const SM_VERTICES = [
     { in: ['s'], out: ['s', 'g'] },
     { in: ['t'], out: ['t', 'g'] },
     { in: ['b'], out: ['b', 'g'] },
-    { in: ['g'], out: ['g', 'g'] },       // 3-gluon
-    { in: ['g', 'g'], out: ['g', 'g'] },  // 4-gluon
+    { in: ['g'], out: ['g', 'g'] },                        // 3-gluon
+    { in: ['g', 'g'], out: ['g', 'g'], points: 4 },        // 4-gluon — also gives g -> g g g
 
     // --- Higgs ---
     { in: ['h'], out: ['W⁺', 'W⁻'] },
@@ -96,3 +61,54 @@ export const SM_VERTICES = [
     { in: ['t'], out: ['t', 'h'] },
     { in: ['b'], out: ['b', 'h'] },
 ];
+
+// ---------------------------------------------------------------------------
+// Effective vertices: phenomenological, hadron-level interactions.
+//
+// These are NOT fundamental. A hadron is a bound state, so its decay cannot be
+// written as a single elementary vertex -- it stands in for a QCD matrix element
+// (a decay constant, a form factor) that has been measured, not computed. They are
+// tagged `effective: true` and every diagram built from one is drawn with a
+// distinct marker so a phenomenological vertex is never mistaken for a
+// fundamental one.
+//
+// The mass check treats internal lines as off-shell, so entries like n -> p W⁻ are
+// allowed even though the W is enormously virtual here (80 GeV against a 0.78 MeV
+// energy release). That is exactly the regime of Fermi's original contact theory.
+// ---------------------------------------------------------------------------
+export const EFFECTIVE_VERTICES = [
+    // --- Charged pion ---
+    { in: ['π⁺'], out: ['μ⁺', 'νμ'], effective: true, process: 'pion leptonic decay' },
+    { in: ['π⁺'], out: ['e⁺', 'νe'], effective: true, process: 'pion leptonic decay (helicity suppressed)' },
+    { in: ['π⁺'], out: ['π⁰', 'W⁺'], effective: true, process: 'pion beta decay' },
+    { in: ['π⁻'], out: ['π⁰', 'W⁻'], effective: true, process: 'pion beta decay' },
+    { in: ['π⁰'], out: ['γ', 'γ'],   effective: true, process: 'neutral pion anomaly decay' },
+
+    // --- Charged kaon ---
+    { in: ['K⁺'], out: ['μ⁺', 'νμ'], effective: true, process: 'kaon leptonic decay' },
+    { in: ['K⁺'], out: ['π⁰', 'W⁺'], effective: true, process: 'kaon semileptonic decay' },
+    { in: ['K⁻'], out: ['π⁰', 'W⁻'], effective: true, process: 'kaon semileptonic decay' },
+
+    // --- Neutron beta decay, cascade and direct-contact forms ---
+    { in: ['n'], out: ['p', 'W⁻'], effective: true, process: 'neutron beta decay' },
+    { in: ['n'], out: ['p', 'e⁻', 'ν̄e'], effective: true, points: 4, process: 'neutron beta decay (Fermi contact)' },
+
+    // --- Hyperon decays ---
+    { in: ['Λ'],  out: ['p', 'π⁻'],  effective: true, process: 'Lambda -> p pi-' },
+    { in: ['Λ'],  out: ['n', 'π⁰'],  effective: true, process: 'Lambda -> n pi0' },
+    { in: ['Σ⁺'], out: ['p', 'π⁰'],  effective: true, process: 'Sigma+ -> p pi0' },
+    { in: ['Σ⁺'], out: ['n', 'π⁺'],  effective: true, process: 'Sigma+ -> n pi+' },
+    { in: ['Σ⁻'], out: ['n', 'π⁻'],  effective: true, process: 'Sigma- -> n pi-' },
+    { in: ['Ξ⁰'], out: ['Λ', 'π⁰'],  effective: true, process: 'Xi0 -> Lambda pi0' },
+    { in: ['Ξ⁻'], out: ['Λ', 'π⁻'],  effective: true, process: 'Xi- -> Lambda pi-' },
+    { in: ['Ω⁻'], out: ['Λ', 'K⁻'],  effective: true, process: 'Omega- -> Lambda K-' },
+    { in: ['Ω⁻'], out: ['Ξ⁰', 'π⁻'], effective: true, process: 'Omega- -> Xi0 pi-' },
+
+    // --- Vector meson dominance: e+e- -> hadrons ---
+    { in: ['γ'], out: ['π⁺', 'π⁻'], effective: true, process: 'photon -> pion pair' },
+    { in: ['γ'], out: ['K⁺', 'K⁻'], effective: true, process: 'photon -> kaon pair' },
+    { in: ['Z⁰'], out: ['π⁺', 'π⁻'], effective: true, process: 'Z -> pion pair' },
+];
+
+/** All vertices the engine searches, fundamental first. */
+export const ALL_VERTICES = [...SM_VERTICES, ...EFFECTIVE_VERTICES];
