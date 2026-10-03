@@ -119,18 +119,10 @@ body {
 }
 .tab-view[hidden] { display: none; }
 
-/* The hadron catalogue is one long list, so spread its groups across the panel
-   instead of leaving two of the three columns empty. */
-.tab-view[data-tab="hadrons"] .category {
-    max-width: none;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-    gap: 0.9rem 1.2rem;
-    align-items: start;
-}
-.tab-view[data-tab="hadrons"] .category > h2 { grid-column: 1 / -1; }
-.tab-view[data-tab="hadrons"] .particle-group { margin-bottom: 0; }
-.tab-view[data-tab="hadrons"] .panel-note { grid-column: 1 / -1; }
+/* Mesons, Baryons and Antibaryons are now separate boxed sections, so the tab
+   lays out exactly like the Elementary one. */
+.tab-view[data-tab="hadrons"] .category { max-width: none; }
+.tab-view > .panel-note { grid-column: 1 / -1; }
 
 /* particle card */
 .particle {
@@ -285,7 +277,9 @@ body {
 .quark .particle-icon { background: #1f5e8e; }
 .lepton .particle-icon { background: #2b6b5c; }
 .boson .particle-icon { background: #9b5e3b; }
-.hadron .particle-icon { background: #1f5e8e; }
+.meson .particle-icon { background: #1f5e8e; }
+.baryon .particle-icon { background: #2b6b5c; }
+.antibaryon .particle-icon { background: #9b5e3b; }
 .anti .particle-icon { background: #5b6f88; }
 .Quark .particle-icon { background: #293d4d; }
 .Lepton .particle-icon { background: #253632; }

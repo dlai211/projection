@@ -130,44 +130,36 @@ function categoryElement({ category, title, badge, color, groups }) {
     return box;
 }
 
-function hadronCategory() {
+/**
+ * One boxed section per hadron group. Each group gets the same `.category` +
+ * `<h2>` treatment as Quarks / Leptons / Bosons, so Mesons, Baryons and
+ * Antibaryons read as three distinct sections instead of one long list.
+ */
+function hadronSection(group) {
+    const symbols = Object.values(HADRONS).filter(h => h.group === group.group);
+    if (!symbols.length) return null;
+
     const box = document.createElement('div');
-    box.className = 'category hadron';
+    box.className = `category ${group.group}`;
 
     const heading = document.createElement('h2');
-    heading.innerHTML = `<i class="fas fa-circle" style="color: #1f5e8e;"></i> Hadrons`;
-    const count = document.createElement('span');
-    count.className = 'group-count';
-    count.textContent = 'Bound states';
-    heading.appendChild(count);
+    heading.innerHTML = `<i class="fas fa-circle" style="color: ${group.color};"></i> ${group.title}`;
+    const badge = document.createElement('span');
+    badge.className = 'group-count';
+    badge.textContent = group.badge;
+    heading.appendChild(badge);
     box.appendChild(heading);
 
-    for (const group of HADRON_PANEL) {
-        const symbols = Object.values(HADRONS).filter(h => h.group === group.group);
-        if (!symbols.length) continue;
-
-        const wrap = document.createElement('div');
-        wrap.className = 'particle-group';
-        const label = document.createElement('div');
-        label.className = 'group-label';
-        label.textContent = `${group.title} · ${group.badge}`;
-        wrap.appendChild(label);
-
-        for (const info of symbols) {
-            const card = document.createElement('div');
-            card.className = 'particle';
-            const el = entryElement(info.symbol, 'Quark', info.group === 'antibaryon');
-            if (el) card.appendChild(el);
-            wrap.appendChild(card);
-        }
-        box.appendChild(wrap);
+    const wrap = document.createElement('div');
+    wrap.className = 'particle-group';
+    for (const info of symbols) {
+        const card = document.createElement('div');
+        card.className = 'particle';
+        const el = entryElement(info.symbol, group.group, false);
+        if (el) card.appendChild(el);
+        wrap.appendChild(card);
     }
-
-    const note = document.createElement('div');
-    note.className = 'panel-note';
-    note.innerHTML = '<i class="fas fa-info-circle"></i> Drawn as a blob with their valence quarks and a brace. '
-        + 'Masses are the measured hadron masses, not the sum of the constituent quarks.';
-    box.appendChild(note);
+    box.appendChild(wrap);
     return box;
 }
 
@@ -195,7 +187,15 @@ export function renderParticlePanel(panelEl) {
     hadronView.className = 'tab-view';
     hadronView.dataset.tab = 'hadrons';
     hadronView.hidden = true;
-    hadronView.appendChild(hadronCategory());
+    for (const group of HADRON_PANEL) {
+        const section = hadronSection(group);
+        if (section) hadronView.appendChild(section);
+    }
+    const hadronNote = document.createElement('div');
+    hadronNote.className = 'panel-note';
+    hadronNote.innerHTML = '<i class="fas fa-info-circle"></i> Drawn as a blob with their valence quarks and a brace. '
+        + 'Masses are the measured hadron masses, not the sum of the constituent quarks.';
+    hadronView.appendChild(hadronNote);
 
     panelEl.append(strip, elementaryView, hadronView);
 
@@ -247,11 +247,15 @@ const state = {
     initial: [],
     final: [],
     groupBy: 'mediator',
+    lastGroupBy: 'mediator',
     hiddenKeys: new Set(),
     expanded: new Set(),
     pages: new Map(),
     observer: null,
-    pageSize: 12
+    pageSize: 12,
+    // Set when the result set or the grouping changes, so the next render knows to
+    // rebuild the per-group state and re-open the largest group.
+    pendingSeed: false
 };
 
 const MEDIATOR_LABEL = {
@@ -347,14 +351,22 @@ function makeChip(label, key, active, onToggle) {
  * needs it for particle lookups and arrow directions.
  */
 export function renderResults(container, { channels, initial, final, engine, truncated, note }) {
-    // A new array means a new search: reset the per-group pagination.
-    if (channels !== state.channels) state.pages = new Map();
+    // Reset the per-group state only when the result set or the grouping actually
+    // changed. Clearing it on *every* render would wipe the very flags the
+    // expand/collapse handlers just set, making every toggle appear dead.
+    const isNewSearch = channels !== state.channels;
+    const regrouped = state.groupBy !== state.lastGroupBy;
+    if (isNewSearch || regrouped) {
+        state.pages = new Map();
+        state.expanded = new Set();
+        state.pendingSeed = true;
+    }
+    state.lastGroupBy = state.groupBy;
 
     state.channels = channels;
     state.initial = initial;
     state.final = final;
     state.engine = engine;
-    state.expanded = new Set();
 
     if (state.observer) { state.observer.disconnect(); state.observer = null; }
     container.innerHTML = '';
@@ -378,6 +390,14 @@ export function renderResults(container, { channels, initial, final, engine, tru
     const visibleGroups = [...buckets.entries()]
         .map(([key, items]) => ({ key, items }))
         .sort((a, b) => b.items.length - a.items.length);
+
+    // Open the largest group on a fresh result set, so the first screen shows real
+    // diagrams instead of a wall of collapsed headers. Seeding the set here rather
+    // than forcing the first group open at render time keeps it collapsible.
+    if (state.pendingSeed) {
+        state.pendingSeed = false;
+        if (visibleGroups.length) state.expanded.add(visibleGroups[0].key);
+    }
 
     // ---- summary
     const finals = new Set(channels.map(c => [...(c.external || [])].sort().join(' ')));
@@ -461,14 +481,12 @@ export function renderResults(container, { channels, initial, final, engine, tru
     }
 
     const LIMIT = state.pageSize;
-    visibleGroups.forEach((group, groupIndex) => {
+    visibleGroups.forEach((group) => {
         const shownCount = state.pages.get(group.key) || LIMIT;
         const section = document.createElement('section');
         section.className = 'result-group';
 
-        // The largest group starts open so the first screen shows real diagrams
-        // rather than a wall of collapsed headers.
-        const open = state.expanded.has(group.key) || groupIndex === 0;
+        const open = state.expanded.has(group.key);
         const header = document.createElement('button');
         header.className = 'group-header' + (open ? ' open' : '');
         header.innerHTML = `<span class="chevron">${open ? '▾' : '▸'}</span>`

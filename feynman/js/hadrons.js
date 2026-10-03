@@ -86,10 +86,12 @@ Object.entries(HADRONS).forEach(([symbol, h]) => {
     h.massLabel = h.massLabel || formatMass(h.m);
 });
 
+// `color` drives the heading dot and the icon background, mirroring how the
+// Elementary tab tints Quarks / Leptons / Bosons.
 export const HADRON_PANEL = [
-    { group: 'meson',      title: 'Mesons',      badge: 'Spin 0' },
-    { group: 'baryon',     title: 'Baryons',     badge: 'Spin 1/2' },
-    { group: 'antibaryon', title: 'Antibaryons', badge: 'Spin 1/2' }
+    { group: 'meson',      title: 'Mesons',      badge: 'Spin 0',   color: '#1f5e8e' },
+    { group: 'baryon',     title: 'Baryons',     badge: 'Spin 1/2', color: '#2b6b5c' },
+    { group: 'antibaryon', title: 'Antibaryons', badge: 'Spin 1/2', color: '#9b5e3b' }
 ];
 
 // --------------------------------------------------------------- quark content
