@@ -137,7 +137,8 @@ function grow(engine, parent, budget, ctx, remaining) {
                 if (ctx.aborted || results.length >= ctx.maxResults) return;
                 if (index === childOptions.length) {
                     const node = { symbol: parent, children: picked.slice(),
-                                   effective: channel.effective, process: channel.process };
+                                   effective: channel.effective, process: channel.process,
+                                   quarkFlow: channel.quarkFlow };
                     if (!isSubMultiset(leaves(node), ctx.target)) return;
                     const key = canonical(node);
                     if (ctx.seen.has(key)) return;

@@ -2,6 +2,9 @@
 // All canvas rendering: one line style per particle type, the hadronic blob with
 // its brace, and one renderer per diagram topology.
 
+import { isAntiQuark } from './hadrons.js';
+import { findHadronTransition } from './quarkflow.js';
+
 export const CANVAS_W = 720;
 export const CANVAS_H = 420;
 
@@ -441,6 +444,170 @@ function drawDecayTree(ctx, engine, parentOrFusion, tree) {
     walk(tree);
 }
 
+// --------------------------------------------------- quark flow renderer
+
+/**
+ * Lays out the mediator (and anything else emitted alongside the outgoing
+ * hadron) inside a horizontal band above or below the quark rails. Reuses the
+ * same slot/mean-height scheme as the decay tree, so it cannot produce crossing
+ * lines within the branch.
+ */
+function layoutBranch(nodes, xStart, xEnd, yTop, yBottom) {
+    const pos = new Map();
+    if (!nodes.length) return pos;
+
+    const leaves = [];
+    const collect = (node) => {
+        if (!node.children) { leaves.push(node); return; }
+        node.children.forEach(collect);
+    };
+    nodes.forEach(collect);
+
+    const slots = new Map();
+    leaves.forEach((leaf, i) => slots.set(leaf, i));
+    const yOf = (i) => (leaves.length > 1
+        ? yTop + (i / (leaves.length - 1)) * (yBottom - yTop)
+        : (yTop + yBottom) / 2);
+
+    const depthOf = new Map();
+    const assign = (node, d) => {
+        depthOf.set(node, d);
+        if (node.children) node.children.forEach(c => assign(c, d + 1));
+    };
+    nodes.forEach(node => assign(node, 0));
+    const maxDepth = Math.max(...[...depthOf.values()]);
+
+    // The deepest level lands exactly on xEnd, one level back sits halfway in.
+    const xOf = (d) => xStart + ((d + 1) / (maxDepth + 1)) * (xEnd - xStart);
+
+    const place = (node) => {
+        let y;
+        if (!node.children) y = yOf(slots.get(node));
+        else {
+            node.children.forEach(place);
+            y = node.children.reduce((a, c) => a + pos.get(c).y, 0) / node.children.length;
+        }
+        pos.set(node, { x: xOf(depthOf.get(node)), y });
+    };
+    nodes.forEach(place);
+    return pos;
+}
+
+/**
+ * A hadron -> hadron transition drawn as independent quark lines.
+ *
+ *   } n    d ─────────────●─────────── u   } p
+ *          u ─────────────┼─────────── u
+ *          d ─────────────┼─────────── d
+ *                         ╲
+ *                          W⁻ ── e⁻ ν̄e
+ *
+ * Spectators run straight from the source brace to the target brace; the active
+ * quark kinks at the interaction vertex, where the mediator branches off. The
+ * mediator is sent to whichever side of the rails its vertex is nearer, so its
+ * line does not have to cross the other quarks.
+ */
+function drawQuarkFlowDiagram(ctx, engine, spec) {
+    const w = CANVAS_W, h = CANVAS_H;
+    const { from, to, others, flow } = spec;
+    const rails = flow.rails;
+
+    const leftPad = padFor(engine, [from]);
+    const rightPad = padFor(engine, [to]);
+    const quarkStart = leftPad - 18;
+    const quarkEnd = w - rightPad + 18;
+    const vertexX = quarkStart + (quarkEnd - quarkStart) * 0.42;
+
+    // The vertex sits on an active rail so that quark kinks there.
+    let activeIdx = rails.findIndex(r => r.role === 'active');
+    if (activeIdx < 0) activeIdx = Math.floor(rails.length / 2);
+
+    const railSpacing = 48;
+    const railsHeight = (rails.length - 1) * railSpacing;
+    const branchHeight = 140;
+    const gap = 58;
+
+    // Send the mediator away from the vertex on the nearer side.
+    const below = activeIdx >= rails.length / 2;
+    const blockHeight = railsHeight + gap + branchHeight;
+    const blockTop = Math.max(24, (h - blockHeight) / 2);
+
+    let railsTop, branchTop, branchBottom;
+    if (below) {
+        railsTop = blockTop;
+        branchTop = blockTop + railsHeight + gap;
+        branchBottom = branchTop + branchHeight;
+    } else {
+        branchTop = blockTop;
+        branchBottom = blockTop + branchHeight;
+        railsTop = branchTop + branchHeight + gap;
+    }
+    const railY = (i) => railsTop + i * railSpacing;
+    const vertexY = railY(activeIdx);
+
+    // ---------------------------------------------------------- quark rails
+    rails.forEach((r, i) => {
+        const y = railY(i);
+        if (r.role === 'spectator') {
+            drawFermion(ctx, engine, quarkStart, y, quarkEnd, y, r.fromQuark, isAntiQuark(r.fromQuark));
+            text(ctx, r.fromQuark, quarkStart + 16, y - 15, INK, 19, 'left');
+        } else {
+            drawFermion(ctx, engine, quarkStart, y, vertexX, vertexY, r.fromQuark, isAntiQuark(r.fromQuark));
+            drawFermion(ctx, engine, vertexX, vertexY, quarkEnd, y, r.toQuark, isAntiQuark(r.toQuark));
+            text(ctx, r.fromQuark, quarkStart + 16, y - 15, INK, 19, 'left');
+            text(ctx, r.toQuark, quarkEnd - 16, y - 15, INK, 19, 'right');
+        }
+    });
+
+    // ------------------------------------------------------------- the vertex
+    if (spec.effective) drawEffectiveBlob(ctx, vertexX, vertexY, 6);
+    else drawBlob(ctx, vertexX, vertexY, 6);
+
+    // --------------------------------------------- mediator and other products
+    const branchPos = layoutBranch(others, vertexX, quarkEnd, branchTop, branchBottom);
+    const drawBranch = (node, parentX, parentY) => {
+        const here = branchPos.get(node);
+        if (!here) return;
+
+        if (node.children) {
+            // A mediator that decays on. Drawn as an internal line, so its arrow
+            // direction is a convention rather than an observable.
+            drawParticleLine(ctx, engine, parentX, parentY, here.x, here.y, node.symbol);
+            labelMidway(ctx, node.symbol, parentX, parentY, here.x, here.y);
+            if (node.effective) drawEffectiveBlob(ctx, here.x, here.y, 5);
+            else drawBlob(ctx, here.x, here.y, 5);
+            node.children.forEach(c => drawBranch(c, here.x, here.y));
+        } else {
+            // A final-state particle leaving the vertex. It is outgoing, so a
+            // particle's arrow points away and an antiparticle's points back in.
+            drawParticleLine(ctx, engine, parentX, parentY, here.x, here.y, node.symbol,
+                             engine.isAntiparticle(node.symbol));
+            text(ctx, node.symbol, here.x, here.y + (below ? 20 : -20), INK, 22, 'center');
+        }
+    };
+    others.forEach(node => drawBranch(node, vertexX, vertexY));
+
+    // ------------------------------------------------------------- brackets
+    const top = railY(0) - 24;
+    const bottom = railY(rails.length - 1) + 24;
+    const midY = (railY(0) + railY(rails.length - 1)) / 2;
+
+    // A brace's cusp points away from the quarks it groups.
+    drawBrace(ctx, quarkStart - 22, top, bottom, -1, HADRON_COLOUR, 2.2);
+    text(ctx, engine.getParticleInfo(from).label || from, quarkStart - 38, midY, HADRON_COLOUR, 22, 'right');
+
+    drawBrace(ctx, quarkEnd + 22, top, bottom, 1, HADRON_COLOUR, 2.2);
+    text(ctx, engine.getParticleInfo(to).label || to, quarkEnd + 38, midY, HADRON_COLOUR, 22, 'left');
+}
+
+/** Symbol label offset from the midpoint of a line, clear of the line itself. */
+function labelMidway(ctx, symbol, x1, y1, x2, y2) {
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    const mx = (x1 + x2) / 2 - Math.sin(angle) * 22;
+    const my = (y1 + y2) / 2 + Math.cos(angle) * 22;
+    text(ctx, symbol, mx, my, INK, 22, 'center');
+}
+
 // ------------------------------------------------------------- entry point
 
 export function drawDiagram(ctx, engine, channel, initial, final) {
@@ -458,7 +625,14 @@ export function drawDiagram(ctx, engine, channel, initial, final) {
         case 't/u-channel': drawTChannel(ctx, engine, initial, final, channel); break;
         case 'u-channel': drawUChannel(ctx, engine, initial, final, channel); break;
         case 'contact': drawContactChannel(ctx, engine, initial, final); break;
-        case 'decay': drawDecayTree(ctx, engine, initial[0], channel.tree); break;
+        case 'decay': {
+            // A hadron turning into another hadron is drawn as independent quark
+            // lines. Anything the flow cannot describe falls back to the blob.
+            const spec = findHadronTransition(engine, channel.tree);
+            if (spec) drawQuarkFlowDiagram(ctx, engine, spec);
+            else drawDecayTree(ctx, engine, initial[0], channel.tree);
+            break;
+        }
         default:
             text(ctx, `No renderer for "${channel.type}"`, 20, 30, '#8b3a3a', 16);
     }

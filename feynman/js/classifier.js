@@ -196,7 +196,10 @@ export class FeynmanEngine {
             const key = [...products].sort().join(',');
             if (list.some(e => [...e.products].sort().join(',') === key)) return;
             list.push({ parent, products, effective: Boolean(vertex.effective),
-                        process: vertex.process, points: vertex.points || (products.length + 1) });
+                        process: vertex.process, points: vertex.points || (products.length + 1),
+                        // Optional hand-declared valence quark flow, used by the renderer
+                        // in preference to deriving it. See js/quarkflow.js.
+                        quarkFlow: vertex.quarkFlow });
         };
 
         for (const vertex of this.vertices) {

@@ -3,9 +3,8 @@
 A browser tool that classifies Standard Model processes and renders tree-level
 Feynman diagrams, including hadrons and multi-body decays.
 
-**Status:** v0.2.1 — hadrons, multi-body decays and grouped output shipped, and
-two UI defects fixed. Quark-line rendering is the current work and is awaiting an
-approach decision (§6).
+**Status:** v0.3 — independent quark-line rendering shipped for hadron → hadron
+transitions. Hadron → two-hadron finals still use the blob rendering (§4).
 
 ---
 
@@ -30,6 +29,10 @@ Uses Node's built-in test runner (Node 18+). No npm install, no third-party
 packages. `package.json` exists only to mark the folder as ES modules and to
 define the `test` script.
 
+`tests/engine.test.mjs` covers the physics engine; `tests/quarkflow.test.mjs`
+covers the quark-flow derivation. `draw.js` and `ui.js` need a real DOM and are
+verified by hand in the browser.
+
 ---
 
 ## 2. Architecture
@@ -41,6 +44,7 @@ define the `test` script.
 | `js/vertices.js` | `SM_VERTICES` (fundamental) and `EFFECTIVE_VERTICES` (phenomenological hadron-level) |
 | `js/classifier.js` | Engine primitives: lookup, crossing, decay/fusion indices, kinematics, conservation |
 | `js/topology.js` | The diagram search — recursive decay-tree enumeration |
+| `js/quarkflow.js` | Valence quark flow for hadron → hadron transitions |
 | `js/draw.js` | All canvas rendering |
 | `js/ui.js` | Particle panel, tabs, results grouping, filter chips, lazy canvas rendering |
 | `js/channel.js` | Controller: drop zones, presets, generate |
@@ -104,23 +108,56 @@ referenced by anything. Left in place deliberately.
   and the `groupIndex === 0` rule made the first section impossible to collapse
   even after that. The reset now happens only when the result set or the
   grouping changes, and the default-open group is seeded once into the set.
-- **Test suite added** (`tests/`, `node --test`). 46 engine tests plus 11
-  browser-side UI assertions.
+- **Test suite added** (`tests/`, `node --test`).
+
+### v0.3 — independent quark line flow
+**Requirement.** A separate line per constituent quark, with the braces kept
+around the initial and final states. The active quark routes to the interaction
+vertex; spectator quarks flow continuously as parallel lines from the source
+bracket to the target bracket.
+
+**Delivered.** For a hadron → single hadron transition the diagram is now drawn
+as one line per valence quark running the full width. Spectators pass straight
+through; the active quark kinks at the interaction vertex, where the mediator
+branches off. Braces group the quarks at each end and carry the hadron names.
+
+```
+} n    d ─────────────●─────────── u   } p
+       u ─────────────┼─────────── u
+       d ─────────────┼─────────── d
+                      ╲
+                       W⁻ ── e⁻ ν̄e
+```
+
+- **Flow is derived**, not declared — `js/quarkflow.js` matches the source
+  hadron's valence quarks against the target's. Whatever is unchanged is a
+  spectator; whatever is left over is active. Handles every hadron → hadron pair
+  in the catalogue, including the antiparticles.
+- **An explicit override is supported** and takes precedence. A vertex may carry
+  `quarkFlow: { spectator: [['u','u'],['d','d']], active: [['d','u']] }`. It is
+  validated against the real quark content first, so stale data degrades to the
+  derived answer rather than drawing nonsense.
+- **Falls back safely.** Whenever the flow cannot be determined the existing blob
+  rendering is used unchanged, so nothing regressed.
+- The mediator is sent to whichever side of the rails its vertex is nearer, so
+  its line does not cross the other quarks.
+
+**Not yet covered (phase 2).** Hadron → two-hadron finals (Λ → pπ⁻, Ξ⁻ → Λπ⁻,
+Ω⁻ → ΛK⁻) have two hadron children and the bookkeeping spans three hadrons; they
+still render as blobs. So do transitions where the hadron itself decays on.
 
 ---
 
-## 4. In progress
+## 4. Not yet done
 
-### 4.1 Independent quark line flow in hadron diagrams
-**Requirement.** Hadron rendering must show a separate line per constituent
-quark, keeping the braces around the initial and final states. The active quark
-routes to the interaction vertex; spectator quarks flow continuously as parallel
-lines from the source bracket to the target bracket.
+### 4.1 Quark lines for hadron → two-hadron finals
+Λ → pπ⁻, Ξ⁻ → Λπ⁻, Ω⁻ → ΛK⁻. Three hadrons share the quark bookkeeping and a
+q q̄ pair is created at the vertex, so the rails need somewhere to put the meson.
+Currently falls back to the blob rendering.
 
-**Today.** A hadron is a single line with a blob and short quark stubs at the
-free end. Nothing flows through to the other side.
-
-**Status.** Approach under review — see §6. Not yet implemented.
+### 4.2 Quark lines where there is no target hadron
+π⁺ → μ⁺νμ: both quarks annihilate into the vertex, so there is no target brace to
+flow into. Needs a separate design.
 
 ---
 
@@ -146,18 +183,15 @@ free end. Nothing flows through to the other side.
 
 ---
 
-## 6. Open decisions
+## 6. Design decisions
 
-Recorded here while the quark-line rendering approach is being chosen.
+Resolved for v0.3:
 
-1. **Which diagrams get quark-line rendering** — every hadron line, or only
-   edges where one hadron turns into another?
-2. **Where the quark-flow information comes from** — derived from valence
-   content, declared per effective vertex, or both.
-3. **Layout style** — full-width parallel rails with a kink at the interaction
-   vertex, or a shorter local expansion near each hadron.
-4. **Fallback** — what happens when the flow is ambiguous (multi-hadron finals,
-   flavour-neutral mesons).
+1. **Scope** — hadron → single hadron first; multi-hadron finals deferred.
+2. **Flow data** — derived from valence content, with a validating per-vertex
+   override and a safe fallback.
+3. **Layout** — full-width parallel rails with a kink at the interaction vertex.
+4. **Fallback** — anything the flow cannot describe keeps the blob rendering.
 
 ---
 
@@ -180,3 +214,4 @@ Repository: `C:\Users\laiji\VSCode\projection` → `git@github.com:dlai211/proje
 | 2026-09-29 | v0.2 — hadrons, effective vertices, 1→4 decays, new search engine, grouped output |
 | 2026-10-02 | PRD created; quark-line rendering specified |
 | 2026-10-02 | v0.2.1 — Hadrons tab sectioned, expand/collapse fixed, test suite added |
+| 2026-10-02 | v0.3 — independent quark-line rendering for hadron → hadron transitions |
