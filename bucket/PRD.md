@@ -5,10 +5,10 @@ reuses the 3D stage from `index.html` and lifts *only* the song wheel, progress
 bar and line visualizer out of `../music/`, re-stitched into a Spotify-style
 centre layout.
 
-**Status:** Phase 2 — refinement pass. The glass panel is gone (UI floats over
-the model), the transport is white and sits at 75%, the model is reframed to
-match `index.html`'s sizing, the visualizer is wider/sparser/shorter, and a
-home + music nav was added to **both** pages.
+**Status:** Phase 3 — the cluster moved down onto the chest at 80%, the
+visualizer doubled its bar count at a lower amplitude, the song wheel is now
+bi-directionally synced with the transport, and the background gradient follows
+the cursor.
 
 ---
 
@@ -32,6 +32,14 @@ Files used:
 | `model/hunter_2.glb` | 3D model (59 MB — first paint takes a moment) |
 | `model/signature.png` | Signature overlay, inherited from `index.html` |
 | `music/*.mp3` | The 7 SIX60 tracks, listed in `songs[]` inside `music.html` |
+
+### Repo / publishing note
+
+The git remote is `git@github.com:dlai211/projection.git`, and that repo is
+**public**. The `bucket/` folder as committed contains third-party commercial
+music (the seven SIX60 tracks), a personal 3D scan and a signature image.
+Committing them locally is one thing; publishing them to a public repo is
+another, and that push has been deliberately left for the owner to decide.
 
 ---
 
@@ -145,28 +153,63 @@ top line: 32px circles, a 1px border and the glyph only — no fill. The current
 page's icon is at full opacity. Each page uses its own ink colour (cool
 `#3f4a45` on music.html, warm `#4a4539` on index.html).
 
-## 6. Visualizer tuning reference
+## 6. Phase 3 — layout, density, wheel sync, live background
+
+1. **Cluster moved down** to `top: 80%` (line 252), so it sits on the chest of
+   the hoodie. The visualizer canvas was made shallower at the same time
+   (`clamp(56px, 9vh, 104px)`) — at 80% a taller canvas would have run into the
+   progress bar on a 576px-tall window. Measured clearance: the lowest a bar can
+   reach is ~534px, the progress track starts at ~545px.
+2. **Visualizer density**: `BARS` 64 → **128** at the same canvas width, so the
+   gap closed from ~11px to ~4px, and `BAR_GAIN` 0.18 → **0.12** for a tighter
+   waveform.
+3. **Wheel sync** — both directions now run through one function, `tweenTo()`
+   (line 678), so there is a single place the wheel can move and it can never
+   disagree with the audio:
+   - **Player → wheel** (`loadSong`, line 936): Next, Previous and
+     end-of-track all call it, and it tweens the wheel to `currentIndex`.
+     It passes no `onArrive`, so it cannot call back into `selectSong` and loop.
+   - **Wheel → player** (`selectSong`, line 720): a drag-release, a wheel notch
+     or a click on a song now always loads **and plays** it (it used to keep
+     whatever play/pause state it found).
+   - The first autoplay still needs one real click somewhere on the page —
+     browsers refuse it otherwise. After that, wheel-picking always plays.
+4. **Live background**: the two glow layers are positioned by four CSS
+   variables (`--glow-x/y` and `--glow-x2/y2`, defined on `:root` around line 26,
+   consumed by the `body` gradient around line 55). A mousemove listener records
+   the cursor, and a rAF loop eases the variables toward it (`GLOW_EASE`, line
+   1059 — 0 never arrives, 1 is glued to the cursor). The pink glow chases the
+   cursor; the periwinkle glow takes the opposite corner. The loop stops writing
+   to the DOM once the values settle, so an idle page is not repainting the
+   background every frame.
+
+## 7. Visualizer tuning reference
 
 Everything lives in one block in `music.html`:
 
 | Line | Constant | Now | What it does |
 |---|---|---|---|
-| 785 | `BARS` | `64` | Number of frequency lines. **Fewer = wider spacing**, because step is derived: `step = canvasWidth / BARS`. |
-| 786 | `LINE_W` | `3` | Line thickness in px, capped at 60% of the step so lines can never merge on a narrow window. |
-| 787 | `BAR_GAIN` | `0.18` | **The height dial.** Multiplier on `(value - cutoff)`. Was `0.3` in Phase 1 / the source — that is what made the bars overshoot. |
-| 788 | `MAX_BAR` | `0.8` | Hard ceiling on a bar, as a fraction of the canvas half-height. |
-| 789 | `CUTOFF` | `0.5` | A bin only draws if it beats this fraction of the loudest bin. Lower it (0.35) for a busier visualizer. |
-| 790 | `GLOW` | `7` | px of dark halo behind each white line. |
-| 814 | `step` | derived | `cssW / BARS` — the centre-to-centre distance. Width and spacing both come from here. |
-| 815 | `lineW` | derived | `min(LINE_W, step * 0.6)`. |
-| 855 | — | — | `let h = (value - cutoff) * BAR_GAIN` — the amplitude line. |
-| 858 | — | — | `const x = i * step + step / 2` — where each line is placed. |
+| 814 | `BARS` | `128` | Number of frequency lines. **Fewer = wider spacing**, because step is derived: `step = canvasWidth / BARS`. |
+| 815 | `LINE_W` | `3` | Line thickness in px, capped at 60% of the step so lines can never merge on a narrow window. |
+| 816 | `BAR_GAIN` | `0.12` | **The height dial.** Multiplier on `(value - cutoff)`. Was `0.3` in Phase 1 / the source, then `0.18`. |
+| 817 | `MAX_BAR` | `0.8` | Hard ceiling on a bar, as a fraction of the canvas half-height. |
+| 818 | `CUTOFF` | `0.5` | A bin only draws if it beats this fraction of the loudest bin. Lower it (0.35) for a busier visualizer. |
+| 819 | `GLOW` | `7` | px of dark halo behind each white line. |
+| ~852 | `step` | derived | `cssW / BARS` — the centre-to-centre distance. Width and spacing both come from here. |
+| ~853 | `lineW` | derived | `min(LINE_W, step * 0.6)`. |
+| ~893 | — | — | `let h = (value - cutoff) * BAR_GAIN` — the amplitude line. |
+| ~896 | — | — | `const x = i * step + step / 2` — where each line is placed. |
 
-Canvas size itself is CSS: `#visualizer` (line 365) is `width: 100%` of
-`.player`, which is `min(1040px, 88vw)` (line 246); its height is
-`clamp(70px, 11vh, 110px)` (line 368).
+Canvas size itself is CSS: `#visualizer` (line 376) is `width: 100%` of
+`.player`, which is `min(1040px, 88vw)` (line 254); its height is
+`clamp(56px, 9vh, 104px)` (line 378) — deliberately shallow since Phase 3,
+so the cluster at 80% still clears the progress bar on a short window.
 
-## 7. How this phase was verified
+Note the log bin mapping means the lowest handful of bins each feed several
+bars, so the far left reads as a solid block of bass. That is what a
+log-spaced visualizer looks like; it is not a bug.
+
+## 8. How this was verified
 
 Rendered headless (Chrome `--headless=new`) against a local `http.server`,
 driving the real page through an iframe that holds the load event open so the
@@ -184,13 +227,22 @@ so the transport can be clicked programmatically:
   y as index.html's.
 - **Both pages** re-rendered after the nav was added; index.html is otherwise
   untouched.
+- **Wheel sync, both directions**, driven from the harness: (A) two clicks on
+  Next while playing → title, total time and the wheel's slot all land on
+  "Never Enough"; (B) two synthetic wheel notches → the same song loads *and*
+  starts playing, with the wheel showing it in the slot.
+- **Live background:** a synthetic mousemove at the bottom-left swung the pink
+  glow from the top-right down to the cursor, with the periwinkle taking the
+  opposite corner.
+- **Clearance at 80%:** zoomed the bottom strip at 1024×576 and measured the
+  lowest a bar can reach (~534px) against the progress track (~545px).
 - Every `getElementById` / `querySelector` target in the script was checked
   against the markup; all resolve.
 
 Not verified automatically: seeking by dragging the bar, touch input, and the
 nav links actually navigating.
 
-## 8. Known limits / next steps
+## 9. Known limits / next steps
 
 - No artwork or lyrics for the SIX60 tracks. If cover art is added later, drop
   it in `music/` and add a `pic` field to `songs[]`.
@@ -202,11 +254,14 @@ nav links actually navigating.
   matters.
 - The visualizer's right-hand third is often empty on bass-heavy tracks — that
   is the half-of-maximum `CUTOFF` rule, not a bug. Lower it to make it busier.
-- At short window heights (~576px) the white song title crosses the pale mask,
-  and the jacket only fills the bottom half. It reads fine thanks to the text
-  shadow, but a taller window looks better.
-- The cluster is 75% down and roughly 200px tall; if the window gets much
-  shorter than ~560px it will start to meet the progress bar.
+- The far left of the visualizer is a block of near-identical tall bars: log
+  spacing gives the lowest bins several bars each. Normal for a log-spaced
+  visualizer.
+- The cluster is at 80%; on a window shorter than ~560px it will start to meet
+  the progress bar. The shallower canvas is what keeps a 576px window safe.
+- The live background rewrites CSS variables on the body gradient, so the
+  background repaints while the cursor is moving. Fine on a GPU; on a weak
+  machine, raise the settle threshold or lower `GLOW_EASE`.
 - Not tuned below ~700px width; the wheel and control cluster will crowd there.
 - Nav icons are plain links — no active-page detection beyond the hard-coded
   `current` class.

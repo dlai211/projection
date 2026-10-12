@@ -23,6 +23,12 @@
       --accent: linear-gradient(135deg, var(--pink), var(--peri));
       --ink: #333;
       --serif-ink: #3f4a45;
+
+      /* where the two background glows sit. JS rewrites these on mousemove
+         (see "INTERACTIVE BACKGROUND") — the percentages are the only thing
+         that moves; edit the colours in the `body` rule below. */
+      --glow-x: 82%;  --glow-y: 6%;      /* pink glow, follows the cursor */
+      --glow-x2: 10%; --glow-y2: 94%;    /* periwinkle glow, moves opposite */
     }
 
     body {
@@ -35,9 +41,10 @@
          periwinkle glow bottom-left. Replaces index.html's flat #ccc3ad. */
       background-color: var(--mint);
       background-image:
-        radial-gradient(90% 80% at 82% 6%,  rgba(247, 141, 167, 0.40) 0%, rgba(247, 141, 167, 0) 60%),
-        radial-gradient(95% 90% at 10% 94%, rgba(168, 192, 255, 0.48) 0%, rgba(168, 192, 255, 0) 62%),
+        radial-gradient(90% 80% at var(--glow-x) var(--glow-y),   rgba(247, 141, 167, 0.40) 0%, rgba(247, 141, 167, 0) 60%),
+        radial-gradient(95% 90% at var(--glow-x2) var(--glow-y2), rgba(168, 192, 255, 0.48) 0%, rgba(168, 192, 255, 0) 62%),
         linear-gradient(165deg, #dceee0 0%, #e4eef0 46%, #f0e9f4 100%);
+      background-attachment: fixed;
     }
 
     /* ---------- scene furniture (from index.html, re-tinted) ---------- */
@@ -236,12 +243,13 @@
        ============================================================ */
 
     /* No glass panel — the cluster floats straight over the 3D canvas.
-       top: 75% + translateY(-50%) centres the whole cluster three quarters
-       of the way down. Nudge the 75% to taste. */
+       top: 80% + translateY(-50%) centres the whole cluster four fifths of
+       the way down, so it lands on the chest of the hoodie.
+       Nudge the 80% to taste. */
     .player {
       position: fixed;
       left: 50%;
-      top: 75%;
+      top: 80%;
       transform: translate(-50%, -50%);
       width: min(1040px, 88vw);   /* wide: the visualizer spans this */
       text-align: center;
@@ -365,8 +373,10 @@
     #visualizer {
       display: block;
       width: 100%;                         /* = .player width → min(1040px, 88vw) */
-      height: clamp(70px, 11vh, 110px);
-      margin: 10px auto 0;
+      /* kept shallow: the cluster sits at 80% and must clear the progress
+         bar on short windows */
+      height: clamp(56px, 9vh, 104px);
+      margin: 8px auto 0;
       background: transparent;
     }
 
@@ -661,25 +671,41 @@
     });
   }
 
-  // smooth snap so exactly one song ever sits in the slot
-  let snapFrame = null;
-  function snapWheel() {
-    const target = Math.round(position);
-    if (Math.abs(target - position) < 0.001) { position = target; updateWheel(); return; }
-    if (snapFrame) cancelAnimationFrame(snapFrame);
+  /* The one place the wheel moves from A to B. Every path uses it — snap after
+     a drag, a wheel notch, and the player pushing the wheel when the track
+     changes — so the wheel is never out of step with the audio. */
+  let tweenFrame = null;
+  function tweenTo(target, onArrive) {
+    if (tweenFrame) cancelAnimationFrame(tweenFrame);
 
     const from = position;
+    if (Math.abs(target - from) < 0.001) {
+      position = target; updateWheel();
+      if (onArrive) onArrive();
+      return;
+    }
+
     const t0 = performance.now();
-    const DUR = 220;
+    const DUR = 260;
 
     (function step(now) {
       const t = Math.min((now - t0) / DUR, 1);
       const ease = 1 - Math.pow(1 - t, 3);
       position = from + (target - from) * ease;
       updateWheel();
-      if (t < 1) snapFrame = requestAnimationFrame(step);
-      else { position = target; snapFrame = null; updateWheel(); selectSong(target); }
+      if (t < 1) {
+        tweenFrame = requestAnimationFrame(step);
+      } else {
+        position = target; tweenFrame = null; updateWheel();
+        if (onArrive) onArrive();
+      }
     })(t0);
+  }
+
+  // snap to the nearest song, then hand it to the player
+  function snapWheel() {
+    const target = Math.round(position);
+    tweenTo(target, () => selectSong(target));
   }
 
   function setPosition(next) {
@@ -688,9 +714,12 @@
     snapWheel();
   }
 
+  /* Action B: picking a song on the wheel loads it and starts it straight
+     away. (Browsers still refuse the very first autoplay until the user has
+     clicked something — after that one click, this always plays.) */
   function selectSong(index) {
     if (index === currentIndex) return;
-    loadSong(index, !audio.paused);      // keep playing if it already was
+    loadSong(index, true);
   }
 
   /* ---- drag ---- */
@@ -782,9 +811,9 @@
      Line spacing is derived, not set: step = canvasWidth / BARS, so the
      lines always spread across the full width. Fewer BARS = wider spacing.
      ---------------------------------------------------------------------- */
-  const BARS     = 64;
+  const BARS     = 128;
   const LINE_W   = 3;
-  const BAR_GAIN = 0.18;
+  const BAR_GAIN = 0.12;
   const MAX_BAR  = 0.8;
   const CUTOFF   = 0.5;
   const GLOW     = 7;      // px of dark halo behind each line, so white lines
@@ -900,8 +929,11 @@
 
     setPlayIcon(false);
 
-    // keep the wheel pointing at the song that is actually playing
-    if (Math.round(position) !== currentIndex) { position = currentIndex; updateWheel(); }
+    // Action A: whatever moved the track — Next, Previous, the end of a song,
+    // a click in the wheel — the wheel rotates to put it in the slot. tweenTo
+    // has no onArrive callback here, so this can never call back into
+    // selectSong and loop.
+    tweenTo(currentIndex);
 
     if (autoplay) playAudio();
   }
@@ -1015,6 +1047,40 @@
   loadSong(0, false);
   position = 0;
   updateWheel();
+
+  /* ================================================================
+     INTERACTIVE BACKGROUND
+     The pink glow chases the cursor and the periwinkle glow mirrors it to
+     the opposite corner, so the gradient leans as the mouse crosses the page.
+     Only the four --glow-* percentages move; the colours live in the `body`
+     rule up in the CSS.
+     ================================================================ */
+  const glow = { x: 0.82, y: 0.06, tx: 0.82, ty: 0.06 };
+  const GLOW_EASE = 0.07;      // 0 = never arrives, 1 = glued to the cursor
+
+  document.addEventListener("mousemove", e => {
+    glow.tx = e.clientX / window.innerWidth;
+    glow.ty = e.clientY / window.innerHeight;
+  });
+
+  (function followCursor() {
+    requestAnimationFrame(followCursor);
+
+    const dx = glow.tx - glow.x;
+    const dy = glow.ty - glow.y;
+    // settled: stop touching the DOM, otherwise the whole background
+    // repaints every frame for nothing
+    if (Math.abs(dx) < 0.0008 && Math.abs(dy) < 0.0008) return;
+
+    glow.x += dx * GLOW_EASE;
+    glow.y += dy * GLOW_EASE;
+
+    const root = document.documentElement.style;
+    root.setProperty("--glow-x",  (glow.x * 100).toFixed(2) + "%");
+    root.setProperty("--glow-y",  (glow.y * 100).toFixed(2) + "%");
+    root.setProperty("--glow-x2", ((1 - glow.x) * 100).toFixed(2) + "%");
+    root.setProperty("--glow-y2", ((1 - glow.y) * 100).toFixed(2) + "%");
+  })();
 
   /* ================================================================
      SCENE — identical camera behaviour to index.html
