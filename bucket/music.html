@@ -37,6 +37,11 @@
       height: 100vh;
       font-family: 'Patrick Hand', cursive;
 
+      /* nothing on this page is meant to be copied — dragging the wheel or
+         the transport should never start a text selection */
+      -webkit-user-select: none;
+      user-select: none;
+
       /* CSS gradient background — mint base, pink glow top-right,
          periwinkle glow bottom-left. Replaces index.html's flat #ccc3ad. */
       background-color: var(--mint);
@@ -95,13 +100,15 @@
       letter-spacing: 0.4em;
     }
 
+    /* tucked into the corner *below* the transport row — at 14vw/bottom 9%
+       the volume slider's track ran straight through the signature */
     .signature {
       position: fixed;
-      bottom: 9%;
-      right: 5%;
+      bottom: 7%;
+      right: 3%;
       transform: rotate(-15deg);
-      width: 14vw;
-      min-width: 120px;
+      width: 12vw;
+      min-width: 110px;
       z-index: 4;
       pointer-events: none;
     }
@@ -295,12 +302,91 @@
     /* ---------- transport row: shuffle · prev · play · next · repeat ---------- */
 
     .controls {
+      position: relative;              /* anchor for .volume below */
       display: flex;
       align-items: center;
       justify-content: center;
       gap: clamp(14px, 2.6vw, 34px);
       margin: 14px 0 6px;
     }
+
+    /* ---------- volume: pinned to the right edge of the transport row, so
+         the five Spotify buttons stay centred where they belong ---------- */
+
+    .volume {
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #ffffff;
+      filter: drop-shadow(0 2px 6px rgba(35, 48, 42, 0.45));
+    }
+
+    .volume svg {
+      width: 20px;
+      height: 20px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.7;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    #volume {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 112px;
+      height: 18px;                    /* generous hit area */
+      background: transparent;
+      cursor: pointer;
+      /* --vol is the filled fraction; the JS below re-writes it from the
+         input's value on load, so this is only the pre-script default */
+      --vol: 70%;
+    }
+
+    #volume::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 5px;
+      background: linear-gradient(to right,
+                    var(--pink) 0%,
+                    var(--peri) var(--vol),
+                    rgba(255, 255, 255, 0.35) var(--vol));
+    }
+
+    #volume::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 13px;
+      height: 13px;
+      margin-top: -3.5px;              /* (6 - 13) / 2 */
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+    }
+
+    #volume::-moz-range-track {
+      height: 6px;
+      border-radius: 5px;
+      background: rgba(255, 255, 255, 0.35);
+    }
+
+    #volume::-moz-range-progress {
+      height: 6px;
+      border-radius: 5px;
+      background: linear-gradient(90deg, var(--pink), var(--peri));
+    }
+
+    #volume::-moz-range-thumb {
+      width: 13px;
+      height: 13px;
+      border: none;
+      border-radius: 50%;
+      background: #ffffff;
+    }
+
+    #volume:focus-visible { outline: 2px solid var(--peri); outline-offset: 4px; }
 
     .ctrl {
       position: relative;
@@ -344,20 +430,37 @@
       background: var(--accent);
     }
 
-    /* white disc, dark glyph — the one inverted control, so it reads as the
-       primary action against the black jacket. (Swap these two for a gradient
-       disc with a white glyph if you prefer the old look.) */
+    /* gradient RING, hollow middle — the same #F78DA7 → A8C0FF accent the
+       shuffle/repeat toggles use. The ring is an ::before painted with the
+       gradient and then masked so only its 3px border survives; the middle
+       stays transparent, so the model shows through and the glyph sits on
+       the page rather than on a disc.
+       `color` feeds the glyph through `fill: currentColor` below. */
     .play-btn {
       width: 58px;
       height: 58px;
       border-radius: 50%;
-      background: #ffffff;
-      color: #1c1c1c;
-      filter: none;
-      box-shadow: 0 5px 18px rgba(20, 30, 25, 0.35);
+      background: none;
+      color: #ffffff;
+      /* drop-shadow, not box-shadow: it follows the painted ring + glyph
+         instead of filling the hollow middle with a glow */
+      filter: drop-shadow(0 2px 9px rgba(35, 48, 42, 0.5));
     }
 
-    .play-btn:hover { transform: scale(1.06); box-shadow: 0 7px 22px rgba(20, 30, 25, 0.45); }
+    .play-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      padding: 3px;                      /* ring thickness */
+      background: var(--accent);
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      mask-composite: exclude;
+    }
+
+    .play-btn:hover { transform: scale(1.06); }
     .play-btn svg { width: 26px; height: 26px; fill: currentColor; stroke: none; }
     .play-btn svg.pause-icon { display: none; }
     .play-btn.playing svg.play-icon { display: none; }
@@ -448,6 +551,7 @@
       #wheel-container { left: 8px; width: 240px; height: 320px; }
       .wheel-item { left: 16px; font-size: 0.8em; }
       .player { width: 88vw; padding: 18px 20px 14px; top: 46%; }
+      .volume { display: none; }        /* no room beside the transport */
       .signature { display: none; }
       .text-mr, .text-bl { display: none; }
     }
@@ -576,6 +680,18 @@
           <path d="M13.6 15.4V8.6h-1.3l-2.5 1.3v1.4h1.8v4.1z" fill="currentColor" stroke="none"/>
         </svg>
       </button>
+
+      <!-- volume — sits at the right edge of this row, out of the flex flow,
+           so the transport above stays centred -->
+      <div class="volume">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M11 5 6.5 8.8H3.5v6.4h3L11 19z"/>
+          <path d="M14.8 9.4a4 4 0 0 1 0 5.2"/>
+          <path d="M17.5 6.8a7.6 7.6 0 0 1 0 10.4"/>
+        </svg>
+        <input id="volume" type="range" min="0" max="1" step="0.01" value="0.7"
+               aria-label="Volume" title="Volume">
+      </div>
     </div>
 
     <canvas id="visualizer"></canvas>
@@ -616,6 +732,7 @@
   const loopBtn    = document.getElementById("loopBtn");
   const nameEl     = document.getElementById("song-name");
   const artistEl   = document.getElementById("artist-name");
+  const volumeEl   = document.getElementById("volume");
 
   let currentIndex = 0;
   let shuffleOn    = false;
@@ -778,13 +895,14 @@
      Built on the first play click so the context is never left suspended.
      ================================================================ */
   let audioCtx = null, analyser = null, dataArray = null;
-  const FFT = 512;
+  const FFT = 32768;
 
   function initAudioGraph() {
     if (audioCtx) return;
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     analyser = audioCtx.createAnalyser();
     analyser.fftSize = FFT;
+    analyser.smoothingTimeConstant = 0.85;   // 0 = twitchy, 1 = frozen
     const source = audioCtx.createMediaElementSource(audio);
     source.connect(analyser);
     analyser.connect(audioCtx.destination);
@@ -794,30 +912,38 @@
 
   /* ================================================================
      MIRRORED VISUALIZER
-     Same rule as ../music/main.js — a bin only draws if it clears half
-     the frame's loudest bin — but every surviving bin is one line
-     through the centre baseline, growing up AND down at once.
+     From ../music/main.js: one mirrored bar per frequency bin, drawn as
+     a single line through the centre baseline so it grows up and down
+     at once. This page runs it at high resolution — 2048-point FFT and
+     256 bars — with a low CUTOFF so quiet detail survives.
      ================================================================ */
   const canvas = document.getElementById("visualizer");
   const ctx = canvas.getContext("2d");
 
   /* ---- visualizer tuning knobs ------------------------------------------
-     BARS      how many frequency lines are drawn
-     LINE_W    thickness of a line in px (capped at 60% of the step, so the
-               lines can never touch on a narrow window)
-     BAR_GAIN  amplitude multiplier — the single dial for "how tall"
-     MAX_BAR   hard ceiling, as a fraction of the canvas half-height
-     CUTOFF    a bin only draws if it beats this fraction of the loudest bin
-     Line spacing is derived, not set: step = canvasWidth / BARS, so the
-     lines always spread across the full width. Fewer BARS = wider spacing.
+     BARS       how many mirrored bars are drawn. Detail lives here — raise it
+                and each bar gets a proportionally narrower slot.
+     LINE_W     bar thickness in px. It is a *ceiling*: when the slots get too
+                tight to hold a LINE_W-wide bar with a gap beside it, the bars
+                thin out instead of touching.
+     BAR_FILL   share of a slot a bar may occupy (0.7 = 70% bar, 30% gap).
+     BAR_GAIN   amplitude multiplier — the single dial for "how tall"
+     MAX_BAR    hard ceiling, as a fraction of the canvas half-height
+     CUTOFF     a bin draws only if it beats this fraction of the loudest bin.
+                Low = quiet instruments show, high = only the beat shows.
+     GLOW       px of dark halo behind each bar, so white stays visible where
+                it crosses a pale background. 0 disables it (and is much
+                cheaper: the halo is the most expensive thing in this loop).
+     Spacing is derived, not set: step = canvasWidth / BARS.
      ---------------------------------------------------------------------- */
-  const BARS     = 128;
-  const LINE_W   = 3;
-  const BAR_GAIN = 0.12;
-  const MAX_BAR  = 0.8;
-  const CUTOFF   = 0.5;
-  const GLOW     = 7;      // px of dark halo behind each line, so white lines
-                           // stay visible where they cross a pale background
+  const BARS     = 384;
+  const LINE_W   = 2;
+  const BAR_FILL = 0.7;
+  const BAR_GAIN = 0.1;
+  const MAX_BAR  = 1.0;
+  const CUTOFF   = 0.25;
+  const GLOW     = 3;      // small: at 256 bars a wide halo bleeds into the
+                           // gaps and greys the whole strip out
 
   let step = 0, lineW = LINE_W, cssW = 0, cssH = 0;
 
@@ -840,8 +966,12 @@
     canvas.width  = Math.round(cssW * dpr);
     canvas.height = Math.round(cssH * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    step  = cssW / BARS;                    // distance between line centres
-    lineW = Math.min(LINE_W, step * 0.6);
+    step = cssW / BARS;                     // one slot per bar
+
+    // A bar wants to be LINE_W wide, but it may never eat more than BAR_FILL
+    // of its slot — that is what keeps a high BARS count from merging into a
+    // solid block on a narrow window. Whichever is smaller wins.
+    lineW = Math.min(LINE_W, step * BAR_FILL);
   }
 
   window.addEventListener("resize", resizeCanvas);
@@ -866,9 +996,12 @@
 
     analyser.getByteFrequencyData(dataArray);
     const loudest = Math.max(...dataArray);
-    if (loudest <= 0) return;                           // silence: axis only
+    if (loudest <= 0) return;                          // silence: axis only
 
-    const cutoff = CUTOFF * loudest;   // quiet bins stay invisible
+    // CUTOFF is deliberately low (0.25): the bars measure how far a bin rises
+    // *above* it, so a low threshold lets quiet material — hats, strings,
+    // reverb tails — push a bar out of the axis instead of being clipped away.
+    const cutoff = CUTOFF * loudest;
     const maxH = mid * MAX_BAR;
 
     ctx.lineWidth = lineW;
@@ -886,8 +1019,8 @@
 
       const x = i * step + step / 2;
       ctx.beginPath();
-      ctx.moveTo(x, mid - h);        // mirrored: up …
-      ctx.lineTo(x, mid + h);        // … and down from the same baseline
+      ctx.moveTo(x, mid - h);      // mirrored: up …
+      ctx.lineTo(x, mid + h);      // … and down from the same baseline
       ctx.stroke();
     }
   }
@@ -980,6 +1113,19 @@
     shuffleOn = !shuffleOn;
     shuffleBtn.classList.toggle("active", shuffleOn);
   });
+
+  /* Volume. Because the element is routed through the AudioContext, setting
+     `audio.volume` is applied on the way into the graph — so it turns down
+     what you hear *and* what the analyser sees, and the wave flattens along
+     with it. (A GainNode after the analyser would keep the wave dancing at
+     zero volume; audio.volume is the behaviour we want here.) */
+  function applyVolume(v) {
+    audio.volume = v;
+    volumeEl.style.setProperty("--vol", (v * 100) + "%");
+  }
+
+  volumeEl.addEventListener("input", () => applyVolume(Number(volumeEl.value)));
+  applyVolume(Number(volumeEl.value));      // sync the track fill on load
 
   loopBtn.addEventListener("click", () => {
     loopMode = loopMode === "all" ? "one" : loopMode === "one" ? "off" : "all";

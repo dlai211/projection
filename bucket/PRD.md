@@ -5,10 +5,10 @@ reuses the 3D stage from `index.html` and lifts *only* the song wheel, progress
 bar and line visualizer out of `../music/`, re-stitched into a Spotify-style
 centre layout.
 
-**Status:** Phase 3 — the cluster moved down onto the chest at 80%, the
-visualizer doubled its bar count at a lower amplitude, the song wheel is now
-bi-directionally synced with the transport, and the background gradient follows
-the cursor.
+**Status:** Phase 5 — the visualizer went back to mirrored bars (the wave is
+superseded), now at high resolution: 2048-point FFT, 256 bars, a 70% fill
+ratio and a low 0.25 threshold so quiet detail shows. Play button is a hollow
+gradient ring; volume defaults to 70%.
 
 ---
 
@@ -99,20 +99,20 @@ they belong to the old playlist, and the SIX60 tracks have no matching artwork.
 (`moveTo(x, y); lineTo(x, y - barHeight)`), keeping only bins above half the
 frame's maximum so the quiet bins stay invisible.
 
-Here the same rule is kept, but each surviving bin is drawn as a **single line
-through the centre baseline**: `moveTo(x, mid - h); lineTo(x, mid + h)`. So a
-loud frequency expands symmetrically up *and* down from the middle, and a quiet
-one is not drawn at all. The baseline hairline is always stroked, so the canvas
-still reads as an axis when the track is paused. The canvas is DPR-scaled and
-its bar geometry recomputed on resize.
+Phase 1 kept that rule, drawing each surviving bin as a **single line through
+the centre baseline** (`moveTo(x, mid - h); lineTo(x, mid + h)`) so it expanded
+symmetrically up and down. The baseline hairline is always stroked, so the canvas
+still reads as an axis when the track is paused. The canvas is DPR-scaled and its
+geometry recomputed on resize.
 
-**One change from the source:** the 72 bars are spaced across the spectrum
-*logarithmically* (`bin = (binCount/2) ^ (i/71)`, covering bins 1–128 of 256)
-instead of linearly. Music is bass-heavy, so a linear walk through the bins puts
-every line in the left sixth of the canvas and leaves the rest empty — the log
-walk gives each bar a fair share of the range and uses the full width. The
-"only draw above half the loudest bin" threshold is unchanged, so quiet
-high-frequency bars still drop out rather than showing noise.
+**Change from the source, kept in every phase since:** samples are spaced across
+the spectrum *logarithmically* (`bin = (binCount/2) ^ (i/(BARS-1))`) instead of
+linearly. Music is bass-heavy, so a linear walk through the bins puts everything
+in the left sixth of the canvas and leaves the rest empty.
+
+*(The rendering went bars → wave (§7) → bars again (§8). The current state is
+§8: mirrored bars, but finely spaced. The log bin mapping below is the one part
+that has survived every rewrite.)*
 
 ## 5. Phase 2 — the refinement pass
 
@@ -183,33 +183,98 @@ page's icon is at full opacity. Each page uses its own ink colour (cool
    to the DOM once the values settle, so an idle page is not repainting the
    background every frame.
 
-## 7. Visualizer tuning reference
+## 7. Phase 4 — wave visualizer, volume, no selectable text
+
+**The visualizer is a wave now.** The bars, the gaps and the threshold are all
+gone. `draw()` builds a single closed shape:
+
+1. one amplitude per sample — `heights[i] = dataArray[binMap[i]] * BAR_GAIN`,
+   with no `CUTOFF`, so quiet bins contribute a small value instead of vanishing
+   and the shape never breaks apart;
+2. ends pinned to 0, so the wave tapers into the axis at both edges;
+3. `SMOOTH` passes of 3-tap neighbour averaging (the spatial half of the
+   smoothing; `analyser.smoothingTimeConstant = 0.85` is the temporal half);
+4. the top edge is traced left → right with `quadraticCurveTo` through the
+   midpoints between samples, then the bottom edge is traced back right → left
+   with the sign flipped, and the path is closed;
+5. filled with `WAVE_FILL`, then outlined in white — **the halo is applied to
+   the outline only.** A shadow on a shape that size smears a grey slab across
+   the whole canvas; that mistake was made and fixed here.
+
+**Volume slider** (`#volume`, in the transport row but absolutely positioned at
+its right edge, so the five Spotify buttons stay centred). It writes
+`audio.volume` — which, because the element is routed through the
+AudioContext, attenuates what you hear *and* what the analyser sees, so the
+wave flattens when you turn it down. A GainNode placed after the analyser would
+keep the wave dancing at zero volume. The track's filled fraction is a CSS
+variable (`--vol`) written on input, because `input[type=range]` gives no
+built-in fill in WebKit.
+
+**Text is not selectable** — `user-select: none` on `body` (line 43), so
+dragging the wheel or the transport never starts a selection. `index.html` has
+not been given this; say the word if you want both pages consistent.
+
+## 8. Phase 5 — back to bars, at high resolution
+
+The wave (§7) is superseded. `draw()` is the mirrored bar loop again, but tuned
+for detail rather than sparseness:
+
+- **`FFT` 2048** — 1024 bins of frequency data instead of 256.
+- **`BARS` 256** — was 200. Each bar gets a `step = cssW / BARS` slot.
+- **Width is now a ratio, not a constant.** `lineW = Math.min(LINE_W, step *
+  BAR_FILL)` — a bar wants to be `LINE_W` (2px) wide but may never exceed 70% of
+  its slot. Whichever is smaller wins, so raising `BARS` narrows the bars
+  automatically and they can never merge into a solid block on a narrow window.
+  At 1024×576 that lands on 2px bars with a 1.5px gap.
+- **`CUTOFF` 0.25** (restored — it had been removed for the wave). Bars measure
+  their height *above* the cutoff, so a low threshold lets hats, strings and
+  reverb tails lift a bar off the axis instead of being clipped away.
+- **`GLOW` 3**, down from 7. At 256 bars a 7px halo bleeds across the 1.5px gaps
+  and greys the whole strip out. This is also the most expensive thing in the
+  loop — `GLOW = 0` is the cheap escape hatch if a weak machine stutters.
+
+Also fixed here: the signature (`.signature`, line 105) was sitting exactly
+where the volume slider now lives — the track ran straight through it. It moved
+to `bottom: 7% / right: 3% / 12vw`, which clears both the slider and the
+progress bar's total-time label at 1024×576 and 1440×900.
+
+**Follow-ups.** The play button is a hollow gradient **ring**, not a gradient
+disc: an `::before` painted with `var(--accent)` and then masked
+(`mask-composite: exclude`) so only its 3px border survives, leaving the middle
+transparent so the model shows through and the glyph sits on the page. It uses
+`drop-shadow`, not `box-shadow` — a box-shadow would fill the hollow middle with
+a glow. Volume now defaults to **70%**: the range input's `value="0.7"` drives
+both the play level and the track fill, since `applyVolume()` runs on load.
+Verified by probe: `audio.volume=0.70 | slider=0.7`.
+
+## 9. Visualizer tuning reference
 
 Everything lives in one block in `music.html`:
 
 | Line | Constant | Now | What it does |
 |---|---|---|---|
-| 814 | `BARS` | `128` | Number of frequency lines. **Fewer = wider spacing**, because step is derived: `step = canvasWidth / BARS`. |
-| 815 | `LINE_W` | `3` | Line thickness in px, capped at 60% of the step so lines can never merge on a narrow window. |
-| 816 | `BAR_GAIN` | `0.12` | **The height dial.** Multiplier on `(value - cutoff)`. Was `0.3` in Phase 1 / the source, then `0.18`. |
-| 817 | `MAX_BAR` | `0.8` | Hard ceiling on a bar, as a fraction of the canvas half-height. |
-| 818 | `CUTOFF` | `0.5` | A bin only draws if it beats this fraction of the loudest bin. Lower it (0.35) for a busier visualizer. |
-| 819 | `GLOW` | `7` | px of dark halo behind each white line. |
-| ~852 | `step` | derived | `cssW / BARS` — the centre-to-centre distance. Width and spacing both come from here. |
-| ~853 | `lineW` | derived | `min(LINE_W, step * 0.6)`. |
-| ~893 | — | — | `let h = (value - cutoff) * BAR_GAIN` — the amplitude line. |
-| ~896 | — | — | `const x = i * step + step / 2` — where each line is placed. |
+| 881 | `FFT` | `2048` | Analyser window. 2048 → 1024 bins of frequency data. `4096` is the next step up if you want even finer resolution. |
+| 922 | `BARS` | `256` | Number of mirrored bars. **The detail dial.** `384` also works — the width maths below keeps bars from merging at any count. |
+| 923 | `LINE_W` | `2` | Bar thickness in px — a *ceiling*, not a fixed width. |
+| 924 | `BAR_FILL` | `0.7` | Share of a slot a bar may occupy; the remaining 30% is the gap. This is the "`step * 0.7`" from the brief, expressed as its own knob. |
+| 925 | `BAR_GAIN` | `0.1` | **The height dial.** Multiplies `(value - cutoff)`. |
+| 926 | `MAX_BAR` | `1.0` | Ceiling as a fraction of the canvas half-height — see the clearance note in §11. |
+| 927 | `CUTOFF` | `0.25` | A bin draws only if it beats this fraction of the loudest bin, and its height is measured *above* it. Low = quiet detail survives. Was `0.5`. |
+| 928 | `GLOW` | `3` | px of dark halo per bar. `0` disables it (and is much faster). |
+| 957 | — | — | `lineW = Math.min(LINE_W, step * BAR_FILL)` — the bar-width rule. |
+| 987 | — | — | `const cutoff = CUTOFF * loudest;` |
+| 998 | — | — | The skip: `if (value <= cutoff) continue;` |
+| ~1003 | — | — | `let h = (value - cutoff) * BAR_GAIN` — the amplitude line. |
 
-Canvas size itself is CSS: `#visualizer` (line 376) is `width: 100%` of
-`.player`, which is `min(1040px, 88vw)` (line 254); its height is
-`clamp(56px, 9vh, 104px)` (line 378) — deliberately shallow since Phase 3,
-so the cluster at 80% still clears the progress bar on a short window.
+Canvas size is CSS: `#visualizer` (line 376) is `width: 100%` of `.player`,
+which is `min(1040px, 88vw)` (line 254); its height is
+`clamp(56px, 9vh, 104px)` (line 378).
 
-Note the log bin mapping means the lowest handful of bins each feed several
-bars, so the far left reads as a solid block of bass. That is what a
-log-spaced visualizer looks like; it is not a bug.
+The log bin mapping means the lowest handful of bins each feed several bars, so
+the far left reads as a solid block of bass. That is what a log-spaced
+visualizer looks like; it is not a bug.
 
-## 8. How this was verified
+## 10. How this was verified
 
 Rendered headless (Chrome `--headless=new`) against a local `http.server`,
 driving the real page through an iframe that holds the load event open so the
@@ -235,14 +300,20 @@ so the transport can be clicked programmatically:
   glow from the top-right down to the cursor, with the periwinkle taking the
   opposite corner.
 - **Clearance at 80%:** zoomed the bottom strip at 1024×576 and measured the
-  lowest a bar can reach (~534px) against the progress track (~545px).
+  lowest the wave reaches against the progress track (~545px) — see §10.
+- **Phase 4:** the wave was rendered with real audio and inspected at 2× zoom to
+  confirm it is one continuous mirrored shape with no gaps and a taper at both
+  ends. A probe injected into the iframe read back the *computed*
+  `user-select` for body, title and wheel (all `none`), and the volume slider
+  was driven to 45% and back to confirm the track fill and that the wave
+  flattens with the volume.
 - Every `getElementById` / `querySelector` target in the script was checked
   against the markup; all resolve.
 
 Not verified automatically: seeking by dragging the bar, touch input, and the
 nav links actually navigating.
 
-## 9. Known limits / next steps
+## 11. Known limits / next steps
 
 - No artwork or lyrics for the SIX60 tracks. If cover art is added later, drop
   it in `music/` and add a `pic` field to `songs[]`.
@@ -252,13 +323,13 @@ nav links actually navigating.
   (972,084) plus 3 textures. It is the reason the model takes a while to appear.
   `gltf-transform` + Draco/Meshopt would cut it dramatically if load time
   matters.
-- The visualizer's right-hand third is often empty on bass-heavy tracks — that
-  is the half-of-maximum `CUTOFF` rule, not a bug. Lower it to make it busier.
-- The far left of the visualizer is a block of near-identical tall bars: log
-  spacing gives the lowest bins several bars each. Normal for a log-spaced
-  visualizer.
-- The cluster is at 80%; on a window shorter than ~560px it will start to meet
-  the progress bar. The shallower canvas is what keeps a 576px window safe.
+- **Visualizer clearance (measured, 1024×576):** the canvas spans y 500–556 and
+  the progress track sits at ~545, so with `MAX_BAR = 1.0` a bass peak that
+  reaches the ceiling will cross the progress bar by ~11px. Two levers if it
+  bothers you: `MAX_BAR = 0.7`, or lift the cluster to `top: 77%`. On a taller
+  window (900px+) there is ~24px of clearance and it does not arise.
+- At 256 bars the halo is a real per-frame cost: 256 shadowed strokes. If the
+  page stutters on a weak machine, `GLOW = 0` is the first thing to try.
 - The live background rewrites CSS variables on the body gradient, so the
   background repaints while the cursor is moving. Fine on a GPU; on a weak
   machine, raise the settle threshold or lower `GLOW_EASE`.
