@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mr. Sad Sick · Music</title>
+
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet">
+
+  <style>
+    /* ============================================================
+       THEME
+       Palette lifted from ../music/style.css:
+         mint  #dceee0  ·  pink #F78DA7  ·  periwinkle #A8C0FF  ·  ink #333
+       The serif overlay/frame colour is index.html's #4a4539 re-tinted
+       cool (#3f4a45) so it sits with the mint instead of fighting it.
+       ============================================================ */
+    :root {
+      --mint: #dceee0;
+      --pink: #F78DA7;
+      --peri: #A8C0FF;
+      --accent: linear-gradient(135deg, var(--pink), var(--peri));
+      --ink: #333;
+      --serif-ink: #3f4a45;
+    }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      height: 100vh;
+      font-family: 'Patrick Hand', cursive;
+
+      /* CSS gradient background — mint base, pink glow top-right,
+         periwinkle glow bottom-left. Replaces index.html's flat #ccc3ad. */
+      background-color: var(--mint);
+      background-image:
+        radial-gradient(90% 80% at 82% 6%,  rgba(247, 141, 167, 0.40) 0%, rgba(247, 141, 167, 0) 60%),
+        radial-gradient(95% 90% at 10% 94%, rgba(168, 192, 255, 0.48) 0%, rgba(168, 192, 255, 0) 62%),
+        linear-gradient(165deg, #dceee0 0%, #e4eef0 46%, #f0e9f4 100%);
+    }
+
+    /* ---------- scene furniture (from index.html, re-tinted) ---------- */
+
+    .frame {
+      position: fixed;
+      top: 30px; bottom: 30px; left: 30px; right: 30px;
+      border: 1px solid rgba(63, 74, 69, 0.18);
+      pointer-events: none;
+      z-index: 4;
+    }
+
+    .corner { position: absolute; width: 10px; height: 10px; }
+
+    .corner::before, .corner::after {
+      content: '';
+      position: absolute;
+      background-color: rgba(63, 74, 69, 0.5);
+    }
+    .corner::before { top: 4px; left: 0; width: 10px; height: 1px; }
+    .corner::after  { top: 0; left: 4px; width: 1px; height: 10px; }
+
+    .tl { top: -5px; left: -5px; }
+    .tr { top: -5px; right: -5px; }
+    .bl { bottom: -5px; left: -5px; }
+    .br { bottom: -5px; right: -5px; }
+
+    .overlay-text {
+      position: fixed;
+      font-family: 'Times New Roman', serif;
+      color: var(--serif-ink);
+      font-size: 0.85rem;
+      letter-spacing: 0.1em;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .text-tl { top: 60px; left: 60px; }
+    .text-tl span { display: block; font-size: 0.7rem; margin-top: 6px; opacity: 0.8; }
+    .text-tr { top: 60px; right: 60px; }
+    .text-bl { bottom: 78px; left: 60px; }
+
+    .text-mr {
+      top: 50%;
+      right: 60px;
+      transform: translateY(-50%);
+      writing-mode: vertical-rl;
+      letter-spacing: 0.4em;
+    }
+
+    .signature {
+      position: fixed;
+      bottom: 9%;
+      right: 5%;
+      transform: rotate(-15deg);
+      width: 14vw;
+      min-width: 120px;
+      z-index: 4;
+      pointer-events: none;
+    }
+
+    /* ---------- page nav: home / music, tucked under the top rule ---------- */
+
+    .nav {
+      position: fixed;
+      top: 44px;                 /* the frame's top line sits at 30px */
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      z-index: 30;
+    }
+
+    .nav a {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;        /* the round part — no fill, just a hairline */
+      border: 1px solid rgba(63, 74, 69, 0.4);
+      color: var(--serif-ink);
+      opacity: 0.62;
+      transition: opacity 0.2s ease, transform 0.15s ease, border-color 0.2s ease;
+    }
+
+    .nav a:hover { opacity: 1; transform: scale(1.08); }
+    .nav a.current { opacity: 1; border-color: rgba(63, 74, 69, 0.85); }
+
+    .nav svg {
+      width: 16px;
+      height: 16px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .background-sad {
+      position: fixed;
+      top: 75%;
+      left: 0%;
+
+      font-family: 'Arial Black', Impact, sans-serif;
+      font-size: 45vw;
+      font-weight: 900;
+      line-height: 1;
+
+      color: transparent;
+      -webkit-text-stroke: 4px rgba(63, 74, 69, 0.13);
+
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 0;
+
+      animation: scroll-left 2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes scroll-left {
+      0%   { transform: translate(100vw, -50%); }
+      100% { transform: translate(0%, -50%); }
+    }
+
+    /* ---------- 3D model (identical setup to index.html, new src) ---------- */
+
+    #my-model {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+
+      width: 150vw;
+      height: 150vh;
+      /* index.html uses -33%. hunter_2's subject sits lower in its own
+         bounding box, so it needs a bigger lift to land in the same place
+         on screen — head near the top, jacket filling the lower third. */
+      transform: translate(-50%, -43%);
+      outline: none;
+      --camera-orbit-transition: 0.1s ease-out;
+      background-color: transparent;
+      z-index: 2;
+      /* no camera-controls here, so it needs no pointer events —
+         lets clicks reach the wheel and the transport below */
+      pointer-events: none;
+    }
+
+    /* ============================================================
+       SONG WHEEL  (middle-left)  — arc math from ../music/wheel.js
+       ============================================================ */
+
+    #wheel-container {
+      position: fixed;
+      left: 24px;
+      top: 50%;
+      transform: translateY(-50%);
+      transition: transform 0.2s ease-in-out;
+      /* 400px tall = the arc's exact diameter (±radius 100 around the centre),
+         so overflow:hidden fades the tail items at the top and bottom.
+         Wide enough that the horizontal (active) title is not cut off. */
+      width: 340px;
+      height: 400px;
+      overflow: hidden;
+      cursor: grab;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+      z-index: 12;
+    }
+
+    #wheel-container:active { cursor: grabbing; }
+
+    #wheel-container:hover { transform: translateY(-50%) scale(1.2); }
+
+    .wheel-item {
+      position: absolute;
+      left: 24px;
+      transform-origin: left center;
+      font-size: 0.9em;
+      font-family: 'Patrick Hand', sans-serif;
+      color: #333;
+      white-space: nowrap;
+      transition: transform 0.2s, opacity 0.2s, font-size 0.2s;
+      user-select: none;
+    }
+
+    .wheel-item.active {
+      font-size: 1.1em;
+      transform-origin: left center;
+      color: #000;
+      font-weight: bold;
+    }
+
+    /* ============================================================
+       CENTRE CLUSTER — name, artist, Spotify-style transport,
+       mirrored visualizer.
+       ============================================================ */
+
+    /* No glass panel — the cluster floats straight over the 3D canvas.
+       top: 75% + translateY(-50%) centres the whole cluster three quarters
+       of the way down. Nudge the 75% to taste. */
+    .player {
+      position: fixed;
+      left: 50%;
+      top: 75%;
+      transform: translate(-50%, -50%);
+      width: min(1040px, 88vw);   /* wide: the visualizer spans this */
+      text-align: center;
+      z-index: 20;
+    }
+
+    .now-playing { letter-spacing: 0.3em; }
+
+    /* white on the dark jacket; the soft shadow keeps it readable if the
+       model or a pale patch of gradient ends up behind it */
+    .now-playing h1 {
+      margin: 0;
+      font-size: clamp(1.5rem, 2.6vw, 2.4rem);
+      font-weight: normal;
+      color: #ffffff;
+      line-height: 1.15;
+      /* tight shadow for a defined edge + wide one for a soft halo, so the
+         white stays readable where it crosses something pale (the mask) */
+      text-shadow: 0 1px 3px rgba(25, 35, 30, 0.75),
+                   0 2px 18px rgba(25, 35, 30, 0.6);
+    }
+
+    .now-playing p {
+      margin: 6px 0 0;
+      font-size: clamp(0.85rem, 1.05vw, 1.05rem);
+      color: rgba(255, 255, 255, 0.82);
+      text-shadow: 0 1px 3px rgba(25, 35, 30, 0.7),
+                   0 2px 16px rgba(25, 35, 30, 0.55);
+    }
+
+    /* bouncy letters (from ../music/script.js + style.css) */
+    .bouncy-text span {
+      display: inline-block;
+      animation: bounce 3s ease-in-out infinite;
+      animation-delay: calc(var(--i) * 0.1s);
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-4px); }
+    }
+
+    /* ---------- transport row: shuffle · prev · play · next · repeat ---------- */
+
+    .controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(14px, 2.6vw, 34px);
+      margin: 14px 0 6px;
+    }
+
+    .ctrl {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      border: none;
+      background: none;
+      color: #ffffff;                       /* white icons over the jacket */
+      cursor: pointer;
+      transition: transform 0.15s ease, color 0.2s ease;
+      filter: drop-shadow(0 2px 6px rgba(35, 48, 42, 0.45));
+    }
+
+    .ctrl:hover { transform: scale(1.12); }
+    .ctrl:active { transform: scale(0.96); }
+
+    .ctrl svg {
+      width: 22px;
+      height: 22px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* toggled-on state keeps the accent gradient + Spotify's little dot */
+    .ctrl.active { color: #F78DA7; filter: drop-shadow(0 2px 6px rgba(35, 48, 42, 0.4)); }
+    .ctrl.active svg { stroke: url(#accentGrad); }
+    .ctrl.active::after {
+      content: '';
+      position: absolute;
+      bottom: -3px;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    /* white disc, dark glyph — the one inverted control, so it reads as the
+       primary action against the black jacket. (Swap these two for a gradient
+       disc with a white glyph if you prefer the old look.) */
+    .play-btn {
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      background: #ffffff;
+      color: #1c1c1c;
+      filter: none;
+      box-shadow: 0 5px 18px rgba(20, 30, 25, 0.35);
+    }
+
+    .play-btn:hover { transform: scale(1.06); box-shadow: 0 7px 22px rgba(20, 30, 25, 0.45); }
+    .play-btn svg { width: 26px; height: 26px; fill: currentColor; stroke: none; }
+    .play-btn svg.pause-icon { display: none; }
+    .play-btn.playing svg.play-icon { display: none; }
+    .play-btn.playing svg.pause-icon { display: block; }
+
+    /* loop button: two icons, one shown per mode */
+    #loopBtn svg.loop-one-icon { display: none; }
+    #loopBtn.one svg.loop-all-icon { display: none; }
+    #loopBtn.one svg.loop-one-icon { display: block; }
+
+    /* ---------- mirrored visualizer ---------- */
+
+    #visualizer {
+      display: block;
+      width: 100%;                         /* = .player width → min(1040px, 88vw) */
+      height: clamp(70px, 11vh, 110px);
+      margin: 10px auto 0;
+      background: transparent;
+    }
+
+    /* ============================================================
+       PROGRESS BAR — very bottom, full width
+       ============================================================ */
+
+    .progress-container {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 30px 16px;
+      box-sizing: border-box;
+      z-index: 20;
+    }
+
+    .progress-container span {
+      font-family: 'Patrick Hand', sans-serif;
+      font-size: 1.05rem;
+      font-weight: bold;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .progress-bar {
+      flex: 1;
+      height: 18px;              /* tall hit area … */
+      padding: 6px 0;            /* … 6px visible track … */
+      box-sizing: border-box;
+      background-clip: content-box;
+      background-color: rgba(0, 0, 0, 0.1);
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .progress-fill {
+      position: relative;
+      width: 0%;
+      height: 100%;
+      border-radius: 5px;
+      background: var(--accent);
+      transition: width 0.1s linear;
+      pointer-events: none;
+    }
+
+    .progress-bar:hover .progress-fill::after {
+      content: '';
+      position: absolute;
+      right: -5px;
+      top: 50%;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+      transform: translateY(-50%);
+    }
+
+    audio { display: none; }
+
+    /* ---------- narrow windows ---------- */
+
+    @media (max-width: 900px) {
+      #wheel-container { left: 8px; width: 240px; height: 320px; }
+      .wheel-item { left: 16px; font-size: 0.8em; }
+      .player { width: 88vw; padding: 18px 20px 14px; top: 46%; }
+      .signature { display: none; }
+      .text-mr, .text-bl { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- accent gradient shared by every toggled-on control -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <!-- userSpaceOnUse over the 24×24 icon grid, so every stroke of an icon
+           shares one gradient instead of each restarting its own -->
+      <linearGradient id="accentGrad" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="24" y2="24">
+        <stop offset="0%"   stop-color="#F78DA7"/>
+        <stop offset="100%" stop-color="#A8C0FF"/>
+      </linearGradient>
+    </defs>
+  </svg>
+
+  <div class="background-sad">SAD</div>
+
+  <!-- page nav — the round ring is just a 1px border; delete `border` on
+       .nav a if you want the bare glyphs -->
+  <nav class="nav">
+    <a href="index.html" aria-label="Home" title="Home">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3.5 10.8 12 4l8.5 6.8"/>
+        <path d="M5.8 10.2V20h12.4v-9.8"/>
+        <path d="M9.8 20v-5.2h4.4V20"/>
+      </svg>
+    </a>
+    <a class="current" href="music.html" aria-label="Music" title="Music">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M9.2 17.4V6.2l9.6-1.9v11.2"/>
+        <circle cx="6.6" cy="17.6" r="2.6"/>
+        <circle cx="16.2" cy="15.6" r="2.6"/>
+      </svg>
+    </a>
+  </nav>
+
+  <div class="frame">
+    <div class="corner tl"></div>
+    <div class="corner tr"></div>
+    <div class="corner bl"></div>
+    <div class="corner br"></div>
+  </div>
+
+  <div class="overlay-text text-tl">
+    Hunter Barndt
+    <span>Physicist</span>
+  </div>
+  <div class="overlay-text text-tr">Physics · Born in Dinosaur Age</div>
+  <div class="overlay-text text-mr">Alaska</div>
+  <div class="overlay-text text-bl">He is THE Dr.Sigma</div>
+
+  <img src="model/signature.png" alt="Signature" class="signature">
+
+  <!-- same scene as index.html, model swapped.
+       The radius (last camera-orbit value) is what scales the subject on
+       screen — bigger radius = camera further back = smaller model. -->
+  <model-viewer
+    id="my-model"
+    src="model/hunter_2.glb"
+    alt="A 3D model of my object"
+    camera-orbit="10deg 90deg 7.1m">
+  </model-viewer>
+
+  <!-- middle-left: scrollable song wheel -->
+  <div id="wheel-container"></div>
+
+  <!-- centre: now playing + Spotify-style transport + mirrored visualizer -->
+  <div class="player">
+    <div class="now-playing">
+      <h1 id="song-name" class="bouncy-text"></h1>
+      <p id="artist-name" class="bouncy-text"></p>
+    </div>
+
+    <div class="controls">
+      <button class="ctrl" id="shuffleBtn" aria-label="Shuffle" title="Shuffle">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <polyline points="16 3 21 3 21 8"/>
+          <line x1="4" y1="20" x2="21" y2="3"/>
+          <polyline points="21 16 21 21 16 21"/>
+          <line x1="15" y1="15" x2="21" y2="21"/>
+          <line x1="4" y1="4" x2="9" y2="9"/>
+        </svg>
+      </button>
+
+      <button class="ctrl" id="prevBtn" aria-label="Previous song" title="Previous">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <polygon points="19 20 9 12 19 4 19 20"/>
+          <line x1="5" y1="19" x2="5" y2="5"/>
+        </svg>
+      </button>
+
+      <button class="ctrl play-btn" id="playBtn" aria-label="Play" title="Play / Pause">
+        <svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <polygon points="6 3 20 12 6 21 6 3"/>
+        </svg>
+        <svg class="pause-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="6" y="4" width="4" height="16" rx="1"/>
+          <rect x="14" y="4" width="4" height="16" rx="1"/>
+        </svg>
+      </button>
+
+      <button class="ctrl" id="nextBtn" aria-label="Next song" title="Next">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <polygon points="5 4 15 12 5 20 5 4"/>
+          <line x1="19" y1="5" x2="19" y2="19"/>
+        </svg>
+      </button>
+
+      <button class="ctrl active" id="loopBtn" aria-label="Repeat" title="Repeat: all / one / off" data-loop="all">
+        <svg class="loop-all-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <polyline points="17 1 21 5 17 9"/>
+          <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+          <polyline points="7 23 3 19 7 15"/>
+          <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+        </svg>
+        <svg class="loop-one-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <polyline points="17 1 21 5 17 9"/>
+          <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+          <polyline points="7 23 3 19 7 15"/>
+          <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+          <!-- solid "1", sized like Material's repeat_one so it still reads at 22px -->
+          <path d="M13.6 15.4V8.6h-1.3l-2.5 1.3v1.4h1.8v4.1z" fill="currentColor" stroke="none"/>
+        </svg>
+      </button>
+    </div>
+
+    <canvas id="visualizer"></canvas>
+  </div>
+
+  <!-- very bottom: full-width progress bar -->
+  <div class="progress-container">
+    <span id="current-time">0:00</span>
+    <div class="progress-bar">
+      <div class="progress-fill"></div>
+    </div>
+    <span id="total-time">0:00</span>
+  </div>
+
+  <audio id="audio"></audio>
+
+  <script>
+  /* ================================================================
+     SONGS — the files in bucket/music/
+     ================================================================ */
+  const songs = [
+    { name: "Don't Forget Your Roots", artist: "SIX60", file: "SIX60 - Don't Forget Your Roots.mp3" },
+    { name: "Long Gone",               artist: "SIX60", file: "SIX60 - Long Gone.mp3" },
+    { name: "Never Enough",            artist: "SIX60", file: "SIX60 - Never Enough.mp3" },
+    { name: "Special",                 artist: "SIX60", file: "SIX60 - Special.mp3" },
+    { name: "Stay Together",           artist: "SIX60", file: "SIX60 - Stay Together.mp3" },
+    { name: "Sundown",                 artist: "SIX60", file: "SIX60 - Sundown.mp3" },
+    { name: "The Greatest",            artist: "SIX60", file: "SIX60 - The Greatest.mp3" }
+  ];
+
+  const songURL = song => "music/" + encodeURIComponent(song.file);
+
+  const audio      = document.getElementById("audio");
+  const playBtn    = document.getElementById("playBtn");
+  const prevBtn    = document.getElementById("prevBtn");
+  const nextBtn    = document.getElementById("nextBtn");
+  const shuffleBtn = document.getElementById("shuffleBtn");
+  const loopBtn    = document.getElementById("loopBtn");
+  const nameEl     = document.getElementById("song-name");
+  const artistEl   = document.getElementById("artist-name");
+
+  let currentIndex = 0;
+  let shuffleOn    = false;
+  let loopMode     = "all";     // all → one → off
+
+  /* ================================================================
+     BOUNCY TEXT (from ../music/script.js)
+     ================================================================ */
+  function animateLetters(el, text) {
+    el.innerHTML = [...text].map((char, i) => {
+      const content = char === " " ? "&nbsp;" : char;
+      return `<span style="--i:${i}">${content}</span>`;
+    }).join("");
+  }
+
+  /* ================================================================
+     WHEEL (arc math from ../music/wheel.js)
+     radius 100, 30px pitch; the "active" slot sits at angle PI/2,
+     which is the horizontally-aligned position on the arc.
+     `position` = which song index currently sits in that slot.
+     ================================================================ */
+  const wheel     = document.getElementById("wheel-container");
+  const RADIUS    = 100;
+  const ITEM_H    = 30;
+  const SLOT      = (Math.PI / 2) * RADIUS;   // angleOffset that puts index 0 in the slot
+
+  let position = 0;              // float while dragging, integer once settled
+  let dragY = null, dragStartPos = 0, dragStartY = 0, pressedIndex = -1;
+
+  songs.forEach((song, i) => {
+    const el = document.createElement("div");
+    el.className = "wheel-item";
+    el.textContent = song.name;
+    el.dataset.index = i;
+    el.addEventListener("mousedown", e => e.preventDefault());  // no text selection
+    wheel.appendChild(el);
+  });
+  const wheelItems = wheel.querySelectorAll(".wheel-item");
+
+  function updateWheel() {
+    const angleOffset = SLOT - position * ITEM_H;
+    const centerY = wheel.offsetHeight / 2;   // read live: the height changes on narrow windows
+
+    wheelItems.forEach((el, i) => {
+      const angle = (i * ITEM_H + angleOffset) / RADIUS;
+      const x = Math.sin(angle) * RADIUS;
+      const y = centerY - Math.cos(angle) * RADIUS;
+      const deg = angle * (180 / Math.PI) - 90;
+
+      el.style.transform = `translate(${x}px, ${y}px) rotate(${deg}deg)`;
+      el.style.opacity = Math.abs(deg) < 60 ? 1 : 0.2;
+      el.classList.toggle("active", Math.abs(i - position) < 0.5);
+    });
+  }
+
+  // smooth snap so exactly one song ever sits in the slot
+  let snapFrame = null;
+  function snapWheel() {
+    const target = Math.round(position);
+    if (Math.abs(target - position) < 0.001) { position = target; updateWheel(); return; }
+    if (snapFrame) cancelAnimationFrame(snapFrame);
+
+    const from = position;
+    const t0 = performance.now();
+    const DUR = 220;
+
+    (function step(now) {
+      const t = Math.min((now - t0) / DUR, 1);
+      const ease = 1 - Math.pow(1 - t, 3);
+      position = from + (target - from) * ease;
+      updateWheel();
+      if (t < 1) snapFrame = requestAnimationFrame(step);
+      else { position = target; snapFrame = null; updateWheel(); selectSong(target); }
+    })(t0);
+  }
+
+  function setPosition(next) {
+    position = Math.min(Math.max(next, 0), songs.length - 1);   // clamp to the ends
+    updateWheel();
+    snapWheel();
+  }
+
+  function selectSong(index) {
+    if (index === currentIndex) return;
+    loadSong(index, !audio.paused);      // keep playing if it already was
+  }
+
+  /* ---- drag ---- */
+  wheel.addEventListener("mousedown", e => {
+    dragY = e.clientY;
+    dragStartY = e.clientY;
+    dragStartPos = position;
+    const item = e.target.closest(".wheel-item");
+    pressedIndex = item ? Number(item.dataset.index) : -1;
+  });
+
+  document.addEventListener("mousemove", e => {
+    if (dragY === null) return;
+    dragY = e.clientY;
+    position = Math.min(Math.max(dragStartPos - (e.clientY - dragStartY) / ITEM_H, 0), songs.length - 1);
+    updateWheel();
+  });
+
+  document.addEventListener("mouseup", e => {
+    if (dragY === null) return;
+    const wasTap = Math.abs(e.clientY - dragStartY) < 5 && pressedIndex >= 0;
+    dragY = null;
+    if (wasTap) setPosition(pressedIndex);
+    else snapWheel();
+    pressedIndex = -1;
+  });
+
+  /* ---- mouse wheel: one song per notch (trackpads accumulated) ---- */
+  let wheelAccum = 0;
+  wheel.addEventListener("wheel", e => {
+    e.preventDefault();
+    wheelAccum += e.deltaY;
+    if (Math.abs(wheelAccum) < 40) return;
+    const dir = Math.sign(wheelAccum);
+    wheelAccum = 0;
+    setPosition(Math.round(position) + dir);
+  }, { passive: false });
+
+  /* ---- touch ---- */
+  wheel.addEventListener("touchstart", e => {
+    dragStartY = e.touches[0].clientY;
+    dragStartPos = position;
+    pressedIndex = -1;
+  }, { passive: true });
+
+  wheel.addEventListener("touchmove", e => {
+    const y = e.touches[0].clientY;
+    position = Math.min(Math.max(dragStartPos - (y - dragStartY) / ITEM_H, 0), songs.length - 1);
+    updateWheel();
+  }, { passive: true });
+
+  wheel.addEventListener("touchend", () => snapWheel());
+
+  /* ================================================================
+     AUDIO GRAPH (from ../music/main.js)
+     Built on the first play click so the context is never left suspended.
+     ================================================================ */
+  let audioCtx = null, analyser = null, dataArray = null;
+  const FFT = 512;
+
+  function initAudioGraph() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = FFT;
+    const source = audioCtx.createMediaElementSource(audio);
+    source.connect(analyser);
+    analyser.connect(audioCtx.destination);
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+    buildBinMap(dataArray.length);
+  }
+
+  /* ================================================================
+     MIRRORED VISUALIZER
+     Same rule as ../music/main.js — a bin only draws if it clears half
+     the frame's loudest bin — but every surviving bin is one line
+     through the centre baseline, growing up AND down at once.
+     ================================================================ */
+  const canvas = document.getElementById("visualizer");
+  const ctx = canvas.getContext("2d");
+
+  /* ---- visualizer tuning knobs ------------------------------------------
+     BARS      how many frequency lines are drawn
+     LINE_W    thickness of a line in px (capped at 60% of the step, so the
+               lines can never touch on a narrow window)
+     BAR_GAIN  amplitude multiplier — the single dial for "how tall"
+     MAX_BAR   hard ceiling, as a fraction of the canvas half-height
+     CUTOFF    a bin only draws if it beats this fraction of the loudest bin
+     Line spacing is derived, not set: step = canvasWidth / BARS, so the
+     lines always spread across the full width. Fewer BARS = wider spacing.
+     ---------------------------------------------------------------------- */
+  const BARS     = 64;
+  const LINE_W   = 3;
+  const BAR_GAIN = 0.18;
+  const MAX_BAR  = 0.8;
+  const CUTOFF   = 0.5;
+  const GLOW     = 7;      // px of dark halo behind each line, so white lines
+                           // stay visible where they cross a pale background
+
+  let step = 0, lineW = LINE_W, cssW = 0, cssH = 0;
+
+  // Music is bass-heavy: stepping through the bins linearly would bunch every
+  // line into the left edge. Log spacing gives each bar a fair share of the
+  // spectrum, so the lines span the whole canvas.
+  let binMap = null;
+  function buildBinMap(binCount) {
+    binMap = new Uint16Array(BARS);
+    for (let i = 0; i < BARS; i++) {
+      binMap[i] = Math.min(binCount - 1, Math.round(Math.pow(binCount / 2, i / (BARS - 1))));
+    }
+  }
+
+  function resizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    cssW = canvas.clientWidth;
+    cssH = canvas.clientHeight;
+    if (!cssW || !cssH) return;
+    canvas.width  = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    step  = cssW / BARS;                    // distance between line centres
+    lineW = Math.min(LINE_W, step * 0.6);
+  }
+
+  window.addEventListener("resize", resizeCanvas);
+  resizeCanvas();
+
+  function draw() {
+    requestAnimationFrame(draw);
+    if (!cssW) resizeCanvas();
+    ctx.clearRect(0, 0, cssW, cssH);
+    if (!analyser) return;
+
+    const mid = cssH / 2;
+
+    // the centre baseline is always there — it is the axis the bars grow from
+    ctx.shadowBlur = 0;                    // (reset: the bars set it each frame)
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.35)";
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(0, mid);
+    ctx.lineTo(cssW, mid);
+    ctx.stroke();
+
+    analyser.getByteFrequencyData(dataArray);
+    const loudest = Math.max(...dataArray);
+    if (loudest <= 0) return;                           // silence: axis only
+
+    const cutoff = CUTOFF * loudest;   // quiet bins stay invisible
+    const maxH = mid * MAX_BAR;
+
+    ctx.lineWidth = lineW;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#ffffff";
+    ctx.shadowColor = "rgba(35, 48, 42, 0.5)";
+    ctx.shadowBlur = GLOW;
+
+    for (let i = 0; i < BARS; i++) {
+      const value = dataArray[binMap[i]];
+      if (value <= cutoff) continue;
+
+      let h = (value - cutoff) * BAR_GAIN;
+      if (h > maxH) h = maxH;
+
+      const x = i * step + step / 2;
+      ctx.beginPath();
+      ctx.moveTo(x, mid - h);        // mirrored: up …
+      ctx.lineTo(x, mid + h);        // … and down from the same baseline
+      ctx.stroke();
+    }
+  }
+
+  draw();
+
+  /* ================================================================
+     PLAYBACK
+     ================================================================ */
+  function formatTime(seconds) {
+    if (!isFinite(seconds) || seconds < 0) return "0:00";
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60).toString().padStart(2, "0");
+    return `${mins}:${secs}`;
+  }
+
+  function setNowPlaying(song) {
+    animateLetters(nameEl, song.name);
+    animateLetters(artistEl, song.artist);
+    nameEl.title = song.name;
+  }
+
+  function setPlayIcon(playing) {
+    playBtn.classList.toggle("playing", playing);
+    playBtn.setAttribute("aria-label", playing ? "Pause" : "Play");
+  }
+
+  function loadSong(index, autoplay) {
+    currentIndex = (index + songs.length) % songs.length;
+    const song = songs[currentIndex];
+
+    audio.src = songURL(song);
+    audio.load();
+    setNowPlaying(song);
+
+    currentTimeEl.textContent = "0:00";
+    totalTimeEl.textContent = "0:00";
+    progressFill.style.width = "0%";
+
+    setPlayIcon(false);
+
+    // keep the wheel pointing at the song that is actually playing
+    if (Math.round(position) !== currentIndex) { position = currentIndex; updateWheel(); }
+
+    if (autoplay) playAudio();
+  }
+
+  async function playAudio() {
+    initAudioGraph();
+    if (audioCtx.state === "suspended") await audioCtx.resume();
+    try {
+      await audio.play();
+      setPlayIcon(true);
+    } catch (err) {
+      console.warn("Playback was blocked:", err);
+      setPlayIcon(false);
+    }
+  }
+
+  function pauseAudio() {
+    audio.pause();
+    setPlayIcon(false);
+  }
+
+  playBtn.addEventListener("click", () => {
+    if (audio.paused) playAudio();
+    else pauseAudio();
+  });
+
+  function pickNext(step) {
+    if (shuffleOn && songs.length > 1) {
+      let n;
+      do { n = Math.floor(Math.random() * songs.length); } while (n === currentIndex);
+      return n;
+    }
+    return (currentIndex + step + songs.length) % songs.length;
+  }
+
+  nextBtn.addEventListener("click", () => loadSong(pickNext(1), true));
+
+  prevBtn.addEventListener("click", () => {
+    if (audio.currentTime > 3) { audio.currentTime = 0; return; }   // Spotify rule
+    loadSong(pickNext(-1), true);
+  });
+
+  shuffleBtn.addEventListener("click", () => {
+    shuffleOn = !shuffleOn;
+    shuffleBtn.classList.toggle("active", shuffleOn);
+  });
+
+  loopBtn.addEventListener("click", () => {
+    loopMode = loopMode === "all" ? "one" : loopMode === "one" ? "off" : "all";
+    loopBtn.dataset.loop = loopMode;
+    loopBtn.classList.toggle("active", loopMode !== "off");
+    loopBtn.classList.toggle("one", loopMode === "one");
+    loopBtn.setAttribute("aria-label", "Repeat: " + loopMode);
+  });
+
+  audio.addEventListener("ended", () => {
+    if (loopMode === "one") { audio.currentTime = 0; playAudio(); return; }
+    if (loopMode === "off" && !shuffleOn && currentIndex === songs.length - 1) {
+      setPlayIcon(false);
+      return;
+    }
+    loadSong(pickNext(1), true);
+  });
+
+  /* ================================================================
+     PROGRESS BAR (from ../music/script.js)
+     ================================================================ */
+  const progressFill  = document.querySelector(".progress-fill");
+  const progressBar   = document.querySelector(".progress-bar");
+  const currentTimeEl = document.getElementById("current-time");
+  const totalTimeEl   = document.getElementById("total-time");
+
+  audio.addEventListener("loadedmetadata", () => {
+    totalTimeEl.textContent = formatTime(audio.duration);
+  });
+
+  audio.addEventListener("timeupdate", () => {
+    currentTimeEl.textContent = formatTime(audio.currentTime);
+    if (isFinite(audio.duration) && audio.duration > 0) {
+      progressFill.style.width = `${(audio.currentTime / audio.duration) * 100}%`;
+    }
+  });
+
+  let draggingProgress = false;
+
+  function seekToPosition(e) {
+    if (!isFinite(audio.duration) || audio.duration <= 0) return;
+    const rect = progressBar.getBoundingClientRect();
+    const x = Math.min(Math.max(e.clientX - rect.left, 0), rect.width);
+    audio.currentTime = (x / rect.width) * audio.duration;
+  }
+
+  progressBar.addEventListener("mousedown", e => {
+    draggingProgress = true;
+    seekToPosition(e);
+  });
+
+  document.addEventListener("mousemove", e => {
+    if (draggingProgress) seekToPosition(e);
+  });
+
+  document.addEventListener("mouseup", () => { draggingProgress = false; });
+
+  progressBar.addEventListener("touchstart", e => {
+    seekToPosition(e.touches[0]);
+  }, { passive: true });
+
+  /* ================================================================
+     START — load track 1 paused, wheel already pointing at it
+     ================================================================ */
+  loadSong(0, false);
+  position = 0;
+  updateWheel();
+
+  /* ================================================================
+     SCENE — identical camera behaviour to index.html
+     ================================================================ */
+  const model = document.getElementById("my-model");
+
+  // How far the camera sits from the model. This is the equivalent of a
+  // mesh scale here — index.html leaves it on "auto", which frames each
+  // model to its own bounding box, so hunter_2's head-and-shoulders scan
+  // came out ~1.35x too big next to hunter.glb. Raise the number to shrink
+  // the model, lower it to fill more of the screen.
+  const CAMERA_RADIUS = "7.1m";
+
+  function updateRotation(xPos, yPos) {
+    const rotateX = xPos * 2;
+    const rotateY = yPos * 2;
+
+    const theta = 10 + rotateX;
+    const phi = 90 + rotateY;
+
+    // must carry the radius too — "auto" here would undo CAMERA_RADIUS
+    // the moment the mouse moves
+    model.setAttribute("camera-orbit", `${theta}deg ${phi}deg ${CAMERA_RADIUS}`);
+  }
+
+  updateRotation(0, 0);
+
+  document.addEventListener("mousemove", (event) => {
+    const xPos = (event.clientX / window.innerWidth) * 2 - 1;
+    const yPos = (event.clientY / window.innerHeight) * 2 - 1;
+
+    updateRotation(xPos, yPos);
+  });
+  </script>
+
+</body>
+</html>

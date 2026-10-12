@@ -141,6 +141,44 @@
       pointer-events: none;
     }
 
+    /* ---------- page nav: home / music, tucked under the top rule ---------- */
+
+    .nav {
+      position: fixed;
+      top: 44px;                 /* the frame's top line sits at 30px */
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      z-index: 30;
+    }
+
+    .nav a {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;        /* the round part — no fill, just a hairline */
+      border: 1px solid rgba(74, 69, 57, 0.4);
+      color: #4a4539;
+      opacity: 0.62;
+      transition: opacity 0.2s ease, transform 0.15s ease, border-color 0.2s ease;
+    }
+
+    .nav a:hover { opacity: 1; transform: scale(1.08); }
+    .nav a.current { opacity: 1; border-color: rgba(74, 69, 57, 0.85); }
+
+    .nav svg {
+      width: 16px;
+      height: 16px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
     .background-sad {
       position: fixed;
       top: 75%;
@@ -174,6 +212,25 @@
 </head>
 <body>
   <div class="background-sad">SAD</div>
+
+  <!-- page nav — the round ring is just a 1px border; delete `border` on
+       .nav a if you want the bare glyphs -->
+  <nav class="nav">
+    <a class="current" href="index.html" aria-label="Home" title="Home">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3.5 10.8 12 4l8.5 6.8"/>
+        <path d="M5.8 10.2V20h12.4v-9.8"/>
+        <path d="M9.8 20v-5.2h4.4V20"/>
+      </svg>
+    </a>
+    <a href="music.html" aria-label="Music" title="Music">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M9.2 17.4V6.2l9.6-1.9v11.2"/>
+        <circle cx="6.6" cy="17.6" r="2.6"/>
+        <circle cx="16.2" cy="15.6" r="2.6"/>
+      </svg>
+    </a>
+  </nav>
 
   <div class="frame">
     <div class="corner tl"></div>
