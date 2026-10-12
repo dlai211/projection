@@ -188,7 +188,7 @@
       /* index.html uses -33%. hunter_2's subject sits lower in its own
          bounding box, so it needs a bigger lift to land in the same place
          on screen — head near the top, jacket filling the lower third. */
-      transform: translate(-50%, -43%);
+      transform: translate(-50%, -33%);
       outline: none;
       --camera-orbit-transition: 0.1s ease-out;
       background-color: transparent;
@@ -614,10 +614,12 @@
        screen — bigger radius = camera further back = smaller model. -->
   <model-viewer
     id="my-model"
-    src="model/hunter_2.glb"
+    src="model/hunter_3.glb"
     alt="A 3D model of my object"
     camera-orbit="10deg 90deg 7.1m">
   </model-viewer>
+
+
 
   <!-- middle-left: scrollable song wheel -->
   <div id="wheel-container"></div>
