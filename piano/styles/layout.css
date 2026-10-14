@@ -1,0 +1,112 @@
+/**
+ * Layout: the vertical stack of title bar, sheet music, keyboard and status line.
+ *
+ * The sheet area is the only flexible row. sheet-render.js measures its height and
+ * decides how many systems fit, so this file must never give it a fixed height.
+ */
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 14px 28px 6px;
+  flex: 0 0 auto;
+}
+
+.title-group {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  min-width: 0;
+}
+
+.title-group h1 {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+
+.title-group span {
+  font-size: 18px;
+  color: var(--graphite-hb);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+/* The measured region for the systems. It scrolls when the piece is longer than
+   the window, which is how the remaining systems stay reachable. */
+.sheet-area {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0; /* lets the flex child actually shrink */
+  width: 100%;
+  padding: 0 28px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Spacer sized to the whole song, so scrolling and scrollIntoView work even
+   though every system is absolutely positioned. */
+.sheet-canvas {
+  position: relative;
+  width: 100%;
+}
+
+/* Systems are absolutely positioned so they never reflow each other.
+   --system-top and --system-height are set per system by sheet-render.js. */
+.system-svg {
+  position: absolute;
+  top: var(--system-top, 0);
+  left: 28px;
+  width: calc(100% - 56px);
+  height: var(--system-height, 140px);
+  display: block;
+}
+
+.piano-section {
+  flex: 0 0 auto;
+  padding: 0 20px 8px;
+}
+
+.piano-frame {
+  position: relative;
+  height: clamp(120px, 20vh, 190px);
+  display: flex;
+  border-top: 2.5px solid var(--graphite-2b);
+}
+
+.status-bar {
+  flex: 0 0 auto;
+  padding: 4px 28px 12px;
+  font-family: var(--font-hand);
+  font-size: 19px;
+  color: var(--graphite-hb);
+}
+
+.placeholder-note {
+  margin: auto;
+  font-family: var(--font-hand);
+  font-size: 20px;
+  color: var(--graphite-faint);
+}
+
+/* On short windows the keyboard yields space to the score. */
+@media (max-height: 760px) {
+  .piano-frame {
+    height: 110px;
+  }
+
+  .title-group h1 {
+    font-size: 25px;
+  }
+}

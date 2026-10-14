@@ -1,0 +1,143 @@
+/**
+ * Theme: the paper, the graphite, and the type.
+ *
+ * The look is "pencil on coarse cold-press paper": a bright warm off-white sheet
+ * with a bump-lit grain, everything drawn on it in graphite with a multiply blend
+ * so the strokes pick up the paper's texture instead of sitting on top of it.
+ *
+ * Change a colour here and the whole page follows — nothing else hard-codes one.
+ */
+
+:root {
+  /* Paper — lighter and warmer than the first draft, like fresh sketch paper. */
+  --paper-base: #f8f4ea;
+  --paper-lit: #fdfaf3;
+
+  /* Graphite. The values are lifted slightly from pure black so the drawing
+     reads as pencil rather than ink. */
+  --graphite-2b: #312d29;
+  --graphite-hb: #655f57;
+  --graphite-faint: #9a938a;
+
+  /* Fills */
+  --pencil-highlight: rgba(49, 45, 41, 0.10);
+  --pencil-hover: rgba(49, 45, 41, 0.06);
+  --pencil-active: rgba(49, 45, 41, 0.16);
+
+  /* Controls are line-only with a transparent background. */
+  --control-border: rgba(49, 45, 41, 0.45);
+  --control-hover: rgba(49, 45, 41, 0.08);
+
+  --accent-practice: #b0492f; /* used only for the live-microphone state */
+
+  --font-hand: 'Caveat', 'Segoe Script', cursive;
+  --font-ui: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+
+  --paper-texture-opacity: 0.58;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background-color: var(--paper-base);
+  color: var(--graphite-2b);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Nothing on this page should be selectable or draggable: it is an instrument,
+   not a document. */
+body,
+button {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/**
+ * The paper grain. A fixed, full-viewport SVG lit by feDiffuseLighting, blended
+ * with `multiply` so the graphite strokes below it share the same surface.
+ */
+.paper-layer {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+  mix-blend-mode: multiply;
+  opacity: var(--paper-texture-opacity);
+}
+
+/* Everything drawn on the paper. */
+.app-layer {
+  position: relative;
+  z-index: 5;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  mix-blend-mode: multiply;
+}
+
+/* Handwriting used for the title and the annotations on the score. */
+.title-group h1,
+.title-group span,
+.note-label,
+.measure-number {
+  font-family: var(--font-hand);
+  color: var(--graphite-2b);
+}
+
+/* The pencil-edge filter turns a clean vector stroke into a stroke drawn on
+   rough paper. It costs a filter pass per element, so it is applied to the
+   staff furniture and noteheads only, never to text (which it would blur). */
+.pencil-stroke,
+.note-head,
+.note-stem,
+.note-beam,
+.measure-highlight,
+.brace-glyph {
+  filter: url(#graphite-edge);
+}
+
+.fatal-error {
+  max-width: 620px;
+  margin: 12vh auto 0;
+  font-family: var(--font-ui);
+  color: var(--graphite-2b);
+}
+
+.fatal-error h2 {
+  font-family: var(--font-hand);
+  font-size: 30px;
+  margin-bottom: 12px;
+}
+
+.fatal-error p {
+  margin-bottom: 10px;
+  line-height: 1.6;
+}
+
+.fatal-error pre,
+.fatal-error code {
+  font-family: 'Cascadia Code', Consolas, monospace;
+  background: rgba(49, 45, 41, 0.07);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+.fatal-error pre {
+  padding: 12px;
+  margin-bottom: 10px;
+  white-space: pre-wrap;
+}

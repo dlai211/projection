@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>꽃날 (Flower Day) — Coarse Paper & Graphite Piano</title>
+  <!-- Handwritten Calligraphy/Pencil Fonts + Clean Modern UI Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Inter:wght@500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper-base: #ece6da;
+      --graphite-2b: #282624;
+      --graphite-hb: #595550;
+      --graphite-faint: #8c867e;
+      --pencil-highlight: rgba(40, 38, 36, 0.09);
+      --modern-border: rgba(40, 38, 36, 0.16);
+      --modern-surface: rgba(255, 252, 245, 0.72);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--paper-base);
+      color: var(--graphite-2b);
+      font-family: 'Caveat', cursive;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+    }
+
+    /* FULL-SCREEN COARSE WATERCOLOR PAPER TEXTURE (3D Bump-Lit SVG Filter) */
+    .coarse-paper-layer {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 1;
+      mix-blend-mode: multiply;
+      opacity: 0.78;
+    }
+
+    /* Everything sits in 2D directly on the paper with multiply blending */
+    .app-layer {
+      position: relative;
+      z-index: 5;
+      height: 100vh;
+      width: 100vw;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    /* 1. TOP BAR: Handwritten Title + Clean Modern Controls */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 40px 0;
+    }
+
+    .title-group {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      mix-blend-mode: multiply;
+      filter: url(#graphite-edge);
+    }
+
+    .title-group h1 {
+      font-size: 36px;
+      font-weight: 700;
+      color: var(--graphite-2b);
+      letter-spacing: 0.5px;
+    }
+
+    .title-group span {
+      font-size: 22px;
+      color: var(--graphite-hb);
+    }
+
+    /* Modern Clean UI Controls (No ugly wobbly borders) */
+    .modern-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: 'Inter', -apple-system, sans-serif;
+    }
+
+    .pill-switch {
+      display: inline-flex;
+      background: var(--modern-surface);
+      border: 1px solid var(--modern-border);
+      border-radius: 999px;
+      padding: 3px;
+      backdrop-filter: blur(8px);
+    }
+
+    .pill-btn {
+      border: none;
+      background: transparent;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--graphite-hb);
+      padding: 6px 16px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+
+    .pill-btn.active {
+      background: var(--graphite-2b);
+      color: #f7f4ed;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+    }
+
+    .modern-icon-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: var(--modern-surface);
+      border: 1px solid var(--modern-border);
+      color: var(--graphite-2b);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: all 0.18s ease;
+    }
+
+    .modern-icon-btn:hover {
+      background: rgba(40, 38, 36, 0.08);
+      transform: translateY(-1px);
+    }
+
+    .modern-icon-btn.mic-active {
+      background: #b84a39;
+      border-color: #b84a39;
+      color: #ffffff;
+      box-shadow: 0 0 0 4px rgba(184, 74, 57, 0.2);
+    }
+
+    /* 2. FLAT 2D SHEET MUSIC DIRECTLY ON THE PAPER */
+    .sheet-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 0 36px;
+      mix-blend-mode: multiply;
+    }
+
+    svg.manuscript-svg {
+      width: 100%;
+      max-width: 1360px;
+      margin: 0 auto;
+      height: auto;
+      max-height: 235px;
+      overflow: visible;
+    }
+
+    .pencil-stroke {
+      filter: url(#graphite-edge);
+    }
+
+    .staff-line {
+      stroke: var(--graphite-hb);
+      stroke-width: 1.35;
+      stroke-linecap: round;
+      opacity: 0.85;
+    }
+
+    .bar-line {
+      stroke: var(--graphite-2b);
+      stroke-width: 1.9;
+      stroke-linecap: round;
+    }
+
+    .note-group {
+      cursor: pointer;
+    }
+
+    .note-head {
+      fill: var(--graphite-2b);
+      filter: url(#graphite-edge);
+    }
+
+    .note-head.hollow {
+      fill: none;
+      stroke: var(--graphite-2b);
+      stroke-width: 2.3;
+    }
+
+    .note-stem {
+      stroke: var(--graphite-2b);
+      stroke-width: 1.85;
+      stroke-linecap: round;
+      filter: url(#graphite-edge);
+    }
+
+    .note-beam {
+      stroke: var(--graphite-2b);
+      stroke-width: 4.2;
+      stroke-linecap: round;
+      filter: url(#graphite-edge);
+    }
+
+    /* Handwritten Graphite Pencil Note Labels */
+    .written-note-rh {
+      font-family: 'Caveat', cursive;
+      font-size: 23px;
+      font-weight: 700;
+      fill: var(--graphite-2b);
+      text-anchor: middle;
+      filter: url(#graphite-edge);
+    }
+
+    .written-note-lh {
+      font-family: 'Caveat', cursive;
+      font-size: 19px;
+      font-weight: 600;
+      fill: var(--graphite-hb);
+      text-anchor: middle;
+      filter: url(#graphite-edge);
+    }
+
+    .measure-num {
+      font-family: 'Caveat', cursive;
+      font-size: 18px;
+      fill: var(--graphite-faint);
+      filter: url(#graphite-edge);
+    }
+
+    /* Active Measure Graphite Smudge Shading */
+    .graphite-rub-highlight {
+      fill: var(--pencil-highlight);
+      filter: url(#graphite-edge);
+      rx: 6;
+    }
+
+    /* 3. BOTTOM 2D SKETCHED PIANO (With Scraped Graphite Black Keys) */
+    .piano-section {
+      height: 22vh;
+      min-height: 150px;
+      max-height: 205px;
+      width: 100%;
+      padding: 0 16px 10px;
+      mix-blend-mode: multiply;
+    }
+
+    .piano-frame {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      border-top: 2.5px solid var(--graphite-2b);
+    }
+
+    .white-key {
+      flex: 1;
+      background: transparent;
+      border-right: 1.6px solid var(--graphite-hb);
+      border-bottom: 2px solid var(--graphite-2b);
+      border-radius: 0 0 4px 4px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 8px;
+      cursor: pointer;
+      position: relative;
+      filter: url(#graphite-edge);
+    }
+
+    .white-key:first-child {
+      border-left: 2px solid var(--graphite-2b);
+    }
+
+    .white-key:hover {
+      background: rgba(40, 38, 36, 0.05);
+    }
+
+    .white-key.active {
+      background: rgba(40, 38, 36, 0.15);
+    }
+
+    .white-key span {
+      font-family: 'Caveat', cursive;
+      font-size: 19px;
+      font-weight: 700;
+      color: var(--graphite-2b);
+      pointer-events: none;
+    }
+
+    /* Black Keys: Rendered via Scraped Pencil Canvas Background */
+    .black-key {
+      position: absolute;
+      top: 0;
+      width: 1.45%;
+      height: 62%;
+      z-index: 6;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 6px;
+      cursor: pointer;
+      background-size: 100% 100%;
+      background-repeat: no-repeat;
+      transition: transform 0.08s ease, filter 0.1s ease;
+    }
+
+    .black-key.active {
+      transform: translateY(2px);
+      filter: brightness(0.75) contrast(1.25);
+    }
+
+    .black-key span {
+      font-family: 'Caveat', cursive;
+      font-size: 14px;
+      font-weight: 700;
+      color: #f2ede2;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- SVG ENGINE: 1. Coarse Cold-Press Paper Texture (Image 1) & 2. Rough Graphite Edge -->
+  <svg class="coarse-paper-layer" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <!-- Physical 3D Bump-Lit Coarse Paper Filter -->
+      <filter id="coarse-paper" x="0%" y="0%" width="100%" height="100%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.045 0.05" numOctaves="5" seed="11" result="roughFibers" />
+        <feDiffuseLighting in="roughFibers" lighting-color="#f2ece1" surfaceScale="2.6" diffuseConstant="0.95" result="litPaper">
+          <feDistantLight azimuth="130" elevation="52" />
+        </feDiffuseLighting>
+      </filter>
+
+      <!-- Granular Graphite Pencil Edge Filter (Makes lines & writing look drawn on rough tooth) -->
+      <filter id="graphite-edge" x="-10%" y="-10%" width="120%" height="120%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.6" numOctaves="3" result="grain" />
+        <feDisplacementMap in="SourceGraphic" in2="grain" scale="1.9" xChannelSelector="R" yChannelSelector="G" />
+      </filter>
+    </defs>
+    <rect width="100%" height="100%" filter="url(#coarse-paper)" />
+  </svg>
+
+  <!-- MAIN 2D APPLICATION LAYER -->
+  <div class="app-layer">
+
+    <!-- 1. TOP BAR -->
+    <header class="top-bar">
+      <div class="title-group">
+        <h1>꽃날 (Flower Day)</h1>
+        <span>♩. = 50 • 6/8</span>
+      </div>
+
+      <!-- Clean Modern UI Controls (Image 3 Fixed) -->
+      <div class="modern-controls">
+        <div class="pill-switch" role="group" aria-label="Notation Mode">
+          <button id="btn-num" class="pill-btn active" onclick="setMode('number')">123</button>
+          <button id="btn-let" class="pill-btn" onclick="setMode('letter')">ABC</button>
+        </div>
+
+        <button id="btn-mic" class="modern-icon-btn" onclick="toggleMic()" title="Start / Stop Microphone">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" x2="12" y1="19" y2="22"/>
+          </svg>
+        </button>
+
+        <button class="modern-icon-btn" onclick="resetScore()" title="Reset to Measure 1">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+            <path d="M3 3v5h5"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- 2. FLAT 2D SHEET MUSIC ON THE COARSE PAPER -->
+    <main class="sheet-area" id="sheet-area"></main>
+
+    <!-- 3. 2D PIANO KEYBOARD WITH PENCIL-SCRAPED BLACK KEYS -->
+    <footer class="piano-section">
+      <div class="piano-frame" id="piano-frame"></div>
+    </footer>
+
+  </div>
+
+  <script>
+    let mode = 'number'; // 'number' | 'letter'
+    let activeMeasure = 1;
+    let activeMidis = new Set([71, 64, 59]);
+    let micActive = false;
+    let audioCtx = null;
+
+    /**
+     * PROCEDURAL PENCIL-SCRAPING GENERATOR FOR BLACK KEYS (Matches Image 2)
+     * Generates a dense, dark diagonal charcoal/graphite rubbing texture
+     * where rough pencil strokes and tiny specks of paper tooth remain visible.
+     */
+    function createScrapedPencilDataURL(seedOffset = 0) {
+      const c = document.createElement('canvas');
+      c.width = 68;
+      c.height = 240;
+      const ctx = c.getContext('2d');
+
+      // 1. Base layered back-and-forth diagonal pencil shading (Image 2 angle)
+      ctx.lineCap = 'round';
+      for (let pass = 0; pass < 420; pass++) {
+        const yCenter = Math.random() * 234 + 3;
+        const tilt = (Math.random() - 0.5) * 18 - 10; // slight diagonal slant
+        const xLeft = 2 + Math.random() * 6;
+        const xRight = 66 - Math.random() * 6;
+
+        ctx.beginPath();
+        ctx.moveTo(xLeft, yCenter - tilt * 0.5);
+        ctx.bezierCurveTo(
+          22, yCenter - 2 + (Math.random() - 0.5) * 4,
+          46, yCenter + 2 + (Math.random() - 0.5) * 4,
+          xRight, yCenter + tilt * 0.5
+        );
+
+        const darkness = 26 + Math.floor(Math.random() * 22);
+        const alpha = 0.22 + Math.random() * 0.34;
+        ctx.strokeStyle = `rgba(${darkness}, ${darkness - 1}, ${darkness - 2}, ${alpha})`;
+        ctx.lineWidth = 2.2 + Math.random() * 3.8;
+        ctx.stroke();
+      }
+
+      // 2. Vertical core shading so the key feels dark & full (88% filled)
+      for (let v = 0; v < 95; v++) {
+        const x = 6 + Math.random() * 56;
+        ctx.beginPath();
+        ctx.moveTo(x, 2 + Math.random() * 8);
+        ctx.lineTo(x + (Math.random() - 0.5) * 6, 232 - Math.random() * 8);
+        ctx.strokeStyle = `rgba(30, 28, 26, ${0.18 + Math.random() * 0.25})`;
+        ctx.lineWidth = 1.5 + Math.random() * 2.5;
+        ctx.stroke();
+      }
+
+      // 3. Subtle paper tooth specks (tiny un-inked valleys in the coarse paper)
+      ctx.globalCompositeOperation = 'destination-out';
+      for (let speck = 0; speck < 340; speck++) {
+        const sx = Math.random() * 68;
+        const sy = Math.random() * 240;
+        const r = 0.4 + Math.random() * 1.1;
+        ctx.fillStyle = `rgba(0, 0, 0, ${0.18 + Math.random() * 0.38})`;
+        ctx.beginPath();
+        ctx.arc(sx, sy, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 4. Hand-sketched graphite outline around the key
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.strokeStyle = 'rgba(28, 26, 24, 0.85)';
+      ctx.lineWidth = 2.2;
+      ctx.strokeRect(2.5, 1, 63, 235);
+
+      return c.toDataURL();
+    }
+
+    // Pre-generate 5 organic scraped-pencil textures so adjacent black keys look uniquely hand-shaded
+    const SCRAPED_TEXTURES = [0, 1, 2, 3, 4].map(i => createScrapedPencilDataURL(i));
+
+    // Score Data for 꽃날 (Flower Day) — Measures 1 to 8
+    const SCORE_SYSTEMS = [
+      [
+        { m: 1, xStart: 75, width: 230,
+          rh: [
+            { num: "7", let: "B4", midi: 71, x: 105, y: 55 },
+            { num: "7", let: "B4", midi: 71, x: 138, y: 55 },
+            { num: "6", let: "A4", midi: 69, x: 164, y: 60 },
+            { num: "7", let: "B4", midi: 71, x: 192, y: 55 },
+            { num: "7", let: "B4", midi: 71, x: 228, y: 55 },
+            { num: "7", let: "B4", midi: 71, x: 258, y: 55 },
+            { num: "6", let: "A4", midi: 69, x: 284, y: 60 }
+          ],
+          beams: [[100, 81, 187, 81], [223, 81, 279, 81]],
+          lh: [{ num: "3 / 7,", let: "E4/B3", midi: 59, x: 105, y: 155, hollow: true }]
+        },
+        { m: 2, xStart: 305, width: 225,
+          rh: [
+            { num: "7.", let: "B4.", midi: 71, x: 338, y: 55 },
+            { num: "#1'", let: "C#5", midi: 73, x: 392, y: 50 },
+            { num: "2'", let: "D5", midi: 74, x: 428, y: 45 },
+            { num: "1'", let: "C5", midi: 72, x: 464, y: 50 },
+            { num: "7", let: "B4", midi: 71, x: 498, y: 55 }
+          ],
+          beams: [[423, 75, 493, 81]],
+          lh: [{ num: "3 / 7,", let: "E4/B3", midi: 59, x: 338, y: 155, hollow: true }]
+        },
+        { m: 3, xStart: 530, width: 240,
+          rh: [
+            { num: "6", let: "A4", midi: 69, x: 560, y: 60 },
+            { num: "6", let: "A4", midi: 69, x: 592, y: 60 },
+            { num: "5", let: "G4", midi: 67, x: 618, y: 65 },
+            { num: "6", let: "A4", midi: 69, x: 646, y: 60 },
+            { num: "6", let: "A4", midi: 69, x: 682, y: 60 },
+            { num: "6", let: "A4", midi: 69, x: 714, y: 60 },
+            { num: "5", let: "G4", midi: 67, x: 742, y: 65 }
+          ],
+          beams: [[555, 86, 641, 86], [677, 86, 737, 90]],
+          lh: [{ num: "1 / 6,", let: "C4/A3", midi: 57, x: 560, y: 162, hollow: true }]
+        },
+        { m: 4, xStart: 770, width: 215,
+          rh: [
+            { num: "6.", let: "A4.", midi: 69, x: 805, y: 60 },
+            { num: "#4", let: "F#4", midi: 66, x: 875, y: 70 },
+            { num: "5", let: "G4", midi: 67, x: 915, y: 65 },
+            { num: "#4", let: "F#4", midi: 66, x: 952, y: 70 }
+          ],
+          beams: [[870, 96, 947, 96]],
+          lh: [
+            { num: "2", let: "D4", midi: 62, x: 805, y: 155 },
+            { num: "#1", let: "C#4", midi: 61, x: 875, y: 160 }
+          ]
+        }
+      ],
+      [
+        { m: 5, xStart: 75, width: 230,
+          rh: [
+            { num: "3", let: "E4", midi: 64, x: 105, y: 75 },
+            { num: "7", let: "B4", midi: 71, x: 138, y: 55 },
+            { num: "6", let: "A4", midi: 69, x: 164, y: 60 },
+            { num: "7", let: "B4", midi: 71, x: 192, y: 55 },
+            { num: "7", let: "B4", midi: 71, x: 228, y: 55 },
+            { num: "7", let: "B4", midi: 71, x: 258, y: 55 },
+            { num: "6", let: "A4", midi: 69, x: 284, y: 60 }
+          ],
+          beams: [[133, 81, 187, 81], [223, 81, 279, 81]],
+          lh: [{ num: "3 / 6,", let: "E4/A3", midi: 57, x: 105, y: 165, hollow: true }]
+        },
+        { m: 6, xStart: 305, width: 225,
+          rh: [
+            { num: "7.", let: "B4.", midi: 71, x: 338, y: 55 },
+            { num: "7", let: "B4", midi: 71, x: 398, y: 55 },
+            { num: "1'", let: "C5", midi: 72, x: 432, y: 50 },
+            { num: "2'", let: "D5", midi: 74, x: 466, y: 45 },
+            { num: "7", let: "B4", midi: 71, x: 498, y: 55 }
+          ],
+          beams: [[393, 81, 493, 81]],
+          lh: [{ num: "3 / 7,", let: "E4/B3", midi: 59, x: 338, y: 155, hollow: true }]
+        },
+        { m: 7, xStart: 530, width: 240,
+          rh: [
+            { num: "6.", let: "A4.", midi: 69, x: 585, y: 60, hollow: true },
+            { num: "5.", let: "G4.", midi: 67, x: 690, y: 65, hollow: true }
+          ],
+          beams: [],
+          lh: [
+            { num: "1", let: "C4", midi: 60, x: 585, y: 160 },
+            { num: "3", let: "E4", midi: 64, x: 690, y: 150 }
+          ]
+        },
+        { m: 8, xStart: 770, width: 215,
+          rh: [
+            { num: "♮4.", let: "F4.", midi: 65, x: 808, y: 70 },
+            { num: "7", let: "B4", midi: 71, x: 878, y: 55 },
+            { num: "1'", let: "C5", midi: 72, x: 916, y: 50 },
+            { num: "2'", let: "D5", midi: 74, x: 952, y: 45 }
+          ],
+          beams: [[873, 81, 947, 75]],
+          lh: [{ num: "7,", let: "B3", midi: 59, x: 808, y: 170, hollow: true }]
+        }
+      ]
+    ];
+
+    function renderSheet() {
+      const container = document.getElementById('sheet-area');
+      container.innerHTML = '';
+      const ns = "http://www.w3.org/2000/svg";
+
+      SCORE_SYSTEMS.forEach(sys => {
+        const svg = document.createElementNS(ns, "svg");
+        svg.setAttribute("viewBox", "0 0 1000 205");
+        svg.setAttribute("class", "manuscript-svg");
+
+        // Soft Graphite Smudge over Active Measure
+        sys.forEach(meas => {
+          if (meas.m === activeMeasure) {
+            const hl = document.createElementNS(ns, "rect");
+            hl.setAttribute("x", meas.xStart);
+            hl.setAttribute("y", 15);
+            hl.setAttribute("width", meas.width);
+            hl.setAttribute("height", 172);
+            hl.setAttribute("class", "graphite-rub-highlight");
+            svg.appendChild(hl);
+          }
+        });
+
+        const staffGroup = document.createElementNS(ns, "g");
+        staffGroup.setAttribute("class", "pencil-stroke");
+
+        // 5 Treble + 5 Bass Staff Lines drawn directly onto background paper
+        [35, 45, 55, 65, 75, 130, 140, 150, 160, 170].forEach(y => {
+          const line = document.createElementNS(ns, "line");
+          line.setAttribute("x1", 20);
+          line.setAttribute("x2", 985);
+          line.setAttribute("y1", y);
+          line.setAttribute("y2", y);
+          line.setAttribute("class", "staff-line");
+          staffGroup.appendChild(line);
+        });
+
+        // Measure Barlines
+        [20, 305, 530, 770, 985].forEach(x => {
+          const bar = document.createElementNS(ns, "line");
+          bar.setAttribute("x1", x);
+          bar.setAttribute("x2", x);
+          bar.setAttribute("y1", 35);
+          bar.setAttribute("y2", 170);
+          bar.setAttribute("class", "bar-line");
+          staffGroup.appendChild(bar);
+        });
+
+        svg.appendChild(staffGroup);
+
+        // Handwritten Clefs & Key Signature
+        const tClef = document.createElementNS(ns, "text");
+        tClef.setAttribute("x", 27);
+        tClef.setAttribute("y", 69);
+        tClef.setAttribute("font-size", "40");
+        tClef.setAttribute("fill", "var(--graphite-2b)");
+        tClef.setAttribute("class", "pencil-stroke");
+        tClef.textContent = "𝄞";
+        svg.appendChild(tClef);
+
+        const bClef = document.createElementNS(ns, "text");
+        bClef.setAttribute("x", 27);
+        bClef.setAttribute("y", 160);
+        bClef.setAttribute("font-size", "29");
+        bClef.setAttribute("fill", "var(--graphite-2b)");
+        bClef.setAttribute("class", "pencil-stroke");
+        bClef.textContent = "𝄢";
+        svg.appendChild(bClef);
+
+        const sharp = document.createElementNS(ns, "text");
+        sharp.setAttribute("x", 56);
+        sharp.setAttribute("y", 43);
+        sharp.setAttribute("font-size", "19");
+        sharp.setAttribute("fill", "var(--graphite-2b)");
+        sharp.setAttribute("class", "pencil-stroke");
+        sharp.textContent = "♯";
+        svg.appendChild(sharp);
+
+        // Render Notes & Pencil Writing
+        sys.forEach(meas => {
+          const mLabel = document.createElementNS(ns, "text");
+          mLabel.setAttribute("x", meas.xStart + 6);
+          mLabel.setAttribute("y", 27);
+          mLabel.setAttribute("class", "measure-num");
+          mLabel.textContent = meas.m;
+          svg.appendChild(mLabel);
+
+          // Beams
+          (meas.beams || []).forEach(b => {
+            const beam = document.createElementNS(ns, "line");
+            beam.setAttribute("x1", b[0]);
+            beam.setAttribute("y1", b[1]);
+            beam.setAttribute("x2", b[2]);
+            beam.setAttribute("y2", b[3]);
+            beam.setAttribute("class", "note-beam");
+            svg.appendChild(beam);
+          });
+
+          // Right Hand Notes + Written Labels
+          meas.rh.forEach(n => {
+            const g = document.createElementNS(ns, "g");
+            g.setAttribute("class", "note-group");
+            g.onclick = () => selectAndPlay(meas.m, n.midi);
+
+            const stem = document.createElementNS(ns, "line");
+            stem.setAttribute("x1", n.x - 5);
+            stem.setAttribute("x2", n.x - 5);
+            stem.setAttribute("y1", n.y);
+            stem.setAttribute("y2", n.y + 26);
+            stem.setAttribute("class", "note-stem");
+            g.appendChild(stem);
+
+            const head = document.createElementNS(ns, "ellipse");
+            head.setAttribute("cx", n.x);
+            head.setAttribute("cy", n.y);
+            head.setAttribute("rx", 6.2);
+            head.setAttribute("ry", 4.4);
+            head.setAttribute("transform", `rotate(-20 ${n.x} ${n.y})`);
+            head.setAttribute("class", "note-head" + (n.hollow ? " hollow" : ""));
+            g.appendChild(head);
+
+            // Written Pencil Number/Letter Directly Above Note
+            const txt = document.createElementNS(ns, "text");
+            txt.setAttribute("x", n.x);
+            txt.setAttribute("y", n.y - 12);
+            txt.setAttribute("class", "written-note-rh");
+            txt.textContent = mode === 'number' ? n.num : n.let;
+            g.appendChild(txt);
+
+            svg.appendChild(g);
+          });
+
+          // Left Hand Notes + Written Labels
+          meas.lh.forEach(n => {
+            const g = document.createElementNS(ns, "g");
+            g.setAttribute("class", "note-group");
+            g.onclick = () => selectAndPlay(meas.m, n.midi);
+
+            const head = document.createElementNS(ns, "ellipse");
+            head.setAttribute("cx", n.x);
+            head.setAttribute("cy", n.y);
+            head.setAttribute("rx", 6.4);
+            head.setAttribute("ry", 4.6);
+            head.setAttribute("transform", `rotate(-18 ${n.x} ${n.y})`);
+            head.setAttribute("class", "note-head" + (n.hollow ? " hollow" : ""));
+            g.appendChild(head);
+
+            const txt = document.createElementNS(ns, "text");
+            txt.setAttribute("x", n.x + 4);
+            txt.setAttribute("y", n.y + 23);
+            txt.setAttribute("class", "written-note-lh");
+            txt.textContent = mode === 'number' ? n.num : n.let;
+            g.appendChild(txt);
+
+            svg.appendChild(g);
+          });
+        });
+
+        container.appendChild(svg);
+      });
+    }
+
+    // Build Full Piano Keyboard with Scraped Graphite Black Keys
+    const WHITE_KEYS = [
+      { let: 'C', num: '1', s: 0 },
+      { let: 'D', num: '2', s: 2 },
+      { let: 'E', num: '3', s: 4 },
+      { let: 'F', num: '4', s: 5 },
+      { let: 'G', num: '5', s: 7 },
+      { let: 'A', num: '6', s: 9 },
+      { let: 'B', num: '7', s: 11 }
+    ];
+    const BLACK_KEYS = [
+      { let: 'C#', num: '#1', wIdx: 0, s: 1 },
+      { let: 'D#', num: '#2', wIdx: 1, s: 3 },
+      { let: 'F#', num: '#4', wIdx: 3, s: 6 },
+      { let: 'G#', num: '#5', wIdx: 4, s: 8 },
+      { let: 'A#', num: '#6', wIdx: 5, s: 10 }
+    ];
+
+    function renderPiano() {
+      const frame = document.getElementById('piano-frame');
+      frame.innerHTML = '';
+      const whites = [];
+
+      for (let oct = 2; oct <= 6; oct++) {
+        WHITE_KEYS.forEach(k => {
+          whites.push({ ...k, oct, midi: (oct + 1) * 12 + k.s });
+        });
+      }
+
+      whites.forEach(wk => {
+        const el = document.createElement('div');
+        el.className = 'white-key' + (activeMidis.has(wk.midi) ? ' active' : '');
+        el.onclick = () => selectAndPlay(activeMeasure, wk.midi);
+
+        const lbl = document.createElement('span');
+        lbl.textContent = mode === 'number' ? formatOctave(wk.num, wk.oct) : `${wk.let}${wk.oct}`;
+        el.appendChild(lbl);
+        frame.appendChild(el);
+      });
+
+      let bCount = 0;
+      for (let oct = 2; oct <= 6; oct++) {
+        BLACK_KEYS.forEach(bk => {
+          const whitePos = (oct - 2) * 7 + bk.wIdx;
+          const leftPct = ((whitePos + 1) / whites.length) * 100 - 0.725;
+          const midi = (oct + 1) * 12 + bk.s;
+
+          const bEl = document.createElement('div');
+          bEl.className = 'black-key' + (activeMidis.has(midi) ? ' active' : '');
+          bEl.style.left = `${leftPct}%`;
+          // Apply the procedural diagonal pencil-scraped texture
+          bEl.style.backgroundImage = `url(${SCRAPED_TEXTURES[bCount % SCRAPED_TEXTURES.length]})`;
+          bCount++;
+
+          bEl.onclick = (e) => {
+            e.stopPropagation();
+            selectAndPlay(activeMeasure, midi);
+          };
+
+          const lbl = document.createElement('span');
+          lbl.textContent = mode === 'number' ? bk.num : bk.let;
+          bEl.appendChild(lbl);
+          frame.appendChild(bEl);
+        });
+      }
+    }
+
+    function formatOctave(num, oct) {
+      if (oct === 4) return num;
+      if (oct === 5) return num + "'";
+      if (oct === 6) return num + "''";
+      if (oct === 3) return num + ",";
+      return num + ",,";
+    }
+
+    function setMode(newMode) {
+      mode = newMode;
+      document.getElementById('btn-num').classList.toggle('active', mode === 'number');
+      document.getElementById('btn-let').classList.toggle('active', mode === 'letter');
+      renderSheet();
+      renderPiano();
+    }
+
+    function selectAndPlay(measure, midi) {
+      activeMeasure = measure;
+      activeMidis = new Set([midi]);
+      playNoteAudio(midi);
+      renderSheet();
+      renderPiano();
+    }
+
+    function playNoteAudio(midi) {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.value = 440 * Math.pow(2, (midi - 69) / 12);
+      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.7);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.7);
+    }
+
+    function toggleMic() {
+      micActive = !micActive;
+      document.getElementById('btn-mic').classList.toggle('mic-active', micActive);
+    }
+
+    function resetScore() {
+      activeMeasure = 1;
+      activeMidis = new Set([71, 64, 59]);
+      renderSheet();
+      renderPiano();
+    }
+
+    // Initial Render
+    renderSheet();
+    renderPiano();
+  </script>
+</body>
+</html>

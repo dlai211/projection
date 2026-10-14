@@ -1,0 +1,236 @@
+/**
+ * Components: the controls and everything drawn inside a system.
+ *
+ * Controls follow one rule — line-only glyphs, a completely transparent
+ * background, and a hand-drawn pencil ring. The ring is roughened by an SVG
+ * filter while the glyph inside stays geometrically clean, so the buttons look
+ * sketched but never lopsided.
+ */
+
+/* ------------------------------------------------------------------ controls */
+
+.pill-switch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1.4px solid var(--control-border);
+  border-radius: 999px;
+  background: transparent;
+  filter: url(#hand-drawn-ring);
+}
+
+.pill-btn {
+  border: none;
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--graphite-hb);
+  padding: 5px 15px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.16s ease, background-color 0.16s ease;
+}
+
+.pill-btn:hover {
+  color: var(--graphite-2b);
+}
+
+.pill-btn.active {
+  color: var(--paper-lit);
+  background-color: var(--graphite-2b);
+}
+
+.icon-btn {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  background: transparent; /* completely transparent — no tint, no fill */
+  color: var(--graphite-2b);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.16s ease;
+}
+
+/* The hand-drawn pencil ring, filtered into a slightly wobbling circle. */
+.icon-btn .icon-ring {
+  position: absolute;
+  inset: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  opacity: 0.55;
+  filter: url(#hand-drawn-ring);
+  transition: opacity 0.16s ease, stroke-width 0.16s ease;
+}
+
+/* The glyph stays clean: no roughening filter, round caps and joins. */
+.icon-btn .icon-glyph {
+  position: relative;
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.85;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon-btn:hover {
+  color: var(--graphite-2b);
+}
+
+.icon-btn:hover .icon-ring {
+  opacity: 0.9;
+}
+
+.icon-btn:active {
+  transform: translateY(1px);
+}
+
+/** A one-letter badge showing the current staff-spacing mode. */
+.icon-badge {
+  position: absolute;
+  right: 3px;
+  bottom: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--paper-lit);
+  background-color: var(--graphite-hb);
+}
+
+.icon-btn[data-density="normal"] .icon-badge::after { content: 'N'; }
+.icon-btn[data-density="tight"] .icon-badge::after { content: 'T'; }
+.icon-btn[data-density="loose"] .icon-badge::after { content: 'L'; }
+
+/* Only the glyph for the current mode is drawn. */
+.icon-btn .density-tight,
+.icon-btn .density-loose {
+  display: none;
+}
+
+.icon-btn[data-density="tight"] .density-normal,
+.icon-btn[data-density="loose"] .density-normal {
+  display: none;
+}
+
+.icon-btn[data-density="tight"] .density-tight {
+  display: block;
+}
+
+.icon-btn[data-density="loose"] .density-loose {
+  display: block;
+}
+
+/** Microphone is live: the only place colour appears in the interface. */
+.icon-btn.active {
+  color: var(--accent-practice);
+}
+
+.icon-btn.active .icon-ring {
+  opacity: 1;
+  stroke-width: 2;
+}
+
+/* ------------------------------------------------------------ sheet contents */
+
+.staff-line {
+  stroke: var(--graphite-hb);
+  stroke-width: 1.25;
+  stroke-linecap: round;
+  opacity: 0.82;
+}
+
+.bar-line {
+  stroke: var(--graphite-2b);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+}
+
+.bar-line-final {
+  stroke-width: 2.6;
+}
+
+.ledger-line {
+  stroke: var(--graphite-2b);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.brace-glyph,
+.header-glyphs path {
+  fill: var(--graphite-2b);
+}
+
+.note-head {
+  fill: var(--graphite-2b);
+}
+
+.note-stem,
+.note-beam {
+  stroke: var(--graphite-2b);
+  stroke-linecap: round;
+}
+
+.note-stem {
+  stroke-width: 1.7;
+}
+
+.note-beam {
+  stroke-width: 4.2;
+}
+
+.accidental-glyph {
+  fill: var(--graphite-2b);
+}
+
+.augmentation-dot {
+  fill: var(--graphite-2b);
+}
+
+.note-group {
+  cursor: pointer;
+}
+
+.note-group:hover .note-head {
+  fill: var(--graphite-hb);
+}
+
+.measure-highlight {
+  fill: var(--pencil-highlight);
+}
+
+.measure-number {
+  font-size: 15px;
+  fill: var(--graphite-faint);
+}
+
+/* The handwritten annotation above each melody note. */
+.note-label {
+  text-anchor: middle;
+  fill: var(--graphite-2b);
+}
+
+.note-label.hand-right {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.note-label.hand-left {
+  font-size: 15px;
+  font-weight: 600;
+  fill: var(--graphite-hb);
+}
