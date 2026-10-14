@@ -135,10 +135,26 @@ window.App.Main = (function () {
       dom.btnDensity.setAttribute('data-density', state.density);
     }
 
-    if (dom.progress) {
-      dom.progress.textContent = 'Measure ' + state.activeMeasure + ' / ' +
-        (state.score ? state.score.totalMeasures : 0);
+    updateStatusText();
+  }
+
+  /**
+   * The status line carries two facts: where the piece is scrolled to, and which
+   * measure is being practised. The range is what replaces the scrollbar.
+   */
+  function updateStatusText() {
+    if (!dom.progress) return;
+    var total = state.score ? state.score.totalMeasures : 0;
+    var text = 'Measure ' + state.activeMeasure + ' / ' + total;
+
+    var range = window.App.SheetRender.visibleMeasureRange
+      ? window.App.SheetRender.visibleMeasureRange()
+      : null;
+    if (range && (range.from !== 1 || range.to !== total)) {
+      text = 'Measures ' + range.from + '–' + range.to + ' of ' + total +
+        '   ·   practising measure ' + state.activeMeasure;
     }
+    dom.progress.textContent = text;
   }
 
   // ------------------------------------------------------------------ rendering
@@ -218,9 +234,11 @@ window.App.Main = (function () {
       if (measure) handleMeasureClick(measure, null);
     });
 
-    // Scrolling brings the neighbouring systems into the rendered window.
+    // Scrolling brings the neighbouring systems into the rendered window and
+    // keeps the position ruler and the status line in step.
     dom.sheetArea.addEventListener('scroll', function () {
       window.App.SheetRender.onScroll(dom.sheetArea);
+      updateStatusText();
     }, { passive: true });
 
     observeResize();

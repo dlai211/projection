@@ -108,43 +108,50 @@ window.App.SheetRender = (function () {
     var systemWidth = Math.min(layout.maxSystemWidth, width);
     var scale = systemWidth / sheet.viewBox.w;
 
-    var musicHeight = sheet.viewBox.h * scale;
-
     /**
-     * Turning the *visible* gap into the space between two drawing boxes.
+     * `systemGapPx` is an exact on-page distance, and it can be exact because the
+     * drawing band *is* the ink band.
      *
-     * A box is `viewBox.h` tall, but its ink stops short of the bottom edge (and
-     * starts a little above the top). So the distance between two boxes has to be
-     * shrunk by that unused space, or `systemGapPx: 0` would still leave the
-     * boxes' own empty margins showing as a gap.
+     * The SVG for a system shows only `inkTop .. inkBottom` of the drawing's
+     * coordinate space, so there is no empty margin inside a system to leak into
+     * the spacing. Two neighbouring systems are therefore separated by exactly
+     * `systemGapPx`, whatever it is set to.
      */
     var inkTop = layout.inkTop !== undefined ? layout.inkTop : sheet.viewBox.from;
     var inkBottom = layout.inkBottom !== undefined ? layout.inkBottom : sheet.viewBox.from + sheet.viewBox.h;
-    var emptyInBand = (sheet.viewBox.from + sheet.viewBox.h - inkBottom) + (inkTop - sheet.viewBox.from);
-    var gap = Math.max(0, density.systemGapPx - emptyInBand * scale);
+    var bandHeight = inkBottom - inkTop;
+    var musicHeight = bandHeight * scale;
+
+    // Box separation = the requested gap, converted to drawing units. The stride
+    // is one band plus that gap.
+    var boxGapWorld = density.systemGapPx / scale;
+    var strideWorld = bandHeight + boxGapWorld;
+    var stride = strideWorld * scale;
 
     var systems = count;
     if (availableHeight < musicHeight) {
       systems = 1;
     } else {
       systems = Math.min(count,
-        1 + Math.floor((availableHeight - musicHeight) / (musicHeight + gap)));
+        Math.floor((availableHeight + density.systemGapPx) / stride));
     }
     systems = Math.max(1, systems);
 
-    // Leftover room is shared out between the systems rather than dumped at the
-    // bottom, so the score stays balanced on the page. The gap you see is
-    // therefore usually roomier than the configured minimum.
-    var slack = availableHeight - systems * musicHeight;
-    var usedGap = systems > 1 ? Math.max(gap, slack / (systems - 1)) : 0;
-    var blockHeight = systems * musicHeight + Math.max(0, systems - 1) * usedGap;
+    // The requested gap is honoured exactly; whatever height is left over stays
+    // as blank space at the bottom of the scroll range rather than being pushed
+    // into the gaps.
+    var blockHeight = systems * musicHeight + Math.max(0, systems - 1) * density.systemGapPx;
 
     return {
       width: width,
       height: height,
       systemWidth: systemWidth,
       musicHeight: musicHeight,
-      gap: usedGap,
+      bandHeight: bandHeight,
+      inkTop: inkTop,
+      stride: stride,
+      boxGap: density.systemGapPx,
+      visibleGap: density.systemGapPx,
       top: paddingTop + Math.max(0, (availableHeight - blockHeight) / 2),
       offsetX: Math.max(0, (width - systemWidth) / 2),
       systems: systems,
@@ -555,17 +562,20 @@ window.App.SheetRender = (function () {
     // than fit, so only the systems actually on screen are drawn. Scrolling
     // re-renders the window, which keeps the DOM small (64 measures of notation
     // is a lot of elements to keep alive all at once).
-    var totalHeight = geometry.systems * geometry.musicHeight +
-      Math.max(0, geometry.systems - 1) * geometry.gap +
+    // The spacer covers the *whole* score, not just the part that fits, so the
+    // area has something to scroll through and every measure stays reachable.
+    var totalSystems = state.score.systems.length;
+    var totalHeight = totalSystems * geometry.musicHeight +
+      Math.max(0, totalSystems - 1) * geometry.boxGap +
       Config.layout.pagePaddingTop + Config.layout.pagePaddingBottom;
     geometry.totalHeight = totalHeight;
     state.layout = geometry;
 
     var scrollTop = container.scrollTop;
-    var firstVisible = Math.floor(scrollTop / (geometry.musicHeight + geometry.gap));
+    var firstVisible = Math.floor(scrollTop / geometry.stride);
     firstVisible = Math.max(0, Math.min(firstVisible, Math.max(0, geometry.systems - 1)));
     var lastVisible = Math.min(geometry.systems - 1,
-      Math.floor((scrollTop + container.clientHeight) / (geometry.musicHeight + geometry.gap)) + 1);
+      Math.floor((scrollTop + container.clientHeight) / geometry.stride) + 1);
 
     // Nothing to do when the same window is already on screen: ResizeObserver
     // fires on every layout change, including the ones this function causes.
@@ -591,21 +601,26 @@ window.App.SheetRender = (function () {
     state.renderedLast = lastVisible;
     state.renderedScale = geometry.scale;
 
+    if (state.ruler && state.ruler.parentNode) state.ruler.parentNode.removeChild(state.ruler);
+    state.ruler = html('div', 'position-ruler');
+    state.rulerTicks = [];
+
     state.canvas = html('div', 'sheet-canvas');
     state.canvas.style.height = totalHeight.toFixed(1) + 'px';
 
-    // The viewBox is the drawing's own coordinate space, unbiased: one user unit
-    // is exactly `scale` CSS pixels. The score is centred by moving the SVG *box*
-    // (see --system-left below), not by sliding the viewBox — keeping the two
-    // mechanisms separate is what makes the placement easy to reason about.
-    var viewBox = sheet.viewBox.from + ' 0 ' +
-      sheet.viewBox.w.toFixed(2) + ' ' + sheet.viewBox.h.toFixed(2);
+    // The viewBox shows the ink band of the drawing's coordinate space: it starts
+    // at the topmost drawn element and is exactly as tall as the ink. One user
+    // unit is exactly `scale` CSS pixels. The score is centred horizontally by
+    // moving the SVG *box* (margin auto in layout.css), not by sliding the
+    // viewBox — keeping the two mechanisms separate is what makes the placement
+    // easy to reason about.
+    var viewBox = sheet.viewBox.from + ' ' + geometry.inkTop.toFixed(2) + ' ' +
+      sheet.viewBox.w.toFixed(2) + ' ' + geometry.bandHeight.toFixed(2);
     var musicRight = sheet.staff.marginRight;
 
     for (var index = firstVisible; index <= lastVisible; index++) {
       var system = state.score.systems[index];
-      var top = Config.layout.pagePaddingTop +
-        index * (geometry.musicHeight + geometry.gap);
+      var top = Config.layout.pagePaddingTop + index * geometry.stride;
       var svg = el('svg', {
         class: 'system-svg',
         viewBox: viewBox,
@@ -665,7 +680,15 @@ window.App.SheetRender = (function () {
     }
 
     container.appendChild(state.canvas);
+    container.appendChild(state.ruler);
     container.scrollTop = scrollTop;
+
+    // The ruler replaces the scrollbar, so its marks are positioned by where the
+    // systems actually are in the whole score — scrolling slides them past.
+    // The visible window is recomputed from the real scrollTop because assigning
+    // it above may have been clamped by the browser.
+    buildRuler();
+    markRuler.apply(null, currentWindow());
 
     return { geometry: geometry, visibleSystems: lastVisible - firstVisible + 1 };
   }
@@ -718,8 +741,7 @@ window.App.SheetRender = (function () {
 
     var systemIndex = Math.floor((measureNumber - 1) / Config.score.measuresPerSystem);
     var layout = state.layout;
-    var stride = layout.musicHeight + layout.gap;
-    var top = Config.layout.pagePaddingTop + systemIndex * stride;
+    var top = Config.layout.pagePaddingTop + systemIndex * layout.stride;
     var bottom = top + layout.musicHeight;
 
     var viewTop = state.container.scrollTop;
@@ -727,19 +749,78 @@ window.App.SheetRender = (function () {
     var margin = options && options.force ? 0 : 8;
 
     if (top >= viewTop + margin && bottom <= viewBottom - margin) return; // already visible
-    state.container.scrollTop = Math.max(0, top - layout.gap / 2);
+    state.container.scrollTop = Math.max(0, top - layout.boxGap / 2);
   }
 
   /**
    * Re-render when the sheet area is scrolled, but only when the visible window
    * actually changes — otherwise every scroll event would redraw the notation.
    */
+  /** The band of systems the viewport currently covers, from the live scrollTop. */
+  function currentWindow() {
+    var layout = state.layout;
+    if (!layout || !state.container) return [0, 0];
+    var top = state.container.scrollTop;
+    var bottom = top + state.container.clientHeight;
+    var first = Math.max(0, Math.floor((top - Config.layout.pagePaddingTop) / layout.stride));
+    var last = Math.max(first, Math.floor((bottom - Config.layout.pagePaddingTop) / layout.stride));
+    return [first, Math.min(layout.systems - 1, last)];
+  }
+
   function onScroll(container) {
     var layout = state.layout;
     if (!layout) return;
-    var stride = layout.musicHeight + layout.gap;
-    var first = Math.max(0, Math.floor(container.scrollTop / stride));
+    markRuler.apply(null, currentWindow());
+    var first = currentWindow()[0];
     if (first !== state.renderedFirst) render(container);
+  }
+
+  /**
+   * Which measures are on screen right now — shown in the status line so the
+   * reader always knows where they are in the piece without a scrollbar.
+   */
+  function visibleMeasureRange() {
+    if (!state.score || !state.layout || !state.container) return null;
+    var band = currentWindow();
+    var first = band[0];
+    var last = band[1];
+    var systems = state.score.systems;
+    if (!systems[first]) return null;
+    var lastSystem = systems[Math.min(Math.max(last, first), systems.length - 1)];
+    return {
+      from: systems[first].measures[0].number,
+      to: lastSystem.measures[lastSystem.measures.length - 1].number,
+    };
+  }
+
+  /**
+   * Draw the ruler tick for every system, positioned by its place in the whole
+   * score so that scrolling slides them down the gutter.
+   */
+  function buildRuler() {
+    if (!state.ruler || !state.score || !state.layout || !state.container) return;
+    var layout = state.layout;
+    var total = state.score.systems.length;
+    var track = state.container.clientHeight;
+
+    state.rulerTicks = [];
+    state.ruler.innerHTML = '';
+
+    for (var i = 0; i < total; i++) {
+      var top = (Config.layout.pagePaddingTop + i * layout.stride) / layout.totalHeight;
+      var tick = html('span', 'tick');
+      tick.style.top = (top * track).toFixed(1) + 'px';
+      state.ruler.appendChild(tick);
+      state.rulerTicks.push(tick);
+    }
+  }
+
+  /** Mark the ticks for the systems on screen and the current scroll position. */
+  function markRuler(first, last) {
+    if (!state.rulerTicks) return;
+    for (var i = 0; i < state.rulerTicks.length; i++) {
+      state.rulerTicks[i].className = (i >= first && i <= last) ? 'tick active' : 'tick';
+    }
   }
 
   return {
@@ -751,6 +832,7 @@ window.App.SheetRender = (function () {
     measureAtPoint: measureAtPoint,
     scrollToMeasure: scrollToMeasure,
     onScroll: onScroll,
+    visibleMeasureRange: visibleMeasureRange,
     noteColumns: noteColumns,
     getState: function () { return state; },
   };

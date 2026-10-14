@@ -411,7 +411,35 @@ to reason about. All three vertical distances are now plain CSS pixels in
 | `layout.pagePaddingBottom` | The air below the last system |
 | `layout.density.tight/normal/loose.systemGapPx` | The air between two systems, for each setting the spacing button cycles through |
 
-The value is a **minimum**: when the window still has room after fitting the systems,
-the leftover is shared out between them, so the gap you actually see is often larger
-than the number configured. Raising a `systemGapPx` eventually drops a system from
-the page rather than only widening the gap.
+The value is **exact**, not a minimum. Two things make that possible:
+
+1. The drawing band a system occupies *is* the ink band — the SVG shows only
+   `inkTop .. inkBottom` of the drawing, so a system carries no empty margin that
+   could leak into the spacing.
+2. Height left over at the bottom of the scroll range stays blank instead of being
+   shared out into the gaps.
+
+The gap is measured between the two drawing bands; a couple of pixels of a text
+line box (the written labels, the measure numbers) fall outside its band, so the
+visible gap runs about 0.7 px narrower than the configured value. `tight` is set to
+2.7 for that reason and renders as 2 px on screen.
+
+### Phase 1 revisions 4 — scrolling without a scrollbar (2026-10-13)
+
+The score is 16 systems tall, far more than any window shows, so the sheet scrolls.
+The scrollbar itself is hidden (`scrollbar-width: none` and a `::-webkit-scrollbar`
+rule) because it would sit on the paper and break the drawn look.
+
+Position is instead carried by two quiet cues:
+
+- **A position ruler** down the right margin: one tick per system, placed by where
+  that system actually is in the whole piece, so the marks slide as you scroll. The
+  systems on screen are inked darker. It is `position: fixed`, so it stays put while
+  the sheet moves behind it.
+- **The status line** below the keyboard, which names the measures on screen —
+  `Measures 37–40 of 64 · practising measure 12` — falling back to the plain
+  `Measure 12 / 64` once the whole piece is visible at once.
+
+The scroll spacer now covers the *whole* score rather than only the systems that
+fit, which is what gives the area something to scroll through. Only the systems on
+screen are drawn, so the DOM stays small.

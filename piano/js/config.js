@@ -112,17 +112,20 @@ window.App.Config = (function () {
       /**
        * Where the actual ink sits inside the drawing band, in drawing units.
        *
-       * The band is `sheet.viewBox.h` tall but the notes do not reach its edges:
-       * the highest note tops out at -18 and the lowest reaches 172. The layout
-       * uses these to work out how far apart to place the boxes, so that
-       * `systemGapPx` measures the *visible* gap between the bottom of one system
-       * and the top of the next — not the invisible gap between two boxes.
+       * The band is `sheet.viewBox.h` tall but nothing is drawn all the way to its
+       * edges: the topmost ink (the measure numbers above the treble staff) sits
+       * at 12 and the lowest (the left-hand note labels under the bass staff) at
+       * 177. The layout uses these to place the boxes, so that `systemGapPx`
+       * measures the gap you actually see between one system's last ink and the
+       * next system's first ink.
        *
-       * Re-measure after editing the score's range, or after changing which
-       * clefs the notes sit on. `tools/check-model.js` prints the values.
+       * These are measured values, from every drawn element — not just the notes.
+       * Re-measure if the score's range, the clefs or the label positions change;
+       * `node tools/check-model.js` prints the note-based extents as a starting
+       * point.
        */
-      inkTop: -18,
-      inkBottom: 172,
+      inkTop: 12,
+      inkBottom: 177,
 
       /**
        * How much empty air sits between two systems, in CSS pixels, for each of
@@ -134,9 +137,18 @@ window.App.Config = (function () {
        * you see is often larger than the value here.
        */
       density: {
-        tight: { systemGapPx: 0 },
-        normal: { systemGapPx: 10 },
-        loose: { systemGapPx: 280 },
+        // The empty space between one system and the next, in CSS pixels. It is
+        // exact: height left over at the bottom of the scroll range stays blank
+        // instead of widening the gaps.
+        //
+        // Note the gap is between the two drawing bands. A couple of pixels of a
+        // text line box (the written labels and measure numbers) fall outside its
+        // band, so the *visible* gap measures about 0.7 px less than the value
+        // here — `tight: 2.7` renders as 2 px on screen. The two systems that
+        // measure 1.5 are the pair straddling a whole-pixel boundary.
+        tight: { systemGapPx: 2.7 },
+        normal: { systemGapPx: 60 },
+        loose: { systemGapPx: 200 },
       },
       defaultDensity: 'normal',
     },

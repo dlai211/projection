@@ -56,6 +56,46 @@
      stretching to fill a wide one. */
   overflow-y: auto;
   overflow-x: hidden;
+
+  /* The sheet scrolls, but a scrollbar would sit on top of the paper and break
+     the illusion. The position ruler below takes its place. */
+  scrollbar-width: none;      /* Firefox */
+  -ms-overflow-style: none;   /* old Edge */
+}
+
+.sheet-area::-webkit-scrollbar {
+  display: none;              /* Chrome, Edge, Safari */
+}
+
+/**
+ * The position ruler: a tick per system down the right gutter, the ones on
+ * screen inked in. It answers "where am I in the piece?" without a scrollbar.
+ */
+/* Fixed, not absolute: the ruler is a viewport into the whole piece, so it must
+   stay put while the sheet scrolls behind it. */
+.position-ruler {
+  position: fixed;
+  top: 62px;                 /* below the title bar */
+  right: 10px;
+  width: 14px;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.position-ruler .tick {
+  position: absolute;
+  right: 0;
+  width: 5px;
+  height: 1px;
+  background-color: var(--graphite-faint);
+  opacity: 0.4;
+}
+
+.position-ruler .tick.active {
+  width: 11px;
+  height: 2px;
+  background-color: var(--graphite-2b);
+  opacity: 0.9;
 }
 
 /* Spacer sized to the whole song, so scrolling and scrollIntoView work even

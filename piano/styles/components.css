@@ -234,3 +234,8 @@
   font-weight: 600;
   fill: var(--graphite-hb);
 }
+
+/* The active-measure shading is a soft graphite smudge, not a solid block. */
+.measure-highlight {
+  opacity: 0.55;
+}
