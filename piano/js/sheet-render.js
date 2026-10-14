@@ -97,46 +97,44 @@ window.App.SheetRender = (function () {
     var availableHeight = height - pagePadding * 2;
 
     /**
-     * A system is always exactly `width` wide and as tall as the drawing's own
-     * proportions make it, so the music fills the page edge to edge with no
-     * letterboxing and no stretching. Shrinking the scale therefore always buys
-     * vertical room, which is what lets a tighter view fit an extra system.
+     * How big the music is drawn.
+     *
+     * The system is capped at maxSystemWidth, which is what fixes the size of the
+     * notation on screen — the staff space comes out at 13.6 px, the reference
+     * design's size. Only a window narrower than that cap shrinks the music, and
+     * then the two dimensions shrink together so nothing is ever distorted.
      */
-    var measure = function (scale) {
-      var drawnHeight = sheet.viewBox.h * scale;
-      var gap = drawnHeight * density.ratio;
-      var fit = 0;
-      if (availableHeight >= drawnHeight) {
-        fit = 1 + Math.floor((availableHeight - drawnHeight) / (drawnHeight + gap));
-      }
-      return { scale: scale, drawnHeight: drawnHeight, gap: gap, fit: fit };
-    };
+    var systemWidth = Math.min(layout.maxSystemWidth, width);
+    var scale = systemWidth / sheet.viewBox.w;
 
-    // As large as the page allows: the width sets the ceiling (the music always
-    // spans the page), preferredScale caps how big it may get, and a short window
-    // pushes it back down so at least two systems still fit.
-    var widthScale = width / sheet.viewBox.w;
-    var heightScale = availableHeight / (sheet.viewBox.h * (2 + density.ratio));
-    var scale = Math.min(widthScale, layout.preferredScale, Math.max(heightScale, layout.minScale));
-    scale = Math.max(scale, Math.min(layout.minScale, widthScale));
+    var musicHeight = sheet.viewBox.h * scale;
+    var gap = musicHeight * density.ratio;
 
-    var chosen = measure(scale);
-    var systems = Math.max(1, Math.min(chosen.fit || 1, count));
+    var systems = count;
+    if (availableHeight < musicHeight) {
+      systems = 1;
+    } else {
+      systems = Math.min(count,
+        1 + Math.floor((availableHeight - musicHeight) / (musicHeight + gap)));
+    }
+    systems = Math.max(1, systems);
 
-    var slack = availableHeight - systems * chosen.drawnHeight;
-    var gap = systems > 1 ? Math.max(chosen.gap, slack / (systems - 1)) : 0;
-    var blockHeight = systems * chosen.drawnHeight + Math.max(0, systems - 1) * gap;
-    var top = pagePadding + Math.max(0, (availableHeight - blockHeight) / 2);
+    // Leftover room is shared out between the systems rather than dumped at the
+    // bottom, so the score stays balanced on the page.
+    var slack = availableHeight - systems * musicHeight;
+    var usedGap = systems > 1 ? Math.max(gap, slack / (systems - 1)) : 0;
+    var blockHeight = systems * musicHeight + Math.max(0, systems - 1) * usedGap;
 
     return {
       width: width,
       height: height,
-      musicHeight: chosen.drawnHeight,
-      gap: gap,
-      top: top,
+      systemWidth: systemWidth,
+      musicHeight: musicHeight,
+      gap: usedGap,
+      top: pagePadding + Math.max(0, (availableHeight - blockHeight) / 2),
+      offsetX: Math.max(0, (width - systemWidth) / 2),
       systems: systems,
       scale: scale,
-      offsetY: 0,
     };
   }
 
@@ -534,9 +532,9 @@ window.App.SheetRender = (function () {
     if (score) state.score = score;
     if (!state.score) return null;
 
-    var padding = 44; // .sheet-area padding, both sides — keep in step with layout.css
-    var geometry = computeLayout(container.clientWidth - padding * 2, container.clientHeight);
-    geometry.padding = padding;
+    // Measured against the full area: the drawing is capped at a fixed size and
+    // centred, so the page margins come out of computeLayout rather than CSS.
+    var geometry = computeLayout(container.clientWidth, container.clientHeight);
     state.container = container;
 
     // The page is taller than the window whenever the song needs more systems
@@ -581,14 +579,13 @@ window.App.SheetRender = (function () {
     state.canvas = html('div', 'sheet-canvas');
     state.canvas.style.height = totalHeight.toFixed(1) + 'px';
 
-    // The viewBox is exactly the box the drawing fills, in drawing units, so one
-    // SVG user unit is exactly `scale` CSS pixels. No transform is applied inside
-    // the SVG — nesting one would apply the scale a second time and shrink the
-    // staff to a fraction of its box.
-    var viewBoxW = geometry.width / geometry.scale;
-    var viewBoxH = sheet.viewBox.h;
-    var viewBox = '0 0 ' + viewBoxW.toFixed(2) + ' ' + viewBoxH.toFixed(2);
-    var musicRight = Math.max(sheet.staff.marginRight, viewBoxW - 6);
+    // The viewBox is the drawing's own coordinate space, unbiased: one user unit
+    // is exactly `scale` CSS pixels. The score is centred by moving the SVG *box*
+    // (see --system-left below), not by sliding the viewBox — keeping the two
+    // mechanisms separate is what makes the placement easy to reason about.
+    var viewBox = sheet.viewBox.from + ' 0 ' +
+      sheet.viewBox.w.toFixed(2) + ' ' + sheet.viewBox.h.toFixed(2);
+    var musicRight = sheet.staff.marginRight;
 
     for (var index = firstVisible; index <= lastVisible; index++) {
       var system = state.score.systems[index];
@@ -602,6 +599,7 @@ window.App.SheetRender = (function () {
       });
       svg.style.setProperty('--system-top', top.toFixed(1) + 'px');
       svg.style.setProperty('--system-height', geometry.musicHeight.toFixed(1) + 'px');
+      svg.style.setProperty('--system-width', geometry.systemWidth.toFixed(1) + 'px');
 
       var canvas = el('g', { class: 'system-canvas' });
 
@@ -682,10 +680,8 @@ window.App.SheetRender = (function () {
 
       var system = state.score.systems[state.renderedFirst + i];
       if (!system) continue;
-      var musicRight = sheet.staff.marginRight +
-        Math.max(0, state.layout.width / scale - 6 - sheet.staff.marginRight);
       var cursor = sheet.header.musicStart;
-      var measureWidth = (musicRight - cursor) / system.measures.length;
+      var measureWidth = (sheet.staff.marginRight - cursor) / system.measures.length;
 
       for (var m = 0; m < system.measures.length; m++) {
         var left = box.left + cursor * scale;

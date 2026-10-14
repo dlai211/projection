@@ -50,9 +50,10 @@
   flex: 1 1 auto;
   min-height: 0; /* lets the flex child actually shrink */
   width: 100%;
-  /* Roomy margins, measured from the reference design and widened by a fifth —
-     the score sits on the paper rather than running to its edge. */
-  padding: 0 44px;
+  /* No horizontal padding: the score's margins come from the drawing being
+     capped at a fixed width and centred (see layout.maxSystemWidth in
+     config.js), so the notation keeps the same size on any screen instead of
+     stretching to fill a wide one. */
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -69,8 +70,12 @@
 .system-svg {
   position: absolute;
   top: var(--system-top, 0);
-  left: 44px;
-  width: calc(100% - 88px);
+  left: 0;
+  right: 0;                 /* with left:0 this spans the area, and the box below
+                               centres the fixed-width drawing inside it */
+  margin: 0 auto;
+  width: var(--system-width, 1360px);
+  max-width: 100%;
   height: var(--system-height, 140px);
   display: block;
 }

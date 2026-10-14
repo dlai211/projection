@@ -29,32 +29,38 @@ window.App.Config = (function () {
      * 96..114, and the music starts at 118.
      */
     sheet: {
-      // The vertical window a system is drawn through, in user units. It reaches
-      // from just above the highest note of the piece (A6, which needs four ledger
-      // lines) down to the lowest (C2 on the bass staff).
-      viewBox: { w: 1000, h: 188, from: 0, to: 188 },
+      // The drawing's own coordinate space, copied from the reference design:
+      // 1000 units wide by 205 tall, with a staff space of 10 units. Everything
+      // below (clef positions, note spacing, stem lengths) is expressed in these
+      // units, and layout.maxSystemWidth decides how many pixels one unit becomes.
+      viewBox: { w: 1000, h: 205, from: 0, to: 205 },
       staff: {
         space: 10,
         trebleTop: 42,   // y of the top line of the treble staff
         bassTop: 122,    // y of the top line of the bass staff
         lines: 5,
-        marginLeft: 6,   // where the staff lines start, just left of the brace
+        marginLeft: 10,  // where the staff lines start, just left of the brace
         marginRight: 985, // where the staff lines end
       },
       header: {
-        // The header block is packed as tightly as the glyphs allow, because every
-        // unit spent here is a unit the measures do not get. Reading left to right:
-        // brace 8..13, clefs 11..38, up to three sharps 44..74, time signature
-        // 78..96, and the music starts at 108.
-        braceX: 8,          // left edge of the grand-staff brace
+        /**
+         * Horizontal placement, in drawing units, matching the reference design's
+         * proportions. The music spans x=12 to x=985 of the 1000-unit window
+         * (97% of the width, as the reference does), so a measure comes out
+         * 224 units — the reference's 241 units at the same visual density.
+         *
+         * Reading left to right: brace 12..17, clefs 15..42, up to three sharps
+         * 48..78, time signature 82..100, first note at 112.
+         */
+        braceX: 12,         // left edge of the grand-staff brace
         braceTop: 80,       // the brace spans the gap between the two staves
         braceHeight: 75,    // 80 + 75 = 155, the bottom line of the bass staff
-        gClefX: 11,         // the clef's own origin; its ink starts a little right of this
-        fClefX: 11,
-        sharpX: 44,         // centre of the first key-signature accidental
+        gClefX: 15,         // the clef's own origin; its ink starts a little right of this
+        fClefX: 15,
+        sharpX: 48,         // centre of the first key-signature accidental
         sharpStep: 11,      // horizontal distance between successive sharps
-        timeSigX: 87,       // centre of the time signature
-        musicStart: 108,    // first note column of measure 1, clear of the signature
+        timeSigX: 91,       // centre of the time signature
+        musicStart: 112,    // first note column of measure 1, clear of the signature
       },
       note: {
         rx: 6.2,           // notehead half-width
@@ -78,22 +84,32 @@ window.App.Config = (function () {
      * systems instead of shrinking them.
      */
     layout: {
-      // CSS pixels per drawing unit (one staff space is 10 units, so a scale of
-      // 1.0 gives a 10px staff space — the reference engraving's size).
-      // The music is drawn as large as the page width allows, up to preferredScale
-      // (1.0 = a 10px staff space, the size of the reference engraving). On a 2K
-      // window that yields three systems at the normal density, which is the
-      // screen full without crowding.
-      preferredScale: 1.15,
-      minScale: 0.5,         // below this the annotations stop being readable
+      /**
+       * The size of the music on screen, in one number.
+       *
+       * The score is 1000 drawing units wide (sheet.viewBox.w) and is drawn at
+       * 1360 px — the reference design's display width. That makes one drawing
+       * unit 1.36 px and puts the staff space at 13.6 px, matching the reference
+       * exactly: a 54 px staff and noteheads about 17 px wide.
+       *
+       * This is the single control for the size of the score on screen. The
+       * drawing is centred when the window is wider, and only a narrower window
+       * shrinks it.
+       */
+      maxSystemWidth: 1360,
+
       // Breathing room above the first system and below the last, in CSS pixels.
-      pagePadding: 30,
-      // How much empty air sits between two systems, as a fraction of a system's
-      // own height. Bigger ratios mean fewer, airier systems on screen.
+      pagePadding: 24,
+
+      /**
+       * How much empty air sits between two systems, as a fraction of a system's
+       * own height. These values cannot change the size of the music (that is
+       * maxSystemWidth's job) — only how many systems the window shows.
+       */
       density: {
-        tight: { ratio: 0.26 },
-        normal: { ratio: 0.62 },
-        loose: { ratio: 1.15 },
+        tight: { ratio: 0.25 },
+        normal: { ratio: 0.60 },
+        loose: { ratio: 1.10 },
       },
       defaultDensity: 'normal',
     },

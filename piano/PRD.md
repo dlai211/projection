@@ -369,3 +369,32 @@ Requested after reviewing phase 1:
 **Verified:** `node tools/check-model.js` clean; screenshots at 2K and 1600×900; the
 notation toggle, all three densities, and jumping to measure 42 (which scrolls across
 systems) all checked.
+
+### Phase 1 revisions 2 — size matched to the reference (2026-10-13)
+
+The score's size was still not right. It now reproduces `test.html` exactly, and the
+default view shows two systems.
+
+**Where the size is controlled** — three places, and nothing else:
+
+| What | File | Setting |
+|---|---|---|
+| **Overall size of the score** (this is the one to turn) | `js/config.js` | `layout.maxSystemWidth` — the score is 1000 drawing units wide, so 1360 px makes one unit 1.36 px and the staff space 13.6 px, matching the reference. Only a *narrower* window shrinks it |
+| **The drawing's own proportions** | `js/config.js` | `sheet.staff.space` (10 units per staff space), `sheet.staff.marginLeft` / `marginRight` (where the staff lines start and end horizontally), `sheet.staff.trebleTop` / `bassTop` (their vertical position), `sheet.viewBox` (the drawing's coordinate window) |
+| **Where the header sits** | `js/config.js` | `sheet.header.*` — the brace, clefs, key signature and time signature x-positions |
+| **Vertical spacing between systems** | `js/config.js` | `layout.density.*.ratio` and `layout.pagePadding` — these change the *spacing*, never the size of the music |
+| **How the box is placed on the page** | `styles/layout.css` | `.sheet-area` (scrolls), `.sheet-canvas` (full-song spacer), `.system-svg` (centred fixed-width box) |
+
+**Changes**
+
+- The drawing now matches the reference's proportions: the music spans x=12 to x=985
+  of the 1000-unit window, so a measure is 224 units — visually the same density as
+  the reference's 241.
+- The staff space is 13.6 px and the staff is 54 px tall, exactly as in `test.html`.
+- **Default view is two systems**, as in the reference.
+- The score is centred by moving the SVG box (`margin: 0 auto`) rather than by sliding
+  the viewBox. Keeping the two mechanisms separate removed a double-offset bug that
+  pushed the music off to the right.
+
+**Verified:** screenshots at 2K (two systems, centred) and 1600×900; hit-testing
+re-checked — clicking across a system returns measures 1, 2, 3, 4 in order.
