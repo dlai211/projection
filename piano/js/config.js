@@ -44,23 +44,22 @@ window.App.Config = (function () {
       },
       header: {
         /**
-         * Horizontal placement, in drawing units, matching the reference design's
-         * proportions. The music spans x=12 to x=985 of the 1000-unit window
-         * (97% of the width, as the reference does), so a measure comes out
-         * 224 units — the reference's 241 units at the same visual density.
+         * Horizontal placement, in drawing units (= pixels), following the
+         * reference design.
          *
-         * Reading left to right: brace 12..17, clefs 15..42, up to three sharps
-         * 48..78, time signature 82..100, first note at 112.
+         * There is no curly brace and no time signature on the staves — the
+         * reference has neither. A single pencil barline closes the grand staff on
+         * the left, and the clefs and key signature sit inside it:
+         * barline 20, treble/bass clefs 24..52, sharps 58..90, first note at 100.
          */
-        braceX: 12,         // left edge of the grand-staff brace
-        braceTop: 80,       // the brace spans the gap between the two staves
-        braceHeight: 75,    // 80 + 75 = 155, the bottom line of the bass staff
-        gClefX: 15,         // the clef's own origin; its ink starts a little right of this
-        fClefX: 15,
-        sharpX: 48,         // centre of the first key-signature accidental
-        sharpStep: 11,      // horizontal distance between successive sharps
-        timeSigX: 91,       // centre of the time signature
-        musicStart: 112,    // first note column of measure 1, clear of the signature
+        leftBarX: 18,       // the vertical line closing both staves on the left
+        gClefX: 21,         // left edge of the treble clef box
+        fClefX: 21,
+        clefSize: 58,       // font size of the clef glyphs, in drawing units
+        sharpX: 56,         // centre of the first key-signature accidental
+        sharpStep: 13,      // horizontal distance between successive sharps
+        sharpSize: 30,      // font size of the sharp glyphs
+        musicStart: 120,    // first note column of measure 1
       },
       note: {
         rx: 6.2,           // notehead half-width
@@ -87,16 +86,17 @@ window.App.Config = (function () {
       /**
        * The size of the music on screen, in one number.
        *
-       * The score is 1000 drawing units wide (sheet.viewBox.w) and is drawn at
-       * 1360 px — the reference design's display width. That makes one drawing
-       * unit 1.36 px and puts the staff space at 13.6 px, matching the reference
-       * exactly: a 54 px staff and noteheads about 17 px wide.
+       * The score is 1200 drawing units wide (sheet.viewBox.w) and is drawn at
+       * 1200 px, so one drawing unit is exactly one CSS pixel. That makes every
+       * measurement in `sheet` a plain pixel figure: a 10 px staff space, a 40 px
+       * staff, noteheads 12 px wide, and annotation type sized in the same units
+       * the reference design uses.
        *
        * This is the single control for the size of the score on screen. The
        * drawing is centred when the window is wider, and only a narrower window
        * shrinks it.
        */
-      maxSystemWidth: 1000,
+      maxSystemWidth: 1200,
 
       /**
        * The three vertical distances, all in plain CSS pixels.
@@ -125,7 +125,7 @@ window.App.Config = (function () {
        * point.
        */
       inkTop: 12,
-      inkBottom: 177,
+      inkBottom: 192,
 
       /**
        * How much empty air sits between two systems, in CSS pixels, for each of

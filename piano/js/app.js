@@ -234,6 +234,15 @@ window.App.Main = (function () {
       if (measure) handleMeasureClick(measure, null);
     });
 
+    // The ruler stands in for the scrollbar, so it has to be clickable: pressing
+    // anywhere on the strip jumps to that place in the piece.
+    document.addEventListener('pointerdown', function (event) {
+      var ruler = event.target.closest && event.target.closest('.position-ruler');
+      if (!ruler) return;
+      var box = ruler.getBoundingClientRect();
+      window.App.SheetRender.seekFraction((event.clientY - box.top) / box.height);
+    });
+
     // Scrolling brings the neighbouring systems into the rendered window and
     // keeps the position ruler and the status line in step.
     dom.sheetArea.addEventListener('scroll', function () {

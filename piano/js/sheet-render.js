@@ -75,11 +75,6 @@ window.App.SheetRender = (function () {
     });
   }
 
-  /** The scale that maps one staff space (10 units) onto the staff-space glyphs. */
-  function glyphScale() {
-    return sheet.staff.space;
-  }
-
   // -------------------------------------------------------------------- layout
 
   /**
@@ -225,12 +220,17 @@ window.App.SheetRender = (function () {
     };
   }
 
-  function accidentalGlyphName(spelled) {
-    if (spelled.accidental === window.App.NotesLetter.SHARP || spelled.accidental === '#') {
-      return 'accidentalSharp';
+  /** The character a note's accidental is drawn with, or null when it needs none. */
+  function accidentalSymbolFor(spelled) {
+    if (spelled.accidental === window.App.NotesLetter.SHARP ||
+        spelled.accidental === window.App.NotesNumber.SHARP) {
+      return '♯';
     }
-    if (spelled.accidental === window.App.NotesLetter.NATURAL) return 'accidentalNatural';
-    if (spelled.accidental === 'b') return 'accidentalFlat';
+    if (spelled.accidental === window.App.NotesLetter.NATURAL ||
+        spelled.accidental === window.App.NotesNumber.NATURAL) {
+      return '♮';
+    }
+    if (spelled.accidental === 'b') return '♭';
     return null;
   }
 
@@ -261,12 +261,15 @@ window.App.SheetRender = (function () {
       }));
     });
 
-    if (options.accidentalName) {
-      var acc = glyph(options.accidentalName, options.x - sheet.note.rx - 9, options.y + 5.6, glyphScale());
-      if (acc) {
-        acc.setAttribute('class', 'accidental-glyph');
-        group.appendChild(acc);
-      }
+    if (options.accidentalSymbol) {
+      // Drawn on the same staff position as the note it alters, then nudged up so
+      // the ink straddles the line or space the way a pencil stroke would.
+      group.appendChild(el('text', {
+        x: options.x - sheet.note.rx - 10,
+        y: options.y + sheet.header.sharpSize * 0.34,
+        'font-size': sheet.header.sharpSize,
+        class: 'music-glyph accidental-glyph',
+      }, options.accidentalSymbol));
     }
 
     if (options.dotted) {
@@ -307,40 +310,56 @@ window.App.SheetRender = (function () {
     }
   }
 
-  /** The curly brace that ties the two staves into one grand staff. */
-  function drawBrace(group) {
-    var data = Glyphs.brace;
-    if (!data) return;
-    var height = data.ne[1] - data.sw[1];
-    var scale = sheet.header.braceHeight / height;
-    var path = glyph('brace', sheet.header.braceX, sheet.header.braceTop + sheet.header.braceHeight, scale);
-    if (path) {
-      path.setAttribute('class', 'brace-glyph');
-      group.appendChild(path);
-    }
-  }
-
-  function drawClefs(group) {
-    var scale = glyphScale();
-    var gx = sheet.header.gClefX;
-    var gy = sheet.staff.trebleTop + sheet.staff.space * 3; // the G4 line
-    group.appendChild(glyph('gClef', gx, gy, scale));
-
-    var fx = sheet.header.fClefX;
-    var fy = sheet.staff.bassTop + sheet.staff.space * 3; // the F3 line
-    group.appendChild(glyph('fClef', fx, fy, scale));
+  /**
+   * The barline closing the grand staff on the left, running from the top line of
+   * the treble staff to the bottom line of the bass staff. The reference design
+   * draws this instead of a curly brace.
+   */
+  function drawLeftBarline(group) {
+    var staff = sheet.staff;
+    group.appendChild(el('line', {
+      x1: sheet.header.leftBarX,
+      x2: sheet.header.leftBarX,
+      y1: staff.trebleTop,
+      y2: staff.bassTop + staff.space * (staff.lines - 1),
+      class: 'bar-line bar-line-left',
+    }));
   }
 
   /**
-   * Key signature: the sharps belonging to the key, each on its proper line/space.
-   * The vertical placements follow standard engraving practice rather than a
-   * calculated pattern, because that is what makes them look right.
+   * The clefs, drawn as glyphs and then roughened by the pencil filter so they
+   * read as strokes on paper rather than as engraved type.
+   */
+  function drawClefs(group) {
+    var size = sheet.header.clefSize;
+    var staff = sheet.staff;
+
+    // The treble clef's baseline sits on the bottom line of the treble staff;
+    // the bass clef's sits on the F line, the second line from the top.
+    group.appendChild(el('text', {
+      x: sheet.header.gClefX,
+      y: staff.trebleTop + staff.space * (staff.lines - 1),
+      'font-size': size,
+      class: 'music-glyph clef-glyph',
+    }, '\uD834\uDD1E'));
+
+    group.appendChild(el('text', {
+      x: sheet.header.fClefX,
+      y: staff.bassTop + staff.space * 2,
+      'font-size': size * 0.94,
+      class: 'music-glyph clef-glyph',
+    }, '\uD834\uDD22'));
+  }
+
+  /**
+   * Key signature: the sharps belonging to the key, each on its proper line or
+   * space. The vertical placements follow standard engraving practice rather than
+   * a calculated pattern, because that is what makes them look right.
    */
   function drawKeySignature(group, keyId, offsetX) {
     var key = window.App.NotesLetter.keySignature(keyId);
     if (!key.count) return 0;
 
-    var scale = glyphScale();
     var x = sheet.header.sharpX + (offsetX || 0);
 
     key.sharps.slice(0, 3).forEach(function (letter, index) {
@@ -348,47 +367,30 @@ window.App.SheetRender = (function () {
       ['treble', 'bass'].forEach(function (clef) {
         var staffY = SHARP_STAFF_Y[clef][letter];
         if (staffY === undefined) return;
-        // Each glyph is centred on its staff position using its own bounding box.
-        var data = Glyphs.accidentalSharp;
-        var centre = (data.ne[1] + data.sw[1]) / 2;
-        group.appendChild(glyph('accidentalSharp', columnX, staffY + centre * scale, scale));
+        // The sharp is drawn with its baseline on the note it alters, then nudged
+        // up so the ink straddles the line or space the way a pencil would.
+        group.appendChild(el('text', {
+          x: columnX,
+          y: staffY + sheet.header.sharpSize * 0.34,
+          'font-size': sheet.header.sharpSize,
+          class: 'music-glyph sharp-glyph',
+        }, '\u266F'));
       });
     });
 
     return 3 * sheet.header.sharpStep;
   }
 
-  /** Time signature set between the two staves, as engraved convention demands. */
-  function drawTimeSignature(group, timeSignature, offsetX) {
-    var parts = String(timeSignature).split('/');
-    if (parts.length !== 2) return 0;
-
-    var scale = glyphScale();
-    var x = sheet.header.timeSigX + (offsetX || 0);
-    var middle = sheet.staff.trebleTop + sheet.staff.space * 6; // halfway between the staves
-
-    [
-      { glyph: 'timeSig' + parts[0], y: middle - sheet.staff.space * 2 },
-      { glyph: 'timeSig' + parts[1], y: middle + sheet.staff.space * 2 },
-    ].forEach(function (item) {
-      var data = Glyphs[item.glyph];
-      if (!data) return;
-      var centre = (data.ne[1] + data.sw[1]) / 2;
-      group.appendChild(glyph(item.glyph, x, item.y + centre * scale, scale));
-    });
-
-    return 22;
-  }
-
-  /** Everything drawn once at the left edge of a system. */
+  /**
+   * Everything drawn once at the left edge of a system: the closing barline, the
+   * two clefs and the key signature. The reference design carries no time
+   * signature on the staves — the pulse is stated once in the page header — so
+   * none is drawn here.
+   */
   function drawSystemHeader(group, system) {
-    var first = system.measures[0];
-    drawBrace(group);
+    drawLeftBarline(group);
     drawClefs(group);
-
-    var offset = 0;
-    offset += drawKeySignature(group, first.key, offset);
-    drawTimeSignature(group, first.time, offset);
+    drawKeySignature(group, system.measures[0].key, 0);
   }
 
   function drawMeasureNumber(group, number, x) {
@@ -419,10 +421,7 @@ window.App.SheetRender = (function () {
     if (!isFirst && (measure.changedKey || measure.changedTime)) {
       var changeGroup = el('g', { class: 'pencil-stroke' });
       if (measure.changedKey) {
-        signatureShift += drawKeySignature(changeGroup, measure.key, -34);
-      }
-      if (measure.changedTime) {
-        drawTimeSignature(changeGroup, measure.time, 2);
+        signatureShift += drawKeySignature(changeGroup, measure.key, -30);
       }
       group.appendChild(changeGroup);
     }
@@ -465,7 +464,7 @@ window.App.SheetRender = (function () {
         ledgers: placed.ledgers,
         stemUp: placed.stemUp,
         dotted: note.dotted,
-        accidentalName: accidentalGlyphName(spelled),
+        accidentalSymbol: accidentalSymbolFor(spelled),
         withStem: true,
       });
       if (stem) beamTops.push(stem);
@@ -520,17 +519,14 @@ window.App.SheetRender = (function () {
         ledgers: placed.ledgers,
         stemUp: placed.stemUp,
         dotted: false,
-        accidentalName: accidentalGlyphName(spelled),
+        accidentalSymbol: accidentalSymbolFor(spelled),
         withStem: false,
       });
 
-      // Left-hand notes mostly sit on the bass staff, right under the treble one,
-      // so the label goes wherever the note leaves room: beneath the note for the
-      // low bass notes, above it once the line climbs into the gap between staves.
-      var bassBounds = Staff.staffBounds('bass', sheet);
-      var labelY = placed.y > bassBounds.middle
-        ? placed.y + sheet.note.ry + sheet.note.labelGap + 11
-        : placed.y - sheet.note.ry - sheet.note.labelGap - 5;
+      // The label goes below the notehead, never above it: the space between the
+      // staves belongs to the melody's own labels. The drawing band is tall enough
+      // (see layout.inkBottom) that this still clears the next system.
+      var labelY = placed.y + sheet.note.ry + sheet.note.labelGap + 12;
 
       noteGroup.appendChild(el('text', {
         x: x,
@@ -571,15 +567,19 @@ window.App.SheetRender = (function () {
     geometry.totalHeight = totalHeight;
     state.layout = geometry;
 
-    var scrollTop = container.scrollTop;
-    var firstVisible = Math.floor(scrollTop / geometry.stride);
-    firstVisible = Math.max(0, Math.min(firstVisible, Math.max(0, geometry.systems - 1)));
-    var lastVisible = Math.min(geometry.systems - 1,
-      Math.floor((scrollTop + container.clientHeight) / geometry.stride) + 1);
+    // Which systems the viewport covers, taken from the live scroll position and
+    // the real container height — never from the number of systems computeLayout
+    // chose to draw, or scrolling could run past everything that was drawn.
+    var firstVisible = Math.max(0, Math.floor(
+      (container.scrollTop - Config.layout.pagePaddingTop) / geometry.stride));
+    var lastVisible = Math.min(totalSystems - 1, Math.max(firstVisible,
+      Math.floor((container.scrollTop + container.clientHeight -
+        Config.layout.pagePaddingTop) / geometry.stride)));
 
     // Nothing to do when the same window is already on screen: ResizeObserver
     // fires on every layout change, including the ones this function causes.
     // Everything that changes what is drawn must appear in this signature.
+    if (window.__trace) window.__trace.push('render scrollTop=' + container.scrollTop + ' first=' + firstVisible + ' last=' + lastVisible);
     var signature = [
       firstVisible,
       lastVisible,
@@ -594,19 +594,28 @@ window.App.SheetRender = (function () {
     }
     state.renderSignature = signature;
 
-    if (state.canvas && state.canvas.parentNode) state.canvas.parentNode.removeChild(state.canvas);
-
     state.systemElements = [];
     state.renderedFirst = firstVisible;
     state.renderedLast = lastVisible;
     state.renderedScale = geometry.scale;
 
+    /**
+     * The spacer is created once and then reused.
+     *
+     * It must never be removed on a re-render: taking it out of the document
+     * collapses the scrollable height to nothing, so the browser clamps scrollTop
+     * back to 0 and every scroll is undone by the very render it triggered.
+     * Re-rendering empties it and fills it again instead.
+     */
+    if (!state.canvas || !state.canvas.parentNode) {
+      state.canvas = html('div', 'sheet-canvas');
+      container.appendChild(state.canvas);
+    }
+    state.canvas.style.height = totalHeight.toFixed(1) + 'px';
+    while (state.canvas.firstChild) state.canvas.removeChild(state.canvas.firstChild);
+
     if (state.ruler && state.ruler.parentNode) state.ruler.parentNode.removeChild(state.ruler);
     state.ruler = html('div', 'position-ruler');
-    state.rulerTicks = [];
-
-    state.canvas = html('div', 'sheet-canvas');
-    state.canvas.style.height = totalHeight.toFixed(1) + 'px';
 
     // The viewBox shows the ink band of the drawing's coordinate space: it starts
     // at the topmost drawn element and is exactly as tall as the ink. One user
@@ -679,9 +688,7 @@ window.App.SheetRender = (function () {
       state.systemElements.push(svg);
     }
 
-    container.appendChild(state.canvas);
     container.appendChild(state.ruler);
-    container.scrollTop = scrollTop;
 
     // The ruler replaces the scrollbar, so its marks are positioned by where the
     // systems actually are in the whole score — scrolling slides them past.
@@ -762,9 +769,10 @@ window.App.SheetRender = (function () {
     if (!layout || !state.container) return [0, 0];
     var top = state.container.scrollTop;
     var bottom = top + state.container.clientHeight;
+    var count = state.score ? state.score.systems.length : layout.systems;
     var first = Math.max(0, Math.floor((top - Config.layout.pagePaddingTop) / layout.stride));
     var last = Math.max(first, Math.floor((bottom - Config.layout.pagePaddingTop) / layout.stride));
-    return [first, Math.min(layout.systems - 1, last)];
+    return [Math.min(first, count - 1), Math.min(count - 1, last)];
   }
 
   function onScroll(container) {
@@ -772,6 +780,7 @@ window.App.SheetRender = (function () {
     if (!layout) return;
     markRuler.apply(null, currentWindow());
     var first = currentWindow()[0];
+    if (window.__trace) window.__trace.push('onScroll top=' + container.scrollTop + ' first=' + first + ' renderedFirst=' + state.renderedFirst);
     if (first !== state.renderedFirst) render(container);
   }
 
@@ -794,33 +803,104 @@ window.App.SheetRender = (function () {
   }
 
   /**
-   * Draw the ruler tick for every system, positioned by its place in the whole
-   * score so that scrolling slides them down the gutter.
+   * Draw the ruler: an SVG strip of hand-drawn ticks standing in for the
+   * scrollbar.
+   *
+   * SVG rather than styled HTML, because the graphite pencil effect is an SVG
+   * filter and only applies inside an SVG. Ticks are placed by where a system
+   * really sits in the whole score, so scrolling slides them past; every fourth
+   * system carries the measure it starts at, and the hatched block over the
+   * current window is the "you are here".
    */
   function buildRuler() {
     if (!state.ruler || !state.score || !state.layout || !state.container) return;
+
     var layout = state.layout;
     var total = state.score.systems.length;
     var track = state.container.clientHeight;
+    var perSystem = Config.score.measuresPerSystem;
+    var width = 30;
 
-    state.rulerTicks = [];
     state.ruler.innerHTML = '';
 
+    var svg = el('svg', {
+      viewBox: '0 0 ' + width + ' ' + track,
+      preserveAspectRatio: 'none',
+      width: '100%',
+      height: track + 'px',
+    });
+
+    svg.appendChild(el('rect', {
+      x: 11, y: 0, width: 15, height: track, rx: 1, class: 'ruler-body',
+    }));
+
+    var totalSpan = Math.max(1, layout.totalHeight);
+
     for (var i = 0; i < total; i++) {
-      var top = (Config.layout.pagePaddingTop + i * layout.stride) / layout.totalHeight;
-      var tick = html('span', 'tick');
-      tick.style.top = (top * track).toFixed(1) + 'px';
-      state.ruler.appendChild(tick);
-      state.rulerTicks.push(tick);
+      var y = ((Config.layout.pagePaddingTop + i * layout.stride) / totalSpan) * track;
+      svg.appendChild(el('line', {
+        x1: 11, x2: 26, y1: y, y2: y, class: 'tick major',
+      }));
+
+      if (i < total - 1) {
+        var my = ((Config.layout.pagePaddingTop + (i + 0.5) * layout.stride) / totalSpan) * track;
+        svg.appendChild(el('line', {
+          x1: 18, x2: 26, y1: my, y2: my, class: 'tick minor',
+        }));
+      }
+
+      if (i % 4 === 0) {
+        svg.appendChild(el('text', { x: 9, y: y + 4, class: 'ruler-mark' },
+          String(i * perSystem + 1)));
+      }
     }
+
+    // The window block goes on last so it sits above the ticks.
+    state.rulerViewportFill = el('rect', { x: 11, width: 15, rx: 2, class: 'viewport-fill' });
+    state.rulerViewport = el('rect', { x: 11, width: 15, rx: 2, class: 'viewport' });
+    svg.appendChild(state.rulerViewportFill);
+    svg.appendChild(state.rulerViewport);
+
+    state.ruler.appendChild(svg);
+    state.rulerTrack = track;
   }
 
-  /** Mark the ticks for the systems on screen and the current scroll position. */
+  /**
+   * Move the hatched block over the systems on screen: scrolling is what moves it,
+   * so the ruler always answers "where am I?" at a glance.
+   */
   function markRuler(first, last) {
-    if (!state.rulerTicks) return;
-    for (var i = 0; i < state.rulerTicks.length; i++) {
-      state.rulerTicks[i].className = (i >= first && i <= last) ? 'tick active' : 'tick';
-    }
+    if (!state.rulerViewport || !state.layout || !state.container) return;
+
+    var track = state.rulerTrack || state.container.clientHeight;
+    var totalSpan = Math.max(1, state.layout.totalHeight);
+    var stride = state.layout.stride;
+    var pad = Config.layout.pagePaddingTop;
+
+    var top = ((pad + first * stride) / totalSpan) * track;
+    var nextTop = ((pad + (last + 1) * stride) / totalSpan) * track;
+    var height = Math.max(8, Math.min(track - top, nextTop - top - state.layout.boxGap));
+
+    [state.rulerViewport, state.rulerViewportFill].forEach(function (node) {
+      if (!node) return;
+      node.setAttribute('y', top.toFixed(1));
+      node.setAttribute('height', height.toFixed(1));
+    });
+  }
+
+  /**
+   * Jump to a point on the ruler. `fraction` is 0 at the top of the strip and 1 at
+   * the bottom, so the sheet scrolls to the matching place in the score.
+   */
+  function seekFraction(fraction) {
+    if (!state.container || !state.layout) return;
+    var layout = state.layout;
+    var count = state.score ? state.score.systems.length : layout.systems;
+    var maxScroll = Math.max(0, state.container.scrollHeight - state.container.clientHeight);
+    var wanted = Math.max(0, Math.min(1, fraction)) * count;
+    var top = Config.layout.pagePaddingTop + wanted * layout.stride;
+    state.container.scrollTop = Math.max(0, Math.min(maxScroll, top - layout.musicHeight / 2));
+    markRuler.apply(null, currentWindow());
   }
 
   return {
@@ -833,6 +913,7 @@ window.App.SheetRender = (function () {
     scrollToMeasure: scrollToMeasure,
     onScroll: onScroll,
     visibleMeasureRange: visibleMeasureRange,
+    seekFraction: seekFraction,
     noteColumns: noteColumns,
     getState: function () { return state; },
   };

@@ -105,8 +105,10 @@ button {
 .note-head,
 .note-stem,
 .note-beam,
-.measure-highlight,
-.brace-glyph {
+.ledger-line,
+.augmentation-dot,
+.bar-line,
+.measure-highlight {
   filter: url(#graphite-edge);
 }
 

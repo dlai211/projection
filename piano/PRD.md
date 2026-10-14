@@ -443,3 +443,56 @@ Position is instead carried by two quiet cues:
 The scroll spacer now covers the *whole* score rather than only the systems that
 fit, which is what gives the area something to scroll through. Only the systems on
 screen are drawn, so the DOM stays small.
+
+
+### Phase 1 revisions 5 — the five regressions (2026-10-13)
+
+Reviewing the page against the reference design turned up five faults. All five are
+fixed:
+
+**1. Scrolling was broken.** Two causes, both in the re-render path:
+
+- The systems to draw were chosen from `computeLayout`'s system count (how many the
+  window happens to fit) instead of the whole score, so scrolling could move past
+  everything that had been drawn.
+- Worse, every re-render **destroyed and recreated the scroll spacer**. Removing it
+  collapses the scrollable height to zero, the browser clamps `scrollTop` back to 0,
+  and each scroll was undone by the very render it triggered. The spacer is now
+  created once and only emptied and refilled.
+
+Verified: at 1080p `scrollHeight` (4030) exceeds `clientHeight` (688) on load;
+scrolling moves the view and the status line reports the right measures.
+
+**2. The position ruler was invisible.** It was styled HTML, and the graphite pencil
+effect is an *SVG* filter, which does not apply to HTML elements. The ruler is now an
+SVG strip: a hand-drawn body, a major tick per system, a minor tick between each
+pair, measure numbers down the side, and a hatched block over the systems on screen.
+It is clickable — pressing anywhere on it jumps to that place in the piece.
+
+**3. The left edge of each system.** The curly brace is gone. A single pencil barline
+now closes the grand staff on the left, running from the top line of the treble staff
+to the bottom line of the bass staff, and the clefs and key signature sit inside it,
+as the reference has them.
+
+**4. The time signature no longer appears on the staves.** It was drawn between the
+staves at the head of every system, where it collided with the first notes. The
+reference states the pulse once in the page header (`♩. = 50 · 6/8`) and nowhere
+else, so nothing is drawn on the staves now. A key change mid-piece (measure 42)
+still redraws the key signature, but never a time signature.
+
+**5. The pencil look and the typography.** The drawing is now sized so one drawing
+unit is one CSS pixel (`maxSystemWidth: 1200`), which lets every measurement be a
+plain pixel figure and brings the annotation type up to the reference's size:
+
+| Element | Before | Now |
+|---|---|---|
+| Melody labels | 17 | 22 |
+| Bass labels | 15 | 18, always below the note |
+| Measure numbers | 15 | 17 |
+| Staff space | 8.3 px | 10 px |
+
+Noteheads, stems, beams, ledger lines, barlines and the clefs are all drawn in
+`#3a3630` — the reference's graphite rather than black — and all of them carry the
+pencil-edge filter. The clefs and the key-signature sharps are drawn as glyphs with
+that filter over them, so they read as pencil strokes. The active-measure shading and
+the handwritten measure numbers above the top staff line are both restored.

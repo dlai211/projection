@@ -68,56 +68,73 @@
 }
 
 /**
- * The position ruler: a tick per system down the right gutter, the ones on
- * screen inked in. It answers "where am I in the piece?" without a scrollbar.
+ * The position ruler — a slim hand-drawn strip down the right margin that stands
+ * in for the hidden scrollbar.
+ *
+ * It is drawn as SVG rather than styled HTML so the graphite pencil filter (an
+ * SVG filter) actually applies to it. One major tick per system, a minor tick
+ * between each pair, measure numbers down the side, and a hatched block over the
+ * systems currently on screen. Clicking it jumps to that point in the score.
  */
-/* Fixed, not absolute: the ruler is a viewport into the whole piece, so it must
-   stay put while the sheet scrolls behind it. */
 .position-ruler {
   position: fixed;
   top: 62px;                 /* below the title bar */
-  right: 10px;
-  width: 14px;
-  pointer-events: none;
+  right: 6px;
+  width: 30px;
+  cursor: pointer;
   z-index: 3;
+  touch-action: none;
+}
+
+.position-ruler svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.position-ruler .ruler-body {
+  fill: rgba(252, 249, 242, 0.5);
+  stroke: #3a3630;
+  stroke-width: 1.1;
+  opacity: 0.75;
 }
 
 .position-ruler .tick {
-  position: absolute;
-  right: 0;
-  width: 5px;
-  height: 1px;
-  background-color: var(--graphite-faint);
-  opacity: 0.4;
+  stroke: #3a3630;
+  stroke-linecap: round;
 }
 
-.position-ruler .tick.active {
-  width: 11px;
-  height: 2px;
-  background-color: var(--graphite-2b);
-  opacity: 0.9;
+.position-ruler .tick.minor {
+  stroke-width: 1;
+  opacity: 0.38;
+  filter: url(#graphite-edge);
 }
 
-/* Spacer sized to the whole song, so scrolling and scrollIntoView work even
-   though every system is absolutely positioned. */
-.sheet-canvas {
-  position: relative;
-  width: 100%;
+.position-ruler .tick.major {
+  stroke-width: 1.6;
+  opacity: 0.75;
+  filter: url(#graphite-edge);
 }
 
-/* Systems are absolutely positioned so they never reflow each other.
-   --system-top and --system-height are set per system by sheet-render.js. */
-.system-svg {
-  position: absolute;
-  top: var(--system-top, 0);
-  left: 0;
-  right: 0;                 /* with left:0 this spans the area, and the box below
-                               centres the fixed-width drawing inside it */
-  margin: 0 auto;
-  width: var(--system-width, 1360px);
-  max-width: 100%;
-  height: var(--system-height, 140px);
-  display: block;
+.position-ruler .viewport {
+  fill: none;
+  stroke: rgba(58, 54, 48, 0.9);
+  stroke-width: 2.2;
+  filter: url(#graphite-edge);
+}
+
+.position-ruler .viewport-fill {
+  fill: rgba(58, 54, 48, 0.16);
+  filter: url(#graphite-edge);
+}
+
+.position-ruler .ruler-mark {
+  font-family: var(--font-hand);
+  font-size: 12px;
+  fill: var(--graphite-hb);
+  text-anchor: end;
+  pointer-events: none;
 }
 
 .piano-section {

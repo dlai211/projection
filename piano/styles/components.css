@@ -63,8 +63,8 @@
   inset: 0;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.5;
-  opacity: 0.55;
+  stroke-width: 1.8;
+  opacity: 0.75;
   filter: url(#hand-drawn-ring);
   transition: opacity 0.16s ease, stroke-width 0.16s ease;
 }
@@ -155,9 +155,15 @@
 }
 
 .bar-line {
-  stroke: var(--graphite-2b);
+  stroke: #3a3630;
   stroke-width: 1.7;
   stroke-linecap: round;
+}
+
+/* The barline closing the grand staff on the left, where the reference design
+   has one instead of a curly brace. */
+.bar-line-left {
+  stroke-width: 1.9;
 }
 
 .bar-line-final {
@@ -165,23 +171,22 @@
 }
 
 .ledger-line {
-  stroke: var(--graphite-2b);
+  stroke: #3a3630;
   stroke-width: 1.5;
   stroke-linecap: round;
 }
 
-.brace-glyph,
 .header-glyphs path {
   fill: var(--graphite-2b);
 }
 
 .note-head {
-  fill: var(--graphite-2b);
+  fill: #3a3630;
 }
 
 .note-stem,
 .note-beam {
-  stroke: var(--graphite-2b);
+  stroke: #3a3630;
   stroke-linecap: round;
 }
 
@@ -193,12 +198,10 @@
   stroke-width: 4.2;
 }
 
-.accidental-glyph {
-  fill: var(--graphite-2b);
-}
+
 
 .augmentation-dot {
-  fill: var(--graphite-2b);
+  fill: #3a3630;
 }
 
 .note-group {
@@ -214,8 +217,9 @@
 }
 
 .measure-number {
-  font-size: 15px;
-  fill: var(--graphite-faint);
+  font-size: 17px;
+  fill: var(--graphite-hb);
+  opacity: 0.85;
 }
 
 /* The handwritten annotation above each melody note. */
@@ -224,18 +228,35 @@
   fill: var(--graphite-2b);
 }
 
+/* Sized in drawing units, and one drawing unit is one CSS pixel, so these are
+   the sizes the reference design uses — the numbers are meant to be read while
+   playing, not squinted at. */
 .note-label.hand-right {
-  font-size: 17px;
+  font-size: 22px;
   font-weight: 700;
 }
 
 .note-label.hand-left {
-  font-size: 15px;
+  font-size: 18px;
   font-weight: 600;
   fill: var(--graphite-hb);
 }
 
+/* The music glyphs: clefs, key-signature sharps and accidentals. Drawn as
+   characters, then roughened by the pencil filter so they read as strokes on
+   paper rather than engraved type. */
+.music-glyph {
+  fill: #3a3630;
+  font-family: 'Segoe UI Symbol', 'Segoe UI Historic', 'Bravura', serif;
+  filter: url(#graphite-edge);
+}
+
+.sharp-glyph,
+.accidental-glyph {
+  text-anchor: middle;
+}
+
 /* The active-measure shading is a soft graphite smudge, not a solid block. */
 .measure-highlight {
-  opacity: 0.55;
+  opacity: 0.5;
 }
