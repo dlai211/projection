@@ -33,14 +33,14 @@ window.App.Config = (function () {
       // 1000 units wide by 205 tall, with a staff space of 10 units. Everything
       // below (clef positions, note spacing, stem lengths) is expressed in these
       // units, and layout.maxSystemWidth decides how many pixels one unit becomes.
-      viewBox: { w: 1000, h: 205, from: 0, to: 205 },
+      viewBox: { w: 1200, h: 205, from: 0, to: 205 },
       staff: {
         space: 10,
         trebleTop: 42,   // y of the top line of the treble staff
         bassTop: 122,    // y of the top line of the bass staff
         lines: 5,
-        marginLeft: 10,  // where the staff lines start, just left of the brace
-        marginRight: 985, // where the staff lines end
+        marginLeft: 0,  // where the staff lines start, just left of the brace
+        marginRight: 1200, // where the staff lines end
       },
       header: {
         /**
@@ -96,20 +96,32 @@ window.App.Config = (function () {
        * drawing is centred when the window is wider, and only a narrower window
        * shrinks it.
        */
-      maxSystemWidth: 1360,
-
-      // Breathing room above the first system and below the last, in CSS pixels.
-      pagePadding: 24,
+      maxSystemWidth: 1000,
 
       /**
-       * How much empty air sits between two systems, as a fraction of a system's
-       * own height. These values cannot change the size of the music (that is
-       * maxSystemWidth's job) — only how many systems the window shows.
+       * The three vertical distances, all in plain CSS pixels.
+       *
+       * `pagePaddingTop` and `pagePaddingBottom` are the margins above the first
+       * system and below the last. `systemGapPx` (below, in density) is the empty
+       * air between two systems. None of them can change the size of the music —
+       * that is maxSystemWidth's job alone.
+       */
+      pagePaddingTop: 100,
+      pagePaddingBottom: 100,
+
+      /**
+       * How much empty air sits between two systems, in CSS pixels, for each of
+       * the three settings the spacing button cycles through. Bigger numbers mean
+       * more air and so fewer systems on screen.
+       *
+       * The number is a *minimum*: if the window still has room left over after
+       * fitting the systems, that leftover is shared out between them, so the gap
+       * you see is often larger than the value here.
        */
       density: {
-        tight: { ratio: 0.25 },
-        normal: { ratio: 0.60 },
-        loose: { ratio: 1.10 },
+        tight: { systemGapPx: 40 },
+        normal: { systemGapPx: 120 },
+        loose: { systemGapPx: 280 },
       },
       defaultDensity: 'normal',
     },

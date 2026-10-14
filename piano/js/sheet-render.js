@@ -93,8 +93,9 @@ window.App.SheetRender = (function () {
     var layout = Config.layout;
     var density = layout.density[state.density] || layout.density.normal;
     var count = state.score.systems.length;
-    var pagePadding = layout.pagePadding;
-    var availableHeight = height - pagePadding * 2;
+    var paddingTop = layout.pagePaddingTop;
+    var paddingBottom = layout.pagePaddingBottom;
+    var availableHeight = height - paddingTop - paddingBottom;
 
     /**
      * How big the music is drawn.
@@ -108,7 +109,7 @@ window.App.SheetRender = (function () {
     var scale = systemWidth / sheet.viewBox.w;
 
     var musicHeight = sheet.viewBox.h * scale;
-    var gap = musicHeight * density.ratio;
+    var gap = density.systemGapPx; // a plain pixel distance, not a ratio
 
     var systems = count;
     if (availableHeight < musicHeight) {
@@ -120,7 +121,8 @@ window.App.SheetRender = (function () {
     systems = Math.max(1, systems);
 
     // Leftover room is shared out between the systems rather than dumped at the
-    // bottom, so the score stays balanced on the page.
+    // bottom, so the score stays balanced on the page. The gap you see is
+    // therefore usually roomier than the configured minimum.
     var slack = availableHeight - systems * musicHeight;
     var usedGap = systems > 1 ? Math.max(gap, slack / (systems - 1)) : 0;
     var blockHeight = systems * musicHeight + Math.max(0, systems - 1) * usedGap;
@@ -131,7 +133,7 @@ window.App.SheetRender = (function () {
       systemWidth: systemWidth,
       musicHeight: musicHeight,
       gap: usedGap,
-      top: pagePadding + Math.max(0, (availableHeight - blockHeight) / 2),
+      top: paddingTop + Math.max(0, (availableHeight - blockHeight) / 2),
       offsetX: Math.max(0, (width - systemWidth) / 2),
       systems: systems,
       scale: scale,
@@ -542,7 +544,8 @@ window.App.SheetRender = (function () {
     // re-renders the window, which keeps the DOM small (64 measures of notation
     // is a lot of elements to keep alive all at once).
     var totalHeight = geometry.systems * geometry.musicHeight +
-      Math.max(0, geometry.systems - 1) * geometry.gap + Config.layout.pagePadding * 2;
+      Math.max(0, geometry.systems - 1) * geometry.gap +
+      Config.layout.pagePaddingTop + Config.layout.pagePaddingBottom;
     geometry.totalHeight = totalHeight;
     state.layout = geometry;
 
@@ -589,7 +592,7 @@ window.App.SheetRender = (function () {
 
     for (var index = firstVisible; index <= lastVisible; index++) {
       var system = state.score.systems[index];
-      var top = Config.layout.pagePadding +
+      var top = Config.layout.pagePaddingTop +
         index * (geometry.musicHeight + geometry.gap);
       var svg = el('svg', {
         class: 'system-svg',
@@ -704,7 +707,7 @@ window.App.SheetRender = (function () {
     var systemIndex = Math.floor((measureNumber - 1) / Config.score.measuresPerSystem);
     var layout = state.layout;
     var stride = layout.musicHeight + layout.gap;
-    var top = Config.layout.pagePadding + systemIndex * stride;
+    var top = Config.layout.pagePaddingTop + systemIndex * stride;
     var bottom = top + layout.musicHeight;
 
     var viewTop = state.container.scrollTop;

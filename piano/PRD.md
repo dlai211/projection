@@ -382,7 +382,7 @@ default view shows two systems.
 | **Overall size of the score** (this is the one to turn) | `js/config.js` | `layout.maxSystemWidth` — the score is 1000 drawing units wide, so 1360 px makes one unit 1.36 px and the staff space 13.6 px, matching the reference. Only a *narrower* window shrinks it |
 | **The drawing's own proportions** | `js/config.js` | `sheet.staff.space` (10 units per staff space), `sheet.staff.marginLeft` / `marginRight` (where the staff lines start and end horizontally), `sheet.staff.trebleTop` / `bassTop` (their vertical position), `sheet.viewBox` (the drawing's coordinate window) |
 | **Where the header sits** | `js/config.js` | `sheet.header.*` — the brace, clefs, key signature and time signature x-positions |
-| **Vertical spacing between systems** | `js/config.js` | `layout.density.*.ratio` and `layout.pagePadding` — these change the *spacing*, never the size of the music |
+| **Vertical spacing** | `js/config.js` | `layout.pagePaddingTop`, `layout.pagePaddingBottom` (margins at the top and bottom of the page) and `layout.density.*.systemGapPx` (the air between two systems) — all plain CSS pixels. They change the *spacing*, never the size of the music |
 | **How the box is placed on the page** | `styles/layout.css` | `.sheet-area` (scrolls), `.sheet-canvas` (full-song spacer), `.system-svg` (centred fixed-width box) |
 
 **Changes**
@@ -398,3 +398,20 @@ default view shows two systems.
 
 **Verified:** screenshots at 2K (two systems, centred) and 1600×900; hit-testing
 re-checked — clicking across a system returns measures 1, 2, 3, 4 in order.
+
+### Phase 1 revisions 3 — spacing in pixels (2026-10-13)
+
+The spacing was expressed as a fraction of a system's height, which made it awkward
+to reason about. All three vertical distances are now plain CSS pixels in
+`js/config.js`:
+
+| Setting | Controls |
+|---|---|
+| `layout.pagePaddingTop` | The air above the first system — the one to raise to push the score down the page |
+| `layout.pagePaddingBottom` | The air below the last system |
+| `layout.density.tight/normal/loose.systemGapPx` | The air between two systems, for each setting the spacing button cycles through |
+
+The value is a **minimum**: when the window still has room after fitting the systems,
+the leftover is shared out between them, so the gap you actually see is often larger
+than the number configured. Raising a `systemGapPx` eventually drops a system from
+the page rather than only widening the gap.
