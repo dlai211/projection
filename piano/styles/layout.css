@@ -1,176 +1,140 @@
-/**
- * Layout: the vertical stack of title bar, sheet music, keyboard and status line.
+/*
+ * The page layout: a title bar, a sheet that scrolls, and a keyboard pinned to the
+ * bottom with the paper running behind both.
  *
- * The sheet area is the only flexible row. sheet-render.js measures its height and
- * decides how many systems fit, so this file must never give it a fixed height.
+ * Two things differ from test.html, both deliberately: the sheet area scrolls through
+ * all sixteen systems instead of centring two, and the keyboard is fixed rather than
+ * sitting at the end of a column. Everything else is test.html's.
  */
 
+/* 1. TOP BAR: Handwritten Title + Clean Modern Controls */
 .top-bar {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  padding: 14px 28px 6px;
-  flex: 0 0 auto;
+  align-items: center;
+  padding: 16px 40px 0;
 }
 
 .title-group {
   display: flex;
   align-items: baseline;
-  gap: 14px;
-  min-width: 0;
+  gap: 16px;
+  mix-blend-mode: multiply;
+  filter: url(#graphite-edge);
 }
 
 .title-group h1 {
-  font-size: 30px;
+  font-size: 36px;
   font-weight: 700;
-  letter-spacing: 0.4px;
-  white-space: nowrap;
+  color: var(--graphite-2b);
+  letter-spacing: 0.5px;
 }
 
 .title-group span {
-  font-size: 18px;
+  font-size: 22px;
   color: var(--graphite-hb);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 0 0 auto;
+.title-group .title-progress {
+  color: var(--graphite-faint);
+  font-size: 20px;
 }
 
-/* The measured region for the systems. It scrolls when the piece is longer than
-   the window, which is how the remaining systems stay reachable. */
+/* 2. THE SHEET: sixteen systems, scrolling, no visible scrollbar */
 .sheet-area {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0; /* lets the flex child actually shrink */
-  width: 100%;
-  /* No horizontal padding: the score's margins come from the drawing being
-     capped at a fixed width and centred (see layout.maxSystemWidth in
-     config.js), so the notation keeps the same size on any screen instead of
-     stretching to fill a wide one. */
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-
-  /* The sheet scrolls, but a scrollbar would sit on top of the paper and break
-     the illusion. The position ruler below takes its place. */
-  scrollbar-width: none;      /* Firefox */
-  -ms-overflow-style: none;   /* old Edge */
+  scrollbar-width: none;          /* Firefox */
+  -ms-overflow-style: none;       /* old Edge */
+  padding: 26px 36px calc(var(--keyboard-h) + 26px);
+  mix-blend-mode: multiply;
 }
 
 .sheet-area::-webkit-scrollbar {
-  display: none;              /* Chrome, Edge, Safari */
+  display: none;                  /* Chrome, Safari, new Edge */
 }
 
-/**
- * The position ruler — a slim hand-drawn strip down the right margin that stands
- * in for the hidden scrollbar.
- *
- * It is drawn as SVG rather than styled HTML so the graphite pencil filter (an
- * SVG filter) actually applies to it. One major tick per system, a minor tick
- * between each pair, measure numbers down the side, and a hatched block over the
- * systems currently on screen. Clicking it jumps to that point in the score.
- */
-.position-ruler {
-  position: fixed;
-  top: 62px;                 /* below the title bar */
-  right: 6px;
-  width: 30px;
-  cursor: pointer;
-  z-index: 3;
-  touch-action: none;
+.sheet-canvas {
+  width: 100%;
 }
 
-.position-ruler svg {
+svg.manuscript-svg {
   display: block;
   width: 100%;
-  height: 100%;
+  max-width: 1360px;
+  margin: var(--system-gap) auto 0;
+  height: auto;
+  max-height: 235px;
   overflow: visible;
 }
 
-.position-ruler .ruler-body {
-  fill: rgba(252, 249, 242, 0.5);
-  stroke: #3a3630;
-  stroke-width: 1.1;
-  opacity: 0.75;
+.sheet-canvas > svg:first-child {
+  margin-top: 0;
 }
 
-.position-ruler .tick {
-  stroke: #3a3630;
-  stroke-linecap: round;
-}
-
-.position-ruler .tick.minor {
-  stroke-width: 1;
-  opacity: 0.38;
-  filter: url(#graphite-edge);
-}
-
-.position-ruler .tick.major {
-  stroke-width: 1.6;
-  opacity: 0.75;
-  filter: url(#graphite-edge);
-}
-
-.position-ruler .viewport {
-  fill: none;
-  stroke: rgba(58, 54, 48, 0.9);
-  stroke-width: 2.2;
-  filter: url(#graphite-edge);
-}
-
-.position-ruler .viewport-fill {
-  fill: rgba(58, 54, 48, 0.16);
-  filter: url(#graphite-edge);
-}
-
-.position-ruler .ruler-mark {
-  font-family: var(--font-hand);
-  font-size: 12px;
-  fill: var(--graphite-hb);
-  text-anchor: end;
+/* 3. THE PAPER CAP: keeps the paper looking like paper where the keyboard covers the
+   sheet. It is a copy of the same texture, aligned with the viewport, clipped to the
+   keyboard's band — so the grain runs across the join without a seam. */
+.paper-cap {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--keyboard-h);
+  overflow: hidden;
+  background: var(--paper-base);
+  z-index: 6;
   pointer-events: none;
 }
 
+.paper-cap .coarse-paper-layer {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  top: auto;
+  width: 100%;
+  height: 100vh;
+}
+
+/* 4. THE KEYBOARD, fixed along the bottom, the sheet passing behind it */
 .piano-section {
-  flex: 0 0 auto;
-  padding: 0 20px 8px;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--keyboard-h);
+  min-height: 150px;
+  max-height: 205px;
+  width: 100%;
+  padding: 0 16px 10px;
+  mix-blend-mode: multiply;
+  z-index: 7;
 }
 
 .piano-frame {
   position: relative;
-  height: clamp(120px, 20vh, 190px);
+  width: 100%;
+  height: 100%;
   display: flex;
   border-top: 2.5px solid var(--graphite-2b);
 }
 
-.status-bar {
-  flex: 0 0 auto;
-  padding: 4px 28px 12px;
-  font-family: var(--font-hand);
-  font-size: 19px;
-  color: var(--graphite-hb);
+/* 5. THE RULER down the right margin */
+.ruler-layer {
+  position: fixed;
+  top: 88px;
+  right: 10px;
+  bottom: calc(var(--keyboard-h) + 18px);
+  width: 20px;
+  z-index: 8;
+  cursor: pointer;
+  mix-blend-mode: multiply;
 }
 
-.placeholder-note {
-  margin: auto;
-  font-family: var(--font-hand);
-  font-size: 20px;
-  color: var(--graphite-faint);
-}
-
-/* On short windows the keyboard yields space to the score. */
-@media (max-height: 760px) {
-  .piano-frame {
-    height: 110px;
-  }
-
-  .title-group h1 {
-    font-size: 25px;
-  }
+.ruler-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }

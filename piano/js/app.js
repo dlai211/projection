@@ -1,297 +1,267 @@
 /**
- * Application entry point: builds the page structure, wires the controls and
- * decides when to redraw.
+ * Wiring: the score goes in, the page comes out, and the controls change things.
  *
- * Keep this file about *wiring*. Anything that draws lives in sheet-render.js or
- * keyboard-render.js; anything about pitch lives in the notation modules.
+ * Everything visual lives in the other modules; this file only holds the state, calls
+ * the renderers when something changes, and keeps the ruler and the scroll position in
+ * step. Where a change can be made without redrawing (the notation switch, the measure
+ * highlight, the compactness gap) it is made in place, so the sheet never flickers.
  */
 window.App = window.App || {};
 
-window.App.Main = (function () {
+(function () {
   'use strict';
 
-  var Config = window.App.Config;
+  const Config = window.App.Config;
 
-  var state = {
-    score: null,
-    notation: 'number',
-    density: Config.layout.defaultDensity,
+  const state = {
+    mode: 'number',                                    // 'number' | 'letter'
     activeMeasure: 1,
+    activeMidis: new Set(),
     micActive: false,
+    compact: Config.defaultCompact,                    // 'normal' | 'tight' | 'loose'
+    keyboardRange: 'default'                           // 'default' | 'full'
   };
 
-  var dom = {};
+  const COMPACT_CYCLE = ['normal', 'tight', 'loose'];
 
-  // ------------------------------------------------------------ page furniture
+  let score = null;
+  let layout = null;
+  let sheet = null;
+  const dom = {};
+  let audioCtx = null;
+  let scrollQueued = false;
 
-  /**
-   * The paper texture and the pencil-edge filter.
-   *
-   * Both are plain SVG filters, deliberately kept identical in spirit to the
-   * reference design: a bump-lit fractal noise for the coarse cold-press grain,
-   * and a small displacement for the graphite-on-tooth wobble.
-   */
-  function buildFilterDefs() {
-    var ns = 'http://www.w3.org/2000/svg';
-    var root = document.getElementById('paper-layer');
+  // ---------------------------------------------------------------- start up
 
-    var defs = document.createElementNS(ns, 'defs');
+  function init() {
+    dom.sheetArea = document.getElementById('sheet-area');
+    dom.sheetCanvas = document.getElementById('sheet-canvas');
+    dom.pianoFrame = document.getElementById('piano-frame');
+    dom.rulerLayer = document.getElementById('ruler-layer');
+    dom.progress = document.getElementById('progress');
+    dom.title = document.getElementById('song-title');
+    dom.subtitle = document.getElementById('song-subtitle');
+    dom.meta = document.getElementById('song-meta');
 
-    var paper = document.createElementNS(ns, 'filter');
-    paper.setAttribute('id', 'coarse-paper');
-    paper.setAttribute('x', '0%');
-    paper.setAttribute('y', '0%');
-    paper.setAttribute('width', '100%');
-    paper.setAttribute('height', '100%');
-    paper.innerHTML =
-      '<feTurbulence type="fractalNoise" baseFrequency="0.045 0.05" numOctaves="5" ' +
-      'seed="11" result="roughFibers" />' +
-      '<feDiffuseLighting in="roughFibers" lighting-color="#fdfaf3" surfaceScale="2.6" ' +
-      'diffuseConstant="0.95" result="litPaper">' +
-      '<feDistantLight azimuth="130" elevation="52" /></feDiffuseLighting>';
-    defs.appendChild(paper);
+    const raw = window[Config.scoreGlobal];
+    if (!raw) {
+      document.body.appendChild(document.createTextNode('The score did not load.'));
+      return;
+    }
 
-    var pencil = document.createElementNS(ns, 'filter');
-    pencil.setAttribute('id', 'graphite-edge');
-    pencil.setAttribute('x', '-10%');
-    pencil.setAttribute('y', '-10%');
-    pencil.setAttribute('width', '120%');
-    pencil.setAttribute('height', '120%');
-    pencil.innerHTML =
-      '<feTurbulence type="fractalNoise" baseFrequency="0.6" numOctaves="3" result="grain" />' +
-      '<feDisplacementMap in="SourceGraphic" in2="grain" scale="1.9" ' +
-      'xChannelSelector="R" yChannelSelector="G" />';
-    defs.appendChild(pencil);
+    score = window.App.ScoreLoader.load(raw);
+    layout = window.App.Layout.build(score);
 
-    var ring = document.createElementNS(ns, 'filter');
-    ring.setAttribute('id', 'hand-drawn-ring');
-    ring.setAttribute('x', '-25%');
-    ring.setAttribute('y', '-25%');
-    ring.setAttribute('width', '150%');
-    ring.setAttribute('height', '150%');
-    ring.innerHTML =
-      '<feTurbulence type="fractalNoise" baseFrequency="0.35" numOctaves="2" seed="7" result="wobble" />' +
-      '<feDisplacementMap in="SourceGraphic" in2="wobble" scale="' +
-      Config.icons.ringRoughness + '" xChannelSelector="R" yChannelSelector="G" />';
-    defs.appendChild(ring);
+    if (score.warnings.length) {
+      console.warn('Score problems that could not be settled:');
+      score.warnings.forEach(function (warning) { console.warn('  ' + warning); });
+    }
+    if (score.quirks.length) {
+      console.info('Faults in the score file that were settled from the file itself:');
+      score.quirks.forEach(function (quirk) { console.info('  ' + quirk); });
+    }
 
-    root.appendChild(defs);
-
-    var rect = document.createElementNS(ns, 'rect');
-    rect.setAttribute('width', '100%');
-    rect.setAttribute('height', '100%');
-    rect.setAttribute('filter', 'url(#coarse-paper)');
-    root.appendChild(rect);
+    renderHeader();
+    window.App.Ruler.mount(dom.rulerLayer);
+    setCompact(state.compact);
+    renderAll();
+    bindControls();
+    bindScroll();
+    window.addEventListener('resize', onResize);
   }
 
-  // ------------------------------------------------------------------ controls
-
-  /** The notation modules, in the order the toggle cycles them. */
-  function notationModules() {
-    return [window.App.NotesNumber, window.App.NotesLetter];
+  function renderHeader() {
+    const meta = score.meta;
+    dom.title.textContent = meta.title || '';
+    dom.subtitle.textContent = meta.subtitle || '';
+    const tempo = meta.tempoDottedQuarter ? '♩. = ' + meta.tempoDottedQuarter : '';
+    const time = meta.timeSignature || '';
+    dom.meta.textContent = [tempo, time].filter(Boolean).join(' • ');
   }
 
-  function activeNotation() {
-    return state.notation === 'letter' ? window.App.NotesLetter : window.App.NotesNumber;
+  /** Draw everything from scratch. Only needed when the score or a range changes. */
+  function renderAll() {
+    sheet = window.App.SheetRender.renderSheet(dom.sheetCanvas, layout, state);
+    window.App.KeyboardRender.renderKeyboard(dom.pianoFrame, state);
+    layoutRuler();
+    updateProgress();
+    updateRangeButtons();
   }
 
-  function setNotation(id) {
-    state.notation = id;
-    window.App.SheetRender.setNotation(activeNotation());
-    updateControlState();
-    redraw();
+  // ---------------------------------------------------------------- controls
+
+  function bindControls() {
+    document.getElementById('btn-num').addEventListener('click', function () { setMode('number'); });
+    document.getElementById('btn-let').addEventListener('click', function () { setMode('letter'); });
+
+    document.getElementById('btn-compact').addEventListener('click', function () {
+      const next = COMPACT_CYCLE[(COMPACT_CYCLE.indexOf(state.compact) + 1) % COMPACT_CYCLE.length];
+      setCompact(next);
+    });
+
+    document.getElementById('btn-keys-default').addEventListener('click', function () { setKeyboardRange('default'); });
+    document.getElementById('btn-keys-full').addEventListener('click', function () { setKeyboardRange('full'); });
+
+    document.getElementById('btn-mic').addEventListener('click', function () { toggleMic(); });
+    document.getElementById('btn-reset').addEventListener('click', function () { resetScore(); });
   }
 
-  function cycleDensity() {
-    var order = ['normal', 'tight', 'loose'];
-    var index = order.indexOf(state.density);
-    state.density = order[(index + 1) % order.length];
-    window.App.SheetRender.setState({ density: state.density });
-    updateControlState();
-    redraw();
+  function setMode(mode) {
+    state.mode = mode;
+    document.getElementById('btn-num').classList.toggle('active', mode === 'number');
+    document.getElementById('btn-let').classList.toggle('active', mode === 'letter');
+    // Only the writing changes, so the sheet is not redrawn.
+    window.App.SheetRender.applyMode(dom.sheetCanvas, mode);
+    window.App.KeyboardRender.applyMode(dom.pianoFrame, mode);
+  }
+
+  function setCompact(compact) {
+    state.compact = compact;
+    dom.sheetCanvas.style.setProperty('--system-gap', Config.systemGapPx[compact] + 'px');
+    document.getElementById('btn-compact').dataset.setting = compact;
+    document.getElementById('btn-compact').title = 'Spacing between systems: ' + compact;
+    layoutRuler();
+  }
+
+  function setKeyboardRange(range) {
+    state.keyboardRange = range;
+    window.App.KeyboardRender.renderKeyboard(dom.pianoFrame, state);
+    window.App.KeyboardRender.applyMode(dom.pianoFrame, state.mode);
+    updateRangeButtons();
+  }
+
+  function updateRangeButtons() {
+    document.getElementById('btn-keys-default').classList.toggle('active', state.keyboardRange === 'default');
+    document.getElementById('btn-keys-full').classList.toggle('active', state.keyboardRange === 'full');
+  }
+
+  function toggleMic() {
+    state.micActive = !state.micActive;
+    document.getElementById('btn-mic').classList.toggle('mic-active', state.micActive);
+    document.getElementById('btn-mic').setAttribute('aria-pressed', String(state.micActive));
+    // The microphone itself arrives with the listener in phase 3.
   }
 
   function resetScore() {
-    state.activeMeasure = 1;
-    window.App.SheetRender.setState({ activeMeasure: state.activeMeasure });
-    updateControlState();
-    redraw();
-    window.App.SheetRender.scrollToMeasure(state.activeMeasure);
+    setActiveMeasure(1, window.App.ScoreLoader.targetMidis(layout.byNumber[1]));
+    jumpToMeasure(1);
   }
 
-  /** Reflect the current state in the buttons (active classes, labels, hints). */
-  function updateControlState() {
-    if (dom.btnNumber) dom.btnNumber.classList.toggle('active', state.notation === 'number');
-    if (dom.btnLetter) dom.btnLetter.classList.toggle('active', state.notation === 'letter');
-    if (dom.btnMic) dom.btnMic.classList.toggle('active', state.micActive);
+  // ---------------------------------------------------------------- selecting
 
-    if (dom.btnDensity) {
-      var labels = {
-        normal: 'Staff spacing: normal (click for tight)',
-        tight: 'Staff spacing: tight (click for loose)',
-        loose: 'Staff spacing: loose (click for normal)',
-      };
-      dom.btnDensity.setAttribute('title', labels[state.density]);
-      dom.btnDensity.setAttribute('data-density', state.density);
-    }
+  /** The measure being practised: one graphite smudge, and its keys lit. */
+  function setActiveMeasure(number, midis) {
+    state.activeMeasure = number;
+    state.activeMidis = new Set(midis || []);
 
-    updateStatusText();
-  }
-
-  /**
-   * The status line carries two facts: where the piece is scrolled to, and which
-   * measure is being practised. The range is what replaces the scrollbar.
-   */
-  function updateStatusText() {
-    if (!dom.progress) return;
-    var total = state.score ? state.score.totalMeasures : 0;
-    var text = 'Measure ' + state.activeMeasure + ' / ' + total;
-
-    var range = window.App.SheetRender.visibleMeasureRange
-      ? window.App.SheetRender.visibleMeasureRange()
-      : null;
-    if (range && (range.from !== 1 || range.to !== total)) {
-      text = 'Measures ' + range.from + '–' + range.to + ' of ' + total +
-        '   ·   practising measure ' + state.activeMeasure;
-    }
-    dom.progress.textContent = text;
-  }
-
-  // ------------------------------------------------------------------ rendering
-
-  function redraw() {
-    if (!state.score) return;
-    window.App.SheetRender.setState({ activeMeasure: state.activeMeasure });
-    window.App.SheetRender.render(dom.sheetArea, state.score);
-    updateControlState();
-  }
-
-  function handleMeasureClick(measureNumber, midi) {
-    state.activeMeasure = measureNumber;
-    // Phase 1 has no audio yet, so a click simply moves the practice position —
-    // which is exactly the "click a measure to jump there" behaviour.
-    window.App.SheetRender.setState({ activeMeasure: measureNumber });
-    redraw();
-    window.App.SheetRender.scrollToMeasure(state.activeMeasure);
-    if (window.console && console.debug) {
-      console.debug('measure', measureNumber, 'note midi', midi);
-    }
-  }
-
-  /** Watch the sheet area so the number of systems adapts to the window height. */
-  function observeResize() {
-    if (typeof ResizeObserver === 'undefined') {
-      window.addEventListener('resize', redraw);
-      return;
-    }
-    var observer = new ResizeObserver(function () {
-      window.requestAnimationFrame(redraw);
-    });
-    observer.observe(dom.sheetArea);
-  }
-
-  // ----------------------------------------------------------------------- init
-
-  function start() {
-    buildFilterDefs();
-
-    dom.sheetArea = document.getElementById('sheet-area');
-    dom.btnNumber = document.getElementById('btn-num');
-    dom.btnLetter = document.getElementById('btn-let');
-    dom.btnMic = document.getElementById('btn-mic');
-    dom.btnReset = document.getElementById('btn-reset');
-    dom.btnDensity = document.getElementById('btn-density');
-    dom.progress = document.getElementById('progress-label');
-
-    if (dom.btnNumber) dom.btnNumber.addEventListener('click', function () { setNotation('number'); });
-    if (dom.btnLetter) dom.btnLetter.addEventListener('click', function () { setNotation('letter'); });
-    if (dom.btnReset) dom.btnReset.addEventListener('click', resetScore);
-    if (dom.btnDensity) dom.btnDensity.addEventListener('click', cycleDensity);
-    if (dom.btnMic) {
-      dom.btnMic.addEventListener('click', function () {
-        state.micActive = !state.micActive;
-        updateControlState();
+    if (sheet && sheet.highlights) {
+      Object.keys(sheet.highlights).forEach(function (key) {
+        sheet.highlights[key].style.display = Number(key) === number ? '' : 'none';
       });
     }
-
-    try {
-      state.score = window.App.ScoreLoader.load();
-    } catch (error) {
-      showFatal(error);
-      return;
-    }
-
-    renderTitle();
-
-    window.App.SheetRender.setNotation(activeNotation());
-    window.App.SheetRender.setState({ density: state.density, activeMeasure: state.activeMeasure });
-    window.App.SheetRender.onMeasureClick(handleMeasureClick);
-
-    // Clicking the paper (but not a note) also jumps to that measure.
-    dom.sheetArea.addEventListener('click', function (event) {
-      if (event.target.closest && event.target.closest('.note-group')) return;
-      var measure = window.App.SheetRender.measureAtPoint(event.clientX, event.clientY);
-      if (measure) handleMeasureClick(measure, null);
-    });
-
-    // The ruler stands in for the scrollbar, so it has to be clickable: pressing
-    // anywhere on the strip jumps to that place in the piece.
-    document.addEventListener('pointerdown', function (event) {
-      var ruler = event.target.closest && event.target.closest('.position-ruler');
-      if (!ruler) return;
-      var box = ruler.getBoundingClientRect();
-      window.App.SheetRender.seekFraction((event.clientY - box.top) / box.height);
-    });
-
-    // Scrolling brings the neighbouring systems into the rendered window and
-    // keeps the position ruler and the status line in step.
-    dom.sheetArea.addEventListener('scroll', function () {
-      window.App.SheetRender.onScroll(dom.sheetArea);
-      updateStatusText();
-    }, { passive: true });
-
-    observeResize();
-    redraw();
+    window.App.KeyboardRender.applyActive(dom.pianoFrame, state.activeMidis);
+    updateProgress();
   }
 
-  function renderTitle() {
-    var meta = state.score.meta;
-    var title = document.getElementById('song-title');
-    var subtitle = document.getElementById('song-subtitle');
-    if (title) title.textContent = meta.title;
-    if (subtitle) {
-      var tempo = meta.tempoDottedQuarter ? '♩. = ' + meta.tempoDottedQuarter : '';
-      subtitle.textContent = [meta.subtitle, tempo, meta.timeSignature]
-        .filter(Boolean).join(' · ');
-    }
-    document.title = meta.title + ' — Piano Trainer';
+  function updateProgress() {
+    const total = score ? score.measures.length : 0;
+    dom.progress.textContent = 'Measure ' + state.activeMeasure + ' / ' + total;
   }
 
-  function showFatal(error) {
-    var area = document.getElementById('sheet-area');
-    if (!area) return;
-    area.innerHTML = '';
-    var box = document.createElement('div');
-    box.className = 'fatal-error';
-    box.innerHTML =
-      '<h2>Cannot load the score</h2><p>' + String(error.message || error) + '</p>' +
-      '<p>If you opened this file by double-clicking, try the local server instead:</p>' +
-      '<pre>cd projection\\piano\npython -m http.server 8080</pre>' +
-      '<p>then open <code>http://localhost:8080/</code></p>';
-    area.appendChild(box);
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', start);
-  } else {
-    start();
-  }
-
-  return {
-    state: state,
-    redraw: redraw,
-    setNotation: setNotation,
-    cycleDensity: cycleDensity,
-    resetScore: resetScore,
+  window.App.onNoteClick = function (measureNumber, midi) {
+    const measure = layout.byNumber[measureNumber];
+    setActiveMeasure(measureNumber, window.App.ScoreLoader.targetMidis(measure));
+    playNote(midi);
   };
+
+  window.App.onKeyClick = function (midi) {
+    state.activeMidis = new Set([midi]);
+    window.App.KeyboardRender.applyActive(dom.pianoFrame, state.activeMidis);
+    playNote(midi);
+  };
+
+  // ---------------------------------------------------------------- scrolling
+
+  function bindScroll() {
+    dom.sheetArea.addEventListener('scroll', function () {
+      if (scrollQueued) return;
+      scrollQueued = true;
+      window.requestAnimationFrame(function () {
+        scrollQueued = false;
+        updateRulerViewport();
+      });
+    });
+  }
+
+  function layoutRuler() {
+    if (!dom.rulerLayer || !sheet) return;
+    const offsets = layout.systems.map(function (system) {
+      const element = sheet.systems[system.index];
+      return offsetInScroll(element);
+    });
+    window.App.Ruler.layout(offsets, dom.sheetArea.scrollHeight, dom.sheetArea.clientHeight);
+    updateRulerViewport();
+  }
+
+  /** How far an element sits below the top of the scrolling content. */
+  function offsetInScroll(element) {
+    const area = dom.sheetArea.getBoundingClientRect();
+    const box = element.getBoundingClientRect();
+    return box.top - area.top + dom.sheetArea.scrollTop;
+  }
+
+  function updateRulerViewport() {
+    window.App.Ruler.updateViewport(dom.sheetArea.scrollTop, dom.sheetArea.clientHeight);
+  }
+
+  /** Called by the ruler when it is pressed or dragged. */
+  window.App.scrollToRatio = function (ratio) {
+    const top = window.App.Ruler.scrollTopForRatio(ratio, dom.sheetArea.clientHeight);
+    dom.sheetArea.scrollTop = top;
+  };
+
+  function jumpToMeasure(number) {
+    const element = sheet.systems[Math.floor((number - 1) / Config.layout.measuresPerSystem)];
+    if (!element) return;
+    const offset = offsetInScroll(element);
+    // Only move when it is not already in view, so practising does not jerk the page.
+    const top = dom.sheetArea.scrollTop;
+    const bottom = top + dom.sheetArea.clientHeight;
+    if (offset < top + 8 || offset + element.offsetHeight > bottom) {
+      dom.sheetArea.scrollTop = Math.max(0, offset - 12);
+    }
+  }
+
+  function onResize() {
+    layoutRuler();
+    updateRulerViewport();
+  }
+
+  // ---------------------------------------------------------------- sound
+  // A plain tone for now; the recorded piano samples arrive with the audio engine.
+
+  function playNote(midi) {
+    if (!window.App.Pitch.isValidMidi(midi)) return;
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    const oscillator = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    oscillator.type = 'triangle';
+    oscillator.frequency.value = window.App.Pitch.frequency(midi);
+    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.7);
+    oscillator.connect(gain);
+    gain.connect(audioCtx.destination);
+    oscillator.start();
+    oscillator.stop(audioCtx.currentTime + 0.7);
+  }
+
+  window.App.state = state;
+  window.App.score = function () { return score; };
+  window.App.layoutOf = function () { return layout; };
+  window.App.setActiveMeasure = setActiveMeasure;
+  window.App.playNote = playNote;
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();

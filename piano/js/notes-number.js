@@ -1,150 +1,111 @@
 /**
- * NUMBER NOTATION mapping ("123" / Jianpu).
+ * NUMBER notation ("123" / Jianpu).
  *
- * The second of the two interchangeable annotation systems. Jianpu moves with the
- * key: "1" is always the key's tonic, so it means C in C major but C# in A major.
+ * Fixed-do: "1" is always C, in every key -- which is what the score file writes
+ * (B is 7 in both the 1# and the 3# section, F# is #4, F natural is ♮4) and what
+ * test.html's keyboard labels show. The key signature therefore never changes the
+ * spelling of a number.
  *
- * Octave marks (the same convention the source score uses):
- *   "1"   -> C4 (middle C, the reference octave)
- *   "1'"  -> C5, "1''"  -> C6
- *   "1,"  -> C3, "1,,"  -> C2
+ * One token looks like  [#|♮] degree ['… | ,…] [.]  and a chord joins tokens with "/":
  *
- * Accidentals are written before the degree: "#4" = raised 4th, "♮4" = natural 4th.
+ *   "7"     B in the middle-C octave      "1'"   C an octave above middle C
+ *   "#1'"   C# one octave above           "6,,"  A two octaves below
+ *   "♮4"    F natural                     "3''." E two octaves up, a long note
  */
 window.App = window.App || {};
 
 window.App.NotesNumber = (function () {
   'use strict';
 
-  var Pitch = window.App.Pitch;
-  var Config = window.App.Config.numberNotation;
+  const Pitch = window.App.Pitch;
 
-  var SHARP = '#';
-  var NATURAL = '♮'; // ♮
+  /** Degree 1..7 to its natural letter. */
+  const DEGREE_LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
 
-  /** Tonic pitch class of each key signature. */
-  var KEY_TONIC = {
-    '0': 0,  // C
-    '1#': 7,  // G
-    '2#': 2,  // D
-    '3#': 9,  // A
-    '4#': 4,  // E
-    '5#': 11, // B
-    '6#': 6,  // F#
-    '7#': 1,  // C#
-  };
+  /** Pitch class to [degree, accidental] for the keyboard and staff labels. */
+  const PC_TO_DEGREE = [
+    [1, ''], [1, '#'], [2, ''], [2, '#'], [3, ''], [4, ''],
+    [4, '#'], [5, ''], [5, '#'], [6, ''], [6, '#'], [7, '']
+  ];
 
-  /** Major-scale semitone offsets, scale degree 1..7. */
-  var MAJOR_SCALE = [0, 2, 4, 5, 7, 9, 11];
+  const TOKEN_PATTERN = /^([#♮]?)([1-7])((?:')*|(?:,)*)(\.?)$/;
 
-  /** Nearest lower major-scale degree for every semitone offset. */
-  var DEGREE_BY_SEMITONE = [1, 1, 2, 2, 3, 4, 4, 5, 5, 6, 6, 7];
+  /** Parse one token. Returns null when the text is not number notation. */
+  function parseToken(text) {
+    const match = TOKEN_PATTERN.exec(String(text).trim());
+    if (!match) return null;
 
-  function keyTonic(keyId) {
-    return Object.prototype.hasOwnProperty.call(KEY_TONIC, keyId) ? KEY_TONIC[keyId] : 0;
+    const accidental = match[1] === '#' ? '#' : match[1] === '♮' ? '♮' : '';
+    const degree = Number(match[2]);
+    const marks = match[3] || '';
+    const octaveOffset = marks.charAt(0) === "'" ? marks.length : -marks.length;
+
+    return {
+      accidental: accidental,
+      degree: degree,
+      octaveOffset: octaveOffset,
+      dotted: match[4] === '.',
+      letter: DEGREE_LETTERS[degree - 1]
+    };
   }
 
-  /** Octaves above the reference get apostrophes, octaves below get commas. */
-  function octaveMarks(octave) {
-    var distance = octave - Config.baseOctave;
-    if (distance > 0) return repeat(Config.highMark, distance);
-    if (distance < 0) return repeat(Config.lowMark, -distance);
-    return '';
+  /** MIDI number a token stands for, or null. */
+  function tokenToMidi(token) {
+    const parsed = parseToken(token);
+    if (!parsed) return null;
+    return Pitch.midiOf(parsed.letter, parsed.accidental, 4 + parsed.octaveOffset);
   }
 
-  function repeat(text, times) {
-    var out = '';
-    for (var i = 0; i < times; i++) out += text;
-    return out;
+  /** Split "3,/1,/6,," into its tokens. */
+  function chordToTokens(text) {
+    return String(text).split('/').filter(function (part) { return part.trim() !== ''; });
+  }
+
+  /** MIDI numbers for every note of a packed chord, in the order written. */
+  function chordToMidis(text) {
+    return chordToTokens(text).map(tokenToMidi).filter(function (midi) { return midi !== null; });
   }
 
   /**
-   * Convert a pitch to its Jianpu spelling in a given key.
-   *
-   * In A major (3#), C# is plain "1" while C natural is written "♮1".
-   * In G major (1#), F# is plain "4" while F natural is written "♮4".
-   * A raised degree outside the key becomes "#4" and so on.
+   * "3/7," prints as "3 / 7," -- the spacing test.html's handwriting uses.
+   * Slashes join, so the label never reads as one long number.
    */
-  function spell(midi, keyId) {
-    var tonic = keyTonic(keyId);
-    var interval = ((Pitch.pitchClassOf(midi) - tonic) % 12 + 12) % 12;
-
-    var degree = 1;
-    var accidental = '';
-
-    var exact = MAJOR_SCALE.indexOf(interval);
-    if (exact !== -1) {
-      degree = exact + 1;
-    } else if (interval > 0 && MAJOR_SCALE.indexOf(interval - 1) !== -1) {
-      degree = MAJOR_SCALE.indexOf(interval - 1) + 1;
-      accidental = SHARP;
-    } else {
-      // The pitch is natural but the key raises it (F natural in G major).
-      degree = DEGREE_BY_SEMITONE[interval];
-      accidental = NATURAL;
-    }
-
-    return {
-      degree: degree,
-      accidental: accidental,
-      marks: octaveMarks(Pitch.octaveOf(midi)),
-      midi: midi,
-    };
+  function formatChord(text) {
+    return chordToTokens(text).join(' / ');
   }
 
-  /** Short label used on the keyboard keys, e.g. "#1'" or "3". */
-  function label(midi, keyId) {
-    var spelled = spell(midi, keyId);
-    return spelled.accidental + spelled.degree + spelled.marks;
+  /** Octave marks for a MIDI note: none in the middle-C octave, ' above, , below. */
+  function octaveMarks(octave) {
+    if (octave >= 5) return "'".repeat(octave - 4);
+    if (octave <= 3) return ','.repeat(4 - octave);
+    return '';
   }
 
-  /** Label drawn on the staff; uses the real ♯ glyph. */
-  function staffLabel(midi, keyId) {
-    var spelled = spell(midi, keyId);
-    return realAccidental(spelled.accidental) + spelled.degree + spelled.marks;
+  /** Number notation for a MIDI number — used for the staff and keyboard labels. */
+  function midiToToken(midi) {
+    if (!Pitch.isValidMidi(midi)) return '';
+    const pair = PC_TO_DEGREE[Pitch.pitchClassOf(midi)];
+    return pair[1] + pair[0] + octaveMarks(Pitch.octaveOf(midi));
   }
 
-  function realAccidental(accidental) {
-    if (accidental === SHARP) return '♯';   // ♯
-    if (accidental === NATURAL) return '♮'; // ♮
-    return accidental;
-  }
-
-  /** Parse a source string such as "#1'", "7,," or "♮4." into its parts. */
-  function parse(text) {
-    if (text === null || text === undefined) return null;
-    var source = String(text);
-
-    var degreeMatch = /(\d)/.exec(source);
-    var accidentalMatch = /^([#♯♮]?)/.exec(source);
-    var markMatch = /(['’,]+)\s*$/.exec(source);
-
-    return {
-      accidental: accidentalMatch ? accidentalMatch[1] : '',
-      degree: degreeMatch ? parseInt(degreeMatch[1], 10) : null,
-      marks: markMatch ? markMatch[1].replace(/’/g, "'") : '',
-      dotted: source.indexOf('.') !== -1,
-    };
-  }
-
-  /** Chord label, e.g. "3/7," — degrees joined with slashes, lowest note first. */
-  function chordLabel(midis, keyId) {
-    return midis.slice().sort(function (a, b) { return a - b; })
-      .map(function (m) { return label(m, keyId); })
-      .join('/');
+  /**
+   * Label for one piano key, written exactly as test.html writes them:
+   * white keys carry their octave ("1", "1'", "1,,"), black keys never do ("#1").
+   */
+  function keyLabel(midi) {
+    const pair = PC_TO_DEGREE[Pitch.pitchClassOf(midi)];
+    if (pair[1] === '#') return '#' + pair[0];
+    return pair[0] + octaveMarks(Pitch.octaveOf(midi));
   }
 
   return {
-    id: 'number',
-    name: '123',
-    SHARP: SHARP,
-    NATURAL: NATURAL,
-    keyTonic: keyTonic,
+    parseToken: parseToken,
+    tokenToMidi: tokenToMidi,
+    chordToTokens: chordToTokens,
+    chordToMidis: chordToMidis,
+    formatChord: formatChord,
     octaveMarks: octaveMarks,
-    spell: spell,
-    label: label,
-    staffLabel: staffLabel,
-    parse: parse,
-    chordLabel: chordLabel,
+    midiToToken: midiToToken,
+    keyLabel: keyLabel
   };
 })();

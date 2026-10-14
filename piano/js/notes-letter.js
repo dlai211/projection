@@ -1,104 +1,55 @@
 /**
- * LETTER NOTATION mapping ("ABC").
+ * LETTER notation ("ABC").
  *
- * One of the two interchangeable annotation systems. This module owns everything
- * about how a pitch is written as a letter: the note names, the accidentals, the
- * key-signature spellings and the labels drawn on the sheet and the keyboard.
+ * The other half of the 123 / ABC switch. Letter names are absolute, so this module
+ * never looks at the key signature: middle C is C4, and a note keeps its name in
+ * every key.
  *
- * The other system lives in notes-number.js (123 / Jianpu). The two never import
- * each other; sheet-render.js and keyboard-render.js ask the active one for labels.
+ * The score already carries a letter string for every note ("C#5", "E3/B2"), and the
+ * staff prints those untouched. This module exists for the places where a name has to
+ * be worked out from a MIDI number instead — the piano keys, and the cross-checks in
+ * tools/check_score.js.
  */
 window.App = window.App || {};
 
 window.App.NotesLetter = (function () {
   'use strict';
 
-  var Pitch = window.App.Pitch;
+  const Pitch = window.App.Pitch;
 
-  var SHARP = '♯';   // ♯
-  var NATURAL = '♮'; // ♮
-
-  /**
-   * Each key signature is described by the natural notes it raises, written in
-   * circle-of-fifths order. "1#" raises F; "3#" raises F, C then G.
-   */
-  var KEY_SIGNATURES = {
-    '0': { count: 0, sharps: [], label: 'C major / A minor' },
-    '1#': { count: 1, sharps: ['F'], label: 'G major / E minor' },
-    '2#': { count: 2, sharps: ['F', 'C'], label: 'D major / B minor' },
-    '3#': { count: 3, sharps: ['F', 'C', 'G'], label: 'A major / F# minor' },
-    '4#': { count: 4, sharps: ['F', 'C', 'G', 'D'], label: 'E major / C# minor' },
-    '5#': { count: 5, sharps: ['F', 'C', 'G', 'D', 'A'], label: 'B major / G# minor' },
-    '6#': { count: 6, sharps: ['F', 'C', 'G', 'D', 'A', 'E'], label: 'F# major / D# minor' },
-    '7#': { count: 7, sharps: ['F', 'C', 'G', 'D', 'A', 'E', 'B'], label: 'C# major / A# minor' },
-  };
-
-  function keySignature(keyId) {
-    return KEY_SIGNATURES[keyId] || KEY_SIGNATURES['0'];
+  /** "C#5", "F4", "A6" — sharp spelling. */
+  function midiToLabel(midi) {
+    return Pitch.letterName(midi);
   }
 
-  /** True when this letter (ignoring octave) is raised by the key signature. */
-  function isRaisedByKey(letter, keyId) {
-    return keySignature(keyId).sharps.indexOf(letter) !== -1;
+  /** MIDI numbers for a packed chord such as "E3/B2" or "F#3/C#4". */
+  function chordToMidis(text) {
+    return String(text).split('/').map(parseLabel).filter(function (midi) { return midi !== null; });
+  }
+
+  /** "C#5" to its MIDI number, or null. */
+  function parseLabel(text) {
+    const match = /^\s*([A-Ga-g])([#b♯♭♮]?)(-?\d)\s*$/.exec(String(text));
+    if (!match) return null;
+
+    const accidental = match[2] === '♯' ? '#' : match[2] === '♭' ? 'b' : match[2];
+    const midi = Pitch.midiOf(match[1].toUpperCase(), accidental, Number(match[3]));
+    return Pitch.isValidMidi(midi) ? midi : null;
   }
 
   /**
-   * Decide how a pitch is actually written in a given key.
-   *
-   * A note that already belongs to the key needs no accidental; anything else is
-   * spelled with the accidental that explains the difference (F natural in G major
-   * is written ♮F, F sharp in C major is written ♯F).
+   * Label for one piano key, written exactly as test.html writes them:
+   * white keys carry their octave ("C4"), black keys never do ("C#").
    */
-  function spell(midi, keyId) {
-    var pitchClass = Pitch.pitchClassOf(midi);
-    var octave = Pitch.octaveOf(midi);
-    var naturalName = Pitch.LETTERS[pitchClass];
-    var letter = naturalName.charAt(0);
-    var isSharp = naturalName.length > 1;
-
-    var raisedByKey = isRaisedByKey(letter, keyId);
-    var accidental = '';
-
-    if (isSharp && !raisedByKey) accidental = SHARP;
-    else if (!isSharp && raisedByKey) accidental = NATURAL;
-
-    return {
-      letter: letter,
-      accidental: accidental,
-      octave: octave,
-      midi: midi,
-    };
-  }
-
-  /** Short label, e.g. "C#5" — used on the keyboard keys. */
-  function label(midi, keyId) {
-    var spelled = spell(midi, keyId);
-    return spelled.letter + spelled.accidental + spelled.octave;
-  }
-
-  /** Longer label used above the staff, e.g. "C♯5" — kept identical for now. */
-  function staffLabel(midi, keyId) {
-    return label(midi, keyId);
-  }
-
-  /** Chord label, e.g. "E3/B2" — notes listed from the lowest up. */
-  function chordLabel(midis, keyId) {
-    return midis.slice().sort(function (a, b) { return a - b; })
-      .map(function (m) { return label(m, keyId); })
-      .join('/');
+  function keyLabel(midi) {
+    const name = Pitch.SHARP_NAMES[Pitch.pitchClassOf(midi)];
+    return name.length > 1 ? name : name + Pitch.octaveOf(midi);
   }
 
   return {
-    id: 'letter',
-    name: 'ABC',
-    SHARP: SHARP,
-    NATURAL: NATURAL,
-    KEY_SIGNATURES: KEY_SIGNATURES,
-    keySignature: keySignature,
-    isRaisedByKey: isRaisedByKey,
-    spell: spell,
-    label: label,
-    staffLabel: staffLabel,
-    chordLabel: chordLabel,
+    midiToLabel: midiToLabel,
+    parseLabel: parseLabel,
+    chordToMidis: chordToMidis,
+    keyLabel: keyLabel
   };
 })();

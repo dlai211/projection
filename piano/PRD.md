@@ -1,498 +1,496 @@
-# PRD — Piano Listener & Trainer
+# PRD — Piano Listener & Trainer (Flower Day, 64 measures)
 
-> This file is the specification and changelog for `projection/piano/`.
-> After each phase, add a "Phase N complete" entry at the bottom and commit + push.
+> This file is the specification **and** the changelog for `projection/piano/`.
+> After each phase, add a "Phase N complete" entry at the bottom, then commit.
 
-- Drafted: 2026-10-13
-- Status: **requirements confirmed (v0.2) — implementation under way**
-- User: the author (no coding background; practises on a real 88-key piano with a
-  computer and a microphone)
+- Drafted: 2026-10-14
+- Status: **requirements being confirmed (v1.0) — no application code written yet**
+- User: the author (no coding background; practises on a real piano with a computer
+  and a microphone)
 
 ---
 
 ## 1. Goal
 
-A **single web page** that turns a computer (screen + microphone) into three things:
+One web page that turns a computer (screen + microphone) into three things:
 
-1. **Read the score** — draw the 64 measures of `music-sheet/flower_day.json` in a
-   flat 2D "pencil on coarse watercolour paper" style.
-2. **Listen** — detect pitches with the Web Audio API **polyphonically**, i.e. hear
-   a chord and a melody at the same time, not one note at a time.
-3. **Practise** — in Learning Mode the page highlights the notes to play and moves
-   on as you play them correctly; in Listening Mode, clicking any measure lets you
-   hear that measure on its own or play from there to the end of the piece.
+1. **Read the score** — all 64 measures of `music-sheet/flower_day.json`, drawn in the
+   exact pencil-on-coarse-paper style of `test.html`, 4 measures per system, 16 systems
+   scrolling continuously downward behind a keyboard fixed at the bottom of the screen.
+2. **Listen** — detect several pitches at once (melody + left-hand chord) with the Web
+   Audio API, from either a live microphone or the test recording `flower_day.mp3`.
+3. **Practise** — Learning Mode (microphone on) highlights the measure to play and moves
+   on when it has been played; Listening Mode (microphone off) plays a chosen measure, or
+   from a chosen measure to the end.
 
 ---
 
-## 2. Starting point (what already existed)
+## 2. Starting point
 
 | Path | What it is | How it is used |
 |---|---|---|
-| `piano/test.html` | Visual baseline (one self-contained HTML file), measures 1–8 only | **Reference only — never modified.** The new app is built separately |
-| `piano/music-sheet/flower_day.json` | The score (64 measures) | The single source of truth for the new app; read-only |
-| `piano/test-music/flower_day.mp3` | Test recording | Drives "test audio" mode to verify the detector |
-| `piano/piano-mp3/*.mp3` | 88 piano samples (A0–C8, ~10 KB each, already in git history) | Playback sound source (see §7.3) |
-| `piano/pitch-detection/crepe/` | An old ml5 CREPE model (**monophonic**) | **Not used.** CREPE cannot hear chords |
-| `note_detector.html`, `piano.html`, `script.js` in git history | An earlier prototype (ml5 + Font Awesome) | Abandoned, not carried over |
+| `piano/test.html` | **The visual, theme and code baseline** (measures 1–8 only, hand-placed) | **Read-only. Never modified.** Its CSS, SVG filters and drawing functions are lifted into the new files |
+| `piano/music-sheet/flower_day.json` | The score, 64 measures | Read-only source of truth for notes |
+| `piano/test-music/flower_day.mp3` | Test recording | Drives Test Audio Mode for the detector |
+| `piano/piano-mp3/*.mp3` | 88 piano samples, A0–C8 (verified: real, distinct recordings, ~10 KB each) | Playback sound (synth fallback for anything missing) |
+| `piano/pitch-detection/crepe/` | An ml5 CREPE model (**monophonic**) | **Not used.** CREPE cannot hear chords |
+| `piano/target_reference.jpg` | A screenshot of `test.html` | Reference for comparing the new page |
 
-**Conclusion:** the new app was written from scratch, reusing only `flower_day.json`,
-`flower_day.mp3` and the piano samples.
+### 2.1 What happened to the previous attempt
+
+An earlier version of this app exists in git (`f5cfb00`, 2026-10-13). **It was rejected
+and its files have been deleted from the working tree.** It is worth recording why, so
+the same mistakes are not repeated:
+
+- It replaced the baseline's handwritten look with **Bravura music-font outlines**,
+  drew a **curly brace `{`** at the left of every system, and drew **time signatures on
+  the staves** — all three are forbidden here.
+- It **changed the theme**: paper `#ece6da` → `#f8f4ea`, paper opacity `0.78` → `0.58`,
+  graphite `#282624` → `#312d29`.
+- It only ever reached **phase 1 (the drawing)**. The keyboard, the listener, the
+  notation modules for the keyboard, and both modes were never built, so there is no
+  working code to inherit for those parts.
+- Its `notes-number.js` used **movable-do** numbering (1 = the key's tonic), which
+  contradicts the score data (see §5.3).
+
+**Only two small pieces are worth carrying over**, rewritten to fit this plan:
+`tools/build_score.py` (JSON → `<script>`-loadable JS) and the pitch helpers in
+`pitch-utils.js` (MIDI ↔ name ↔ frequency). Everything else is built fresh.
+`NOTICE-BRAVURA.md` does **not** come back: no Bravura glyph is used anywhere.
 
 ---
 
-## 3. File layout (HTML / CSS / JS strictly separated)
+## 3. The golden rule: visuals are frozen
+
+The new page must look **100 % identical** to `test.html`. Everything below is copied
+verbatim, not re-designed:
+
+- **Theme tokens** — `--paper-base: #ece6da`, `--graphite-2b: #282624`,
+  `--graphite-hb: #595550`, `--graphite-faint: #8c867e`,
+  `--pencil-highlight: rgba(40,38,36,0.09)`, `--modern-border`, `--modern-surface`.
+- **Paper** — the fixed full-screen SVG layer with `<feTurbulence
+  baseFrequency="0.045 0.05" numOctaves="5" seed="11">` + `<feDiffuseLighting
+  lighting-color="#f2ece1" surfaceScale="2.6">`, `mix-blend-mode: multiply`,
+  `opacity: 0.78`.
+- **Pencil edge** — the `#graphite-edge` filter (`feTurbulence baseFrequency="0.6"` +
+  `feDisplacementMap scale="1.9"`) on every stroke, note, label and icon.
+- **Type** — `Caveat` for everything handwritten, `Inter` for the controls.
+- **The drawing itself** — staff geometry, barlines, hand-drawn Unicode clefs `𝄞 𝄢`,
+  handwritten `♯`, noteheads (tilted ellipses), stems (always down, 26 units), beams
+  (4.2-wide strokes), open-oval left-hand notes, treble labels **above** the note,
+  bass labels **below**, measure numbers above the top line, and the graphite smudge
+  behind the active measure — all at `test.html`'s exact coordinates.
+- **The keyboard** — pencil-outlined white keys, black keys filled with the
+  procedurally scraped graphite canvas texture (5 variants), the same label style.
+- **The top bar** — handwritten title, `♩. = 50 • 6/8`, the `123 / ABC` pill and the
+  round controls.
+
+**Nothing new is drawn on the staves.** In particular: no brace, no time signature, no
+new symbol types. Two additions are *unavoidable* because `test.html` never needed them,
+and both are drawn in its existing style:
+
+1. **Ledger lines** for notes that fall outside the two staves (§6.4).
+2. **Per-measure label sizing** so the busiest measures (9–12 notes) do not collide (§6.5).
+
+---
+
+## 4. File layout
 
 ```
 piano/
-├─ index.html                 # structure and <script> tags only — no styling, no logic
+├─ index.html                 # structure + <script> tags only
 ├─ styles/
-│  ├─ theme.css               # paper, graphite, type, the paper-grain filter
-│  ├─ layout.css              # top bar / sheet / keyboard, responsiveness, density
-│  └─ components.css          # icon buttons, staff elements, keys, popovers
+│  ├─ theme.css               # paper, graphite, type, filters (copied from test.html)
+│  ├─ layout.css              # top bar, scrolling sheet, fixed keyboard, ruler
+│  └─ components.css          # pill switch, icon buttons, keys, bubble menu, ruler
 ├─ js/
-│  ├─ config.js               # every tunable number (colours live in CSS)
-│  ├─ pitch-utils.js          # MIDI ↔ name ↔ frequency, octaves, pitch classes
-│  ├─ notes-letter.js         # LETTER notation mapping (ABC)
-│  ├─ notes-number.js         # NUMBER notation mapping (123 / Jianpu)
-│  ├─ staff-utils.js          # pitch → position on the treble/bass staff
-│  ├─ glyphs-bravura.js       # generated musical glyph outlines
-│  ├─ score-loader.js         # source JSON → score model
-│  ├─ sheet-render.js         # draws the systems
-│  ├─ keyboard-render.js      # the piano keyboard                (phase 2)
-│  ├─ audio-engine.js         # microphone / test-audio capture   (phase 3)
-│  ├─ pitch-detect.js         # polyphonic detection              (phase 3)
-│  ├─ piano-sound.js          # playback samples + synth fallback (phase 3)
-│  ├─ practice.js             # learning-mode state machine       (phase 4)
-│  ├─ playback.js             # listening mode                    (phase 4)
-│  └─ app.js                  # wiring: controls, resize, redraw
-├─ music-sheet/flower_day.json   # the score, hand-editable
-├─ music-sheet/flower-day.js     # generated from the JSON (see tools/)
-├─ test-music/flower_day.mp3
-├─ piano-mp3/*.mp3
-├─ tools/                     # build and check scripts, not shipped to the browser
-└─ PRD.md                     # this file
+│  ├─ config.js               # every tunable number for the drawing
+│  ├─ pitch-utils.js          # MIDI ↔ name ↔ frequency ↔ staff step
+│  ├─ notes-number.js         # "123" notation (fixed-do, see §5.3)
+│  ├─ notes-letter.js         # "ABC" notation
+│  ├─ score-loader.js         # JSON → model (parse, derive, cross-check)
+│  ├─ layout.js               # the layout engine (§6): slots, x-positions, beams
+│  ├─ sheet-render.js         # test.html's drawing code, ported, N systems
+│  ├─ keyboard-render.js      # bottom keyboard, both ranges
+│  ├─ ruler.js                # the pencil ruler down the right margin
+│  ├─ audio-engine.js         # microphone + test audio into one AnalyserNode
+│  ├─ pitch-detect.js         # polyphonic detection (FFT peaks → chroma)
+│  ├─ piano-sound.js          # samples + synth fallback
+│  ├─ practice.js             # Learning Mode state machine
+│  ├─ playback.js             # Listening Mode
+│  └─ app.js                  # wiring: controls, scroll, redraw
+├─ music-sheet/
+│  ├─ flower_day.json         # the score (read-only)
+│  └─ flower-day.js           # generated by tools/build_score.py
+├─ tools/
+│  ├─ build_score.py          # JSON → window.FLOWER_DAY_SCORE
+│  ├─ check_score.js          # notation ↔ letter ↔ MIDI, ranges, drawn positions
+│  ├─ check_layout.js         # the layout engine vs test.html's hand-placed notes
+│  └─ check_render.js         # runs the whole page headless and drives the controls
+└─ PRD.md
 ```
 
-**Technical constraints (important)**
+**Constraints**
 
-- Scripts are loaded as **classic `<script>` tags with a `window.App.*` namespace**,
-  not ES modules, so `index.html` also works when opened directly from disk.
-- The score is loaded from `music-sheet/flower-day.js`, a generated file that assigns
-  a global. This exists because browsers refuse to `fetch()` a local `.json` file when
-  the page is opened from `file://`. Regenerate it with `tools/build_score.py` after
-  editing the JSON.
-- The dev server (already installed: Python 3.11):
-  `cd projection/piano` → `python -m http.server 8080` → <http://localhost:8080/>
-
----
-
-## 4. Visual theme
-
-### 4.1 Paper: brighter, warmer coarse stock
-
-| Token | Old value | **New value** |
-|---|---|---|
-| `--paper-base` | `#ece6da` | **`#f8f4ea`** |
-| lighting colour in the filter | `#f2ece1` | **`#fdfaf3`** |
-| `--graphite-2b` | `#282624` | `#312d29` |
-| `--graphite-hb` | `#595550` | `#655f57` |
-| `--graphite-faint` | `#8c867e` | `#9a938a` |
-| paper layer opacity | 0.78 | **0.58** |
-
-The `feTurbulence` + `feDiffuseLighting` bump-lit grain is kept exactly as it was —
-that grain is what makes the paper read as coarse cold-press stock.
-
-### 4.2 Icons: outline only, transparent, pencil ring
-
-- **Line-only glyphs**: no filled shapes.
-- **Completely transparent background**: no tinted circle behind the icon.
-- The ring around each button is drawn with a **hand-drawn pencil wobble** (a small
-  `feDisplacementMap`), while the glyph inside stays clean and geometric so the
-  buttons never look lopsided.
-- Active states use graphite weight and colour, not a solid block.
-- Buttons: `123 / ABC`, microphone, reset, staff spacing, and (phase 2) the two
-  keyboard-range buttons.
+- HTML, CSS and JS strictly separated; **no styling or logic inside `index.html`**.
+- Classic `<script>` tags attaching to `window.App` (no ES modules, no bundler), so the
+  page works from `file://` **and** from `http://localhost:8080`.
+- The score is loaded from the generated `music-sheet/flower-day.js`, never fetched,
+  because browsers refuse `fetch()` on `file://`.
+- All text (interface, comments, docs) in English, except the song's own Korean title
+  and subtitle.
+- Dev server: `cd projection/piano` → `python -m http.server 8080`.
+  Node 20 and Python 3.11 are both available; the tools use Python.
 
 ---
 
-## 5. The score area
+## 5. The score data
 
-### 5.1 Systems per screen and the spacing control
-
-- The music is drawn at a **fixed on-screen size** — one staff space is always the
-  same number of pixels — and the **number of systems** adapts to the window height.
-  The music is never shrunk to fit more lines in.
-- Two systems' worth of headroom is the minimum; a window that cannot show two
-  systems shrinks the music, but never below `minScale`.
-- **Staff-spacing control**: one icon that cycles `normal → tight → loose`. Tight
-  packs more (smaller gaps), loose gives the music more air. The button carries a
-  small `N`/`T`/`L` badge showing the current setting.
-  *(The draft asked for two buttons, but loose/tight/normal are three states of one
-  setting — two buttons cannot express "neither".)*
-- Margins are generous: the score sits on the paper rather than running to its edge.
-
-### 5.2 The symbols at the left of each system
-
-The reference used Unicode characters (`𝄞 𝄢 ♯`), which render differently on every
-machine and are often missing entirely. The new app draws **real engraved outlines**
-taken from the Bravura music font (see `NOTICE-BRAVURA.md`):
-
-| Symbol | Requirement |
-|---|---|
-| Grand-staff brace `{` | A single curly brace spanning both staves, correctly proportioned, never clipped at the page edge |
-| Treble clef | Spiral centred on the G line (2nd line of the treble staff) |
-| Bass clef | The two dots straddle the F line (4th line of the bass staff) |
-| Key signature ♯ | **1#** (G major / E minor): F♯ on the top line of the treble staff and the 4th line of the bass staff. **3#** (A major / F♯ minor): F♯ → C♯ → G♯ in circle-of-fifths order, each on its proper line or space |
-| Time signature | Numerator over denominator, centred between the staves |
-
-- Key and time signatures repeat at the start of every system, and are redrawn
-  mid-system wherever the score changes them (measure 42 changes key; measures 32–33
-  change time signature and back).
-- Notes: tilted noteheads, stems, beams and ledger lines, all with the graphite
-  texture; the measure being practised is shaded with a graphite smudge.
-
-### 5.3 Annotations and the 123 / ABC switch
-
-- Each note carries a handwritten label (above the melody, below the bass) in the
-  `Caveat` hand.
-- The `123 / ABC` toggle switches **every** annotation at once — on the staff and,
-  from phase 2, on the keyboard as well.
-- The two notation systems live in separate modules and never import each other.
-  Both derive their spelling from the key signature, so they always agree:
-
-**Number notation (Jianpu)** — `1` is the key's tonic, so it means C in C major and
-C♯ in A major. Octave marks: `1` = middle C, `1'` = the C above, `1,` = the C below.
-Accidentals are written before the degree: `#4` is a raised 4th, `♮4` a natural 4th.
-
-**Letter notation** — `C D E F G A B` with `♯` / `♮` / `♭` as needed and an octave
-number, so middle C is `C4`.
-
-### 5.4 How the source JSON is read
+### 5.1 Shape
 
 ```jsonc
-{
-  "meta": { "title": "꽃날 (Flower Day)", "timeSignature": "6/8", "tempoDottedQuarter": 50 },
-  "measures": [
-    { "m": 1, "key": "1#",
-      "rh": [["7","B4",71], ["7","B4",71], ...],   // [number, letter, MIDI]
-      "lh": ["3/7,", "E3/B2", 52] },               // 2 or 3 elements, see below
-    ...
-  ]
-}
+{ "meta": { "title": "꽃날 (Flower Day)", "subtitle": "드라마 '황진이' OST",
+            "timeSignature": "6/8", "tempoDottedQuarter": 50 },
+  "measures": [ { "m": 1, "key": "1#",
+                  "rh": [["7","B4",71], ["7","B4",71], ...],
+                  "lh": ["3/7,", "E3/B2", 52] }, ... ] }
 ```
 
-`score-loader.js` normalises all of this into one clean model:
+- `rh` entries are always `[numberNotation, letterNotation, MIDI]`.
+- `lh` entries are *almost* always `[numberNotation, letterNotation, MIDI]`; `m4` is the
+  one exception (§5.4).
+- `key` runs `1#` for measures 1–41 and `3#` for 42–64; `time` is `3/8` for measure 32
+  only. Both carry over from the previous measure until changed.
 
-1. `rh` entries are `[number, letter, MIDI]` triples.
-2. `lh` entries are **irregular** — sometimes `["3/7,", "E3/B2", 52]`, sometimes
-   `["2,/7,,", "#1,/6,,", 50]`. Rule: the notation string is first, the MIDI number
-   last, and the middle element is only present sometimes. A packed chord
-   (`"3,/1,/6,,"`) is split into its individual notes.
-3. `key` and `time` carry over from the previous measure until the score changes them.
+### 5.2 Number notation is complete — everything is derived from it
 
-> **Known data limitation.** The JSON records pitch only — there is no duration data.
-> Rhythm is therefore reconstructed: note spacing follows the reference engraving's
-> proportions, and advancement in practice mode is **per measure**, which does not
-> depend on note values.
+A number token has the form `[#|♮] degree ['… | ,…] [.]`, e.g. `#1'`, `♮4`, `6,,`, `3''.`
+and a packed chord joins them with `/`, e.g. `3,/1,/6,,`.
+
+| Part | Meaning |
+|---|---|
+| degree | `1 2 3 4 5 6 7` = **C D E F G A B** (fixed-do, see §5.3) |
+| `#` / `♮` | sharp / natural before the degree |
+| `'` / `,` | one octave up / down, relative to the octave of middle C |
+| `.` | a long note (a dotted quarter in 6/8) |
+
+Deriving pitch from the token is exact, so the loader treats the **number notation as
+the source of truth** and uses the letter string and MIDI number as a cross-check.
+Measured against the whole file, everything agrees except the one case in §5.4.
+
+### 5.3 The `123` system is fixed-do (1 = C, always)
+
+The score writes B as `7` in `1#` **and** in `3#`; A as `6` in both; F♮ as `♮4` and F♯ as
+`#4`. So `1` is always C, in every key — which is also exactly what `test.html`'s
+keyboard labels do. (The rejected version used movable-do, where `1` would be G in
+measures 1–41 and A in 42–64; that is why its labels disagreed with the score file.)
+
+Octave marks: `1` = middle C (C4), `1'` = C5, `1''` = C6, `1,` = C3, `1,,` = C2.
+
+### 5.4 Known data quirks (handled, not "fixed")
+
+1. **Measure 4 packs two chords into one entry**:
+   `["2,/7,,", "#1,/6,,", 50]` — two notation strings and one MIDI number. `test.html`
+   draws two bass notes there, so the loader splits it into two entries: `2,/7,,`
+   (D3 + B2, top note D3 = 50, which matches the trailing MIDI) and `#1,/6,,`
+   (C#3 + A2, derived).
+2. **Measures do not always fill 6/8** (measure 1 has seven eighths, measure 45 has
+   twelve). Durations are reconstructed for spacing and playback timing only; nothing
+   depends on them being musically exact.
+3. **`m32` is 3/8.** Since no time signature is ever drawn on the staff, this only
+   affects the beat-grouping used for left-hand alignment and playback timing.
+
+### 5.5 Checks — run before believing the page
+
+Three tools, all of them running the real modules rather than a copy of their logic:
+
+| Tool | What it proves |
+|---|---|
+| `node tools/check_score.js` | Every note's number notation agrees with the letter name and MIDI number beside it; every pitch is inside A0–C8; the systems and the crowded measures come out as expected |
+| `node tools/check_layout.js` | Prints the engine's x and y for measures 1–8 against test.html's hand-placed ones, note by note, with the difference — so any drift is visible as a number |
+| `node tools/check_render.js` | Builds the whole page in a headless DOM and drives the controls: switch notation, cycle the spacing, swap the keyboard range, click a note, drag the ruler, resize |
+
+`check_score.js` found one real fault in the score file the day it was written:
+**measure 1's bass reads `3/7,` where every comparable measure writes `3,/7,,`** — the
+number notation is missing its octave commas. The letter name and the MIDI number
+disagree with it but agree with each other, so the loader keeps the file's own pitch
+(E3/B2) and prints the fault. Fixing it is a one-character edit to the JSON; until then
+the bass of measure 1 is drawn and played correctly but its handwritten label reads the
+way the file spells it.
 
 ---
 
-## 6. The piano keyboard (phase 2)
+## 6. The layout engine
+
+`test.html` places every one of its 8 measures by hand. The 64-measure score has no
+coordinates, so positions are **computed**, using `test.html`'s own coordinate system.
+
+### 6.1 Geometry — copied unchanged
+
+| Thing | Value |
+|---|---|
+| Drawing window (`viewBox`) | `0 0 1000 205` |
+| Staff lines, x | 20 → 985 |
+| Treble lines, y | 35, 45, 55, 65, 75 (bottom line = E4) |
+| Bass lines, y | 130, 140, 150, 160, 170 (bottom line = G2) |
+| Barlines, x | 20, 305, 530, 770, 985 — the same four slots in every system |
+| Measures per system | 4 → 16 systems for 64 measures |
+| Rendered size | `width:100%; max-width:1360px; max-height:235px`, centred |
+
+Pitch → y is the same 5 units per staff step `test.html` implies: B4 = 55 (middle line
+of the treble staff), G2 = 170 (bottom line of the bass staff).
+
+### 6.2 Horizontal placement of the melody
+
+Within a measure's slot, the melody occupies a content box:
+
+- left pad **85** in the first slot of a system (clears the clef and key signature —
+  this is `test.html`'s 105 = 20 + 85), otherwise **32**;
+- right pad **26**.
+
+Notes are then spread by duration weight — a long note (`.`) counts 3, any other note
+counts 1 — so that the last note lands exactly on the right edge of the box, with the
+per-eighth step capped at 44 units and the line re-centred when the cap bites (so short
+measures do not spread out thinly, as `test.html`'s measure 7 does not).
+
+Checked against `test.html`'s hand-placed measures 1, 2, 3 and 8, this reproduces every
+note to within about 7 units at the 1000-unit scale — most of one notehead width, and
+the comparison is machine-checked by `tools/check_layout.js` (§5.5).
+
+### 6.3 Beams, stems, left hand
+
+- **Stems**: every melody note gets one, from the note down 26 units (unchanged).
+- **Beams**: consecutive plain notes form a run, broken every 3 (the 6/8 pulse), with a
+  leftover single note merged into the previous group (7 eighths → 3 + 4). A long note
+  ends a run. A beam is one straight stroke from the first stem end to the last.
+- **Left hand**: one open oval per entry, at its top note's pitch, with the compound
+  label below it. Ovals are **open** when the measure has one entry (held through the
+  measure) and **filled** when it has two (moving bass) — which is exactly what
+  `test.html` does.
+- **Left-hand x**: entry *k* lines up under the melody note that starts beat group *k*
+  (groups of three eighths), as in measures 4 and 7 of `test.html`.
+- **Melody open ovals**: a long note is drawn open when its measure has no plain note at
+  all (measure 7's two notes), and filled when it has any (measures 2, 4, 8) — again
+  matching `test.html`.
+
+### 6.4 Ledger lines (new, drawn in the existing style)
+
+A note outside its staff gets short ledger strokes (18 units wide, the `staff-line`
+class, so they carry the same pencil filter):
+
+- treble above: 25, 15, 5 …; treble below: 85, 95, 105 …
+- bass above: 120, 110 …; bass below: 180, 190 …
+
+### 6.5 Label sizing (new)
+
+Melody labels stay at 23, bass labels at 19, measure numbers at 18 — the baseline sizes.
+When a measure's notes are closer together than a label is wide (the twelve-note measures
+45–49, and measures 24, 37, 41, 46–48, 54), only **that measure's** labels shrink, down
+to 13 if needed, and if that is still not enough they alternate between two heights.
+No other measure changes size.
+
+---
+
+## 7. Systems, scrolling and the ruler
+
+### 7.1 Systems taller than the standard window
+
+A system containing a note that would push its handwritten label out of the top of the
+drawing gets a taller `viewBox` (`0 -Y 1000 205+Y`) with its CSS `max-height` raised by
+the same proportion, so **the music keeps exactly the same size** and the staff keeps the
+same position — only empty paper appears above it. Only measures 30, 31 and 64 need this
+(the systems holding measures 29–32 and 61–64). Every other system is untouched.
+
+- **All 16 systems are drawn** — no virtual hiding, no window-height adaptation. The
+  sheet scrolls; it never rescales.
+- The sheet area scrolls vertically with **no visible scrollbar** (`overflow-y:auto;
+  scrollbar-width:none` + `::-webkit-scrollbar{display:none}`).
+- **The keyboard is fixed at the bottom** and the sheet scrolls *behind* it. To keep the
+  paper look intact where the two overlap, a paper cap (a clipped copy of the same
+  paper SVG, so the grain lines up exactly) sits above the sheet and below the keys.
+  The scroll area gets bottom padding equal to the keyboard height, so measure 64 can be
+  scrolled clear of the keys.
+- **Compactness control**: one pencil-outlined icon cycling **Normal → Tight → Loose**,
+  implemented purely as the CSS margin between the system SVGs — Tight is exactly the
+  **2 px** you asked for. `Normal` is the default.
+- **The ruler** is a ~20 px hand-drawn pencil SVG fixed down the right margin: a drawn
+  body, a major tick per system, a minor tick between each pair, and a pencil-hatched
+  block marking the systems currently on screen. Clicking or dragging scrolls there. It
+  is drawn as an **SVG** element, not styled HTML, because the graphite filter only
+  applies to SVG.
+
+---
+
+## 8. The keyboard
 
 | Mode | Behaviour |
 |---|---|
-| **Screen-adaptive (default)** | The octave range follows the window width (about 200 px per octave). On a 2K window this shows octaves 2–6, centred on middle C |
-| **Full 88 keys** | The whole keyboard, A0–C8, scaled to fit the width |
+| **Default** | Exactly `test.html`'s keyboard: octaves 2–6 (35 white keys), same key order, same scraped-texture black keys, same labels |
+| **Full 88 keys** | A0–C8 (52 white + 36 black) scaled to the screen width, for range training |
 
-- White keys outlined in pencil; black keys filled with a **dense diagonal
-  pencil-scraped texture** generated on a canvas (several variants so neighbouring
-  keys differ).
-- Key labels follow the `123 / ABC` toggle.
-- Clicking a key plays it and highlights the matching note on the staff.
+- Black-key positions use `test.html`'s formula
+  `((whiteIndexBelow + 1) / whiteKeyCount) * 100 − 0.725` (%), which generalises to 88.
+- Labels follow the `123 / ABC` switch, exactly as `test.html` writes them (white keys
+  carry octave marks: `1`, `1'`, `1,`; black keys are bare: `#1`, `C#`). In the 88-key
+  view the label size drops so five-character labels like `1,,,` still fit.
+- Clicking a key plays it, highlights it, and marks the matching note on the staff.
+- Active keys use `test.html`'s own active styling (graphite wash on white keys, the
+  2 px drop + darkening on black keys).
 
 ---
 
-## 7. Audio
+## 9. Audio
 
-### 7.1 Two sources, one analysis pipeline
-
-1. **Microphone** for live practice:
-   `getUserMedia({audio: {echoCancellation:false, noiseSuppression:false, autoGainControl:false}})`
-   — these three must be off, or the browser eats the piano's overtones.
-2. **Test audio** (`test-music/flower_day.mp3`) played through an
-   `AudioBufferSourceNode` into the **same** `AnalyserNode`, so the detector can be
-   tested without a piano. Includes transport controls and a diagnostics panel
-   showing the detected notes and the match score.
-
-### 7.2 Polyphonic detection
+### 9.1 One analysis path, two sources
 
 ```
-audio → AnalyserNode (FFT 4096)
-      → smooth across frames
-      → pick spectral peaks (local maxima above a moving threshold)
-      → discard peaks that are harmonics of a lower peak
-      → fold into a 12-bin pitch-class (chroma) vector
-      → compare with the target measure's pitch classes
-      → N consecutive frames above threshold ⇒ "correct"
+source ──▶ AnalyserNode (FFT 4096) ──▶ detector ──▶ highlight / advance
 ```
 
-- Matching is by **pitch class**, not exact pitch, so an octave slip on a real piano
-  is not punished.
-- Every threshold lives in `config.js`; a live 12-bar chroma display is available for
-  tuning.
-- No external library, and specifically not ml5/CREPE — that model is monophonic.
+- **Microphone**: `getUserMedia({audio:{echoCancellation:false, noiseSuppression:false,
+  autoGainControl:false}})` — all three must stay off, or the browser eats the piano's
+  overtones.
+- **Test audio**: `flower_day.mp3` played through the same analyser, with transport
+  controls and a small diagnostics readout (detected notes, target notes, match score).
 
-### 7.3 Playback sound
+### 9.2 Polyphonic detection (no ml5, no CREPE)
 
-- Primary source: the 88 samples in `piano-mp3/`, preloaded and cached as
-  `AudioBuffer`s on first interaction.
-- Fallback: a synthesised tone for any pitch the samples do not cover.
+Frames → spectral peaks above a moving threshold → drop peaks that are harmonics of a
+lower peak → fold into a 12-bin pitch-class (chroma) vector → compare with the target
+measure's pitch classes → *N* consecutive good frames means "heard it".
 
----
+- Matching is by **pitch class**, so an octave slip is not punished.
+- Every threshold lives in `config.js`, with a live chroma readout for tuning.
 
-## 8. The two modes
+### 9.3 Sound
 
-### 8.1 Learning mode (microphone on)
-
-- The notes to play are highlighted on the staff and on the keyboard.
-- **Judging is per measure**: when every target pitch of the measure has been heard
-  — the melody *and* every note of the left-hand chord — the highlight advances.
-- Playing nothing, or playing wrong notes, simply waits.
-- Clicking any measure jumps there immediately and practice continues from that spot.
-- Progress is shown as `Measure N / 64`.
-
-### 8.2 Listening mode (microphone off)
-
-- Clicking a measure opens a small bubble menu with two choices:
-  1. **Play this measure only.**
-  2. **Play from here to the end.**
-- The staff and keyboard highlights follow the playback, and the sheet scrolls.
-- Transport controls (play / pause / stop) live in the top bar.
-
-### 8.3 Scrolling rules
-
-- During practice the sheet scrolls **only when the target measure is off screen**,
-  so the page does not jump on every advance.
-- Clicking a measure scrolls it into view straight away.
+- Notes are played from the 88 samples in `piano-mp3/`, loaded lazily and cached; a
+  synthesised tone covers anything the samples do not.
+- Timing comes from the derived durations: `♩. = 50` → a dotted quarter is 1.2 s, so an
+  eighth is **0.4 s** — used for "play this measure" and for the note-by-note highlight
+  during playback.
 
 ---
 
-## 9. Controls
+## 10. The two modes
+
+### 10.1 Learning Mode (microphone on)
+
+- The current measure is shaded with the graphite smudge and its notes and keys are
+  highlighted.
+- The highlight advances when the measure's target pitches have been heard.
+- Clicking any measure jumps straight there.
+- Progress reads `Measure N / 64`.
+- The sheet scrolls only when the target measure is off screen, so the page does not
+  jump on every advance.
+
+### 10.2 Listening Mode (microphone off)
+
+- Clicking a measure opens a small pencil-styled bubble with two choices:
+  1. **Play just this measure**
+  2. **Play from this measure to the end**
+- The staff and keyboard highlights follow the playback; transport controls sit in the
+  top bar.
+
+---
+
+## 11. Controls
 
 | Control | Kind | Function |
 |---|---|---|
-| Title + subtitle | text | From `meta` |
-| `123 / ABC` | pill switch | Switch all annotations |
-| Microphone | outline icon | Toggle learning mode / listening mode |
+| Title + subtitle | text | `꽃날 (Flower Day)` — 드라마 '황진이' OST, and `♩. = 50 • 6/8` |
+| `123 / ABC` | pill switch | Switches every annotation: staff labels and key labels |
+| Microphone | outline icon | Learning Mode on/off (also the Listening Mode switch) |
 | Reset | outline icon | Back to measure 1, clear all state |
-| Staff spacing | outline icon | Cycle normal → tight → loose (badge shows which) |
-| Keyboard range | outline icon ×2 | Screen-adaptive (default) / full 88 keys — phase 2 |
-| Transport | outline icons | Play / pause / stop — phase 4 |
-| Test audio | panel | Load the MP3, scrub, toggle the diagnostics display — phase 3 |
+| Compactness | outline icon | Cycle Normal → Tight → Loose |
+| Keyboard range | outline icon ×2 | Default octaves 2–6 / full 88 keys |
+| Transport | outline icons | Play / pause / stop (Listening Mode) |
+| Test audio | panel | Load the MP3, scrub, toggle the diagnostics display |
+
+All icons are clean outline strokes on a transparent background with a hand-drawn pencil
+border, matching `test.html`.
 
 ---
 
-## 10. Phases
+## 12. Phases
 
 | Phase | Content | Acceptance |
 |---|---|---|
-| **1** Score rendering | Page skeleton, theme, all 64 measures, symbols, notation toggle, adaptive systems, density control | The whole score draws correctly; 123/ABC switch works; the density control visibly changes the layout |
-| **2** Keyboard | `keyboard-render.js`, both range modes, scraped black keys, labels follow the notation toggle | The two icons switch range; a 2K window shows octaves 2–6 by default |
-| **3** Audio engine | `audio-engine.js`, `pitch-detect.js`, `piano-sound.js`, MP3 through the analyser, diagnostics | Playing the MP3 shows the detected notes matching the target measure |
-| **4** The two modes | `practice.js`, `playback.js`, mic judging, measure jumping, the two playback choices | Playing correctly on a real piano advances the highlight; clicking any measure jumps there |
-| **5** Polish | Tuning, performance, edge cases, usage docs | Thirty minutes of practice without a glitch or a false pass |
+| **1** Score | Data layer (build + check tools, loader, notation modules), layout engine, all 16 systems, scrolling, ruler, compactness, `123/ABC` | The page opens from disk and from localhost; all 64 measures draw; measures 1–8 sit where `test.html` puts them; the toggle and the three gaps work |
+| **2** Keyboard | `keyboard-render.js`, both ranges, scraped black keys, labels, click-to-play | Both icons switch range; the 88-key view fills the width; labels follow the toggle |
+| **3** Audio | `audio-engine.js`, `pitch-detect.js`, `piano-sound.js`, MP3 through the analyser, diagnostics | Playing the MP3 shows detected notes matching the target measure |
+| **4** Modes | `practice.js`, `playback.js`, mic judging, measure jumping, the bubble menu | Playing correctly on a real piano advances the highlight; clicking a measure jumps there; both playback choices work |
+| **5** Polish | Tuning, performance, edge cases, usage notes in the README | Thirty minutes of practice without a glitch or a false pass |
 
 ---
 
-## 11. Decisions (confirmed 2026-10-13)
+## 13. Decisions
+
+### 13.1 Confirmed 2026-10-14 (this round)
 
 | # | Question | **Decision** |
 |---|---|---|
-| Q1 | What counts as "played correctly"? | **Per measure** — every target pitch class in the measure, including all left-hand chord notes |
-| Q2 | How does clicking a measure offer the two playback choices? | **A small bubble menu** with two buttons |
-| Q3 | What sound does the page play? | **The existing `piano-mp3/` samples**, with a synthesised fallback |
-| Q4 | How does the score advance in MP3 test mode? | **Only when notes are actually detected**, so the result reflects the detector's real accuracy |
+| Q1 | Layout of busy measures (9–12 notes) | **Keep `test.html`'s exact bar widths in every system.** Only the crowded measures' labels shrink (§6.5). No bar line ever moves |
+| Q2 | Is `123` fixed-do or movable-do? | **Fixed-do — 1 = C in every key**, matching the JSON's own labels and `test.html`'s keyboard (§5.3) |
+| Q3 | What must be played in Learning Mode? | **The melody and the left hand** — every target pitch in the measure, bass chord included |
+| Q4 | Very high notes (D6/E6/A6 in measures 30, 31, 64) | **Those systems' drawing window grows upward** (§7.1); the music keeps its size and the other systems are untouched |
+
+### 13.2 Carried over from the previous round
+
+What counts as "played correctly" is judged **per measure**; clicking a measure opens a
+**bubble menu**; the page plays the **`piano-mp3` samples**; in MP3 test mode the score
+advances **only when notes are actually detected**; progress reads `Measure N / 64`; the
+sheet scrolls only when the target measure is off screen; the interface is English only.
 
 ---
 
-## 12. Changelog
+## 14. Changelog
 
-- **2026-10-13** v0.1 — first draft (requirements, inventory, open questions).
-- **2026-10-13** v0.2 — requirements confirmed (Q1–Q4 above). Frozen; implementation began.
+- **2026-10-14** v1.0 — rewritten from scratch against `test.html` as the frozen visual
+  baseline, after the previous attempt (git `f5cfb00`) was rejected and removed. Records
+  the layout engine that replaces `test.html`'s hand-placed coordinates, the fixed-do
+  correction to the `123` notation, the derived-duration rules, and the two unavoidable
+  new drawing elements (ledger lines, per-measure label sizing).
+- **2026-10-14** v1.1 — the four open questions answered (§13); the layout calibrated
+  against `test.html`; phases 1 and 2 built (below).
 
-### Phase 1 complete — score rendering (2026-10-13, commit `dd15a61`)
+### Phases 1 and 2 complete — the score and the keyboard (2026-10-14)
 
-**Delivered**
+Built: the file layout of §4; the data layer (build script, loader, both notation
+modules, pitch helpers); the layout engine; all sixteen systems; the scrolling sheet
+with the paper cap behind the fixed keyboard; the pencil ruler; the compactness cycle;
+the notation switch; and the keyboard in both ranges.
 
-- The file layout of §3, with HTML, CSS and JS strictly separated and loaded as
-  classic scripts so the page opens from disk.
-- All 64 measures drawn, 4 per system across 16 systems: brace, both clefs, key
-  signatures (1#, and 3# after measure 42), time signatures (6/8, plus the 3/8 bar
-  at measure 32), barlines, beams, ledger lines and handwritten annotations.
-- The `123 / ABC` notation toggle, backed by two independent mapping modules that
-  each derive their spelling from the key signature.
-- Systems adapt to window height; the sheet scrolls, drawing only the systems on
-  screen so the DOM stays small.
-- Brighter paper (`#f8f4ea`) with the coarse grain preserved; controls reduced to
-  outline glyphs on a transparent background with a hand-drawn pencil ring.
+**What the checks say**
 
-**Deviations from the draft, and why**
+- `check_score.js`: **no unresolved problem in 64 measures**. One fault found and
+  settled — measure 1's bass notation is missing its octave commas (§5.5).
+- `check_layout.js`: the melody's **vertical position is exact** (0 units of difference
+  on every measured note) and its **horizontal position is within 8 units of 1000**
+  everywhere except one note, where it is 16 — test.html's two-note measure 7, which is
+  hand-placed off-centre. A notehead is 12.4 units wide.
+- `check_render.js`: the page builds headless with 16 systems, 160 staff lines, 80
+  barlines, 111 beams, 64 smudges, 457 noteheads and 521 handwritten labels; every
+  control was driven without an error.
 
-1. **Symbols are Bravura SMuFL outlines**, not the Unicode characters `𝄞 𝄢 ♯`.
-   Those code points are missing from most system fonts and cannot be positioned
-   precisely. The outlines come from `tools/extract_bravura_glyphs.py`; the font is
-   OFL-licensed (see `NOTICE-BRAVURA.md`).
-2. **The music is drawn at a fixed size and the system count adapts**, rather than
-   shrinking the music to fit more lines. Notes stay equally legible on every screen.
-3. **The sheet scrolls** through all 16 systems, rendering only the visible ones.
-4. **One cycling icon for staff spacing** instead of two buttons — see §5.1.
-5. **`test.html` is untouched.** It remains in the repository as the visual
-   reference, but nothing in the new page loads it.
+**Decisions taken while building, and why**
 
-### Phase 1 revisions (2026-10-13)
+1. **A long note is spaced at twice an eighth, not three times.** Its real length is
+   three eighths, but test.html gives it about twice the room; the spacing follows
+   test.html while the beaming and left-hand alignment follow the music
+   (`dottedSpacing` and `dottedUnits` in `config.js`).
+2. **Beams group in threes with a lone leftover joining the group before it** — which
+   reproduces test.html's beaming in measures 2, 4, 6 and 8 exactly. In measures 1 and 3
+   test.html breaks its seven eighths 4 + 3 where the engine breaks them 3 + 4; the beam
+   covers the same seven notes either way.
+3. **The busiest measures' labels shrink; nothing else moves.** Bar lines stay exactly
+   where test.html has them in every system (Q1).
+4. **A system grows upward only when it has to** — measures 29–32 (+30 units) and
+   61–64 (+45), plus a bare 5 units for measures 45–48 where one label reaches the top
+   of the window. The other systems keep test.html's window exactly (Q4).
+5. **The keyboard's second button shows the full A0–C8**, 52 white and 36 black keys,
+   with the labels shrunk so five-character marks like `1,,,` still fit.
 
-Requested after reviewing phase 1:
-
-- **All text is English.** The interface, the code comments and the documentation.
-  (The score's own title and subtitle stay as they are — they are the song's name.)
-- **More room around the score**: margins widened by a fifth and the page padding
-  above and below the systems increased, so the music sits on the paper rather than
-  running to its edge.
-- **Fixed a cut-off at the left edge**: the grand-staff brace used to start left of
-  the drawing's origin and was clipped. Everything now sits inside the page.
-- **Fixed the time signature colliding with the first notes**: the header block
-  (brace, clefs, key signature, time signature) was repacked and the music now
-  starts clear of it — about two note-widths of clearance in the leftmost measure.
-- **Fixed the active-measure shading** covering the notes instead of sitting behind
-  them.
-
-**Verified:** `node tools/check-model.js` clean; screenshots at 2K and 1600×900; the
-notation toggle, all three densities, and jumping to measure 42 (which scrolls across
-systems) all checked.
-
-### Phase 1 revisions 2 — size matched to the reference (2026-10-13)
-
-The score's size was still not right. It now reproduces `test.html` exactly, and the
-default view shows two systems.
-
-**Where the size is controlled** — three places, and nothing else:
-
-| What | File | Setting |
-|---|---|---|
-| **Overall size of the score** (this is the one to turn) | `js/config.js` | `layout.maxSystemWidth` — the score is 1000 drawing units wide, so 1360 px makes one unit 1.36 px and the staff space 13.6 px, matching the reference. Only a *narrower* window shrinks it |
-| **The drawing's own proportions** | `js/config.js` | `sheet.staff.space` (10 units per staff space), `sheet.staff.marginLeft` / `marginRight` (where the staff lines start and end horizontally), `sheet.staff.trebleTop` / `bassTop` (their vertical position), `sheet.viewBox` (the drawing's coordinate window) |
-| **Where the header sits** | `js/config.js` | `sheet.header.*` — the brace, clefs, key signature and time signature x-positions |
-| **Vertical spacing** | `js/config.js` | `layout.pagePaddingTop`, `layout.pagePaddingBottom` (margins at the top and bottom of the page) and `layout.density.*.systemGapPx` (the air between two systems) — all plain CSS pixels. They change the *spacing*, never the size of the music |
-| **How the box is placed on the page** | `styles/layout.css` | `.sheet-area` (scrolls), `.sheet-canvas` (full-song spacer), `.system-svg` (centred fixed-width box) |
-
-**Changes**
-
-- The drawing now matches the reference's proportions: the music spans x=12 to x=985
-  of the 1000-unit window, so a measure is 224 units — visually the same density as
-  the reference's 241.
-- The staff space is 13.6 px and the staff is 54 px tall, exactly as in `test.html`.
-- **Default view is two systems**, as in the reference.
-- The score is centred by moving the SVG box (`margin: 0 auto`) rather than by sliding
-  the viewBox. Keeping the two mechanisms separate removed a double-offset bug that
-  pushed the music off to the right.
-
-**Verified:** screenshots at 2K (two systems, centred) and 1600×900; hit-testing
-re-checked — clicking across a system returns measures 1, 2, 3, 4 in order.
-
-### Phase 1 revisions 3 — spacing in pixels (2026-10-13)
-
-The spacing was expressed as a fraction of a system's height, which made it awkward
-to reason about. All three vertical distances are now plain CSS pixels in
-`js/config.js`:
-
-| Setting | Controls |
-|---|---|
-| `layout.pagePaddingTop` | The air above the first system — the one to raise to push the score down the page |
-| `layout.pagePaddingBottom` | The air below the last system |
-| `layout.density.tight/normal/loose.systemGapPx` | The air between two systems, for each setting the spacing button cycles through |
-
-The value is **exact**, not a minimum. Two things make that possible:
-
-1. The drawing band a system occupies *is* the ink band — the SVG shows only
-   `inkTop .. inkBottom` of the drawing, so a system carries no empty margin that
-   could leak into the spacing.
-2. Height left over at the bottom of the scroll range stays blank instead of being
-   shared out into the gaps.
-
-The gap is measured between the two drawing bands; a couple of pixels of a text
-line box (the written labels, the measure numbers) fall outside its band, so the
-visible gap runs about 0.7 px narrower than the configured value. `tight` is set to
-2.7 for that reason and renders as 2 px on screen.
-
-### Phase 1 revisions 4 — scrolling without a scrollbar (2026-10-13)
-
-The score is 16 systems tall, far more than any window shows, so the sheet scrolls.
-The scrollbar itself is hidden (`scrollbar-width: none` and a `::-webkit-scrollbar`
-rule) because it would sit on the paper and break the drawn look.
-
-Position is instead carried by two quiet cues:
-
-- **A position ruler** down the right margin: one tick per system, placed by where
-  that system actually is in the whole piece, so the marks slide as you scroll. The
-  systems on screen are inked darker. It is `position: fixed`, so it stays put while
-  the sheet moves behind it.
-- **The status line** below the keyboard, which names the measures on screen —
-  `Measures 37–40 of 64 · practising measure 12` — falling back to the plain
-  `Measure 12 / 64` once the whole piece is visible at once.
-
-The scroll spacer now covers the *whole* score rather than only the systems that
-fit, which is what gives the area something to scroll through. Only the systems on
-screen are drawn, so the DOM stays small.
-
-
-### Phase 1 revisions 5 — the five regressions (2026-10-13)
-
-Reviewing the page against the reference design turned up five faults. All five are
-fixed:
-
-**1. Scrolling was broken.** Two causes, both in the re-render path:
-
-- The systems to draw were chosen from `computeLayout`'s system count (how many the
-  window happens to fit) instead of the whole score, so scrolling could move past
-  everything that had been drawn.
-- Worse, every re-render **destroyed and recreated the scroll spacer**. Removing it
-  collapses the scrollable height to zero, the browser clamps `scrollTop` back to 0,
-  and each scroll was undone by the very render it triggered. The spacer is now
-  created once and only emptied and refilled.
-
-Verified: at 1080p `scrollHeight` (4030) exceeds `clientHeight` (688) on load;
-scrolling moves the view and the status line reports the right measures.
-
-**2. The position ruler was invisible.** It was styled HTML, and the graphite pencil
-effect is an *SVG* filter, which does not apply to HTML elements. The ruler is now an
-SVG strip: a hand-drawn body, a major tick per system, a minor tick between each
-pair, measure numbers down the side, and a hatched block over the systems on screen.
-It is clickable — pressing anywhere on it jumps to that place in the piece.
-
-**3. The left edge of each system.** The curly brace is gone. A single pencil barline
-now closes the grand staff on the left, running from the top line of the treble staff
-to the bottom line of the bass staff, and the clefs and key signature sit inside it,
-as the reference has them.
-
-**4. The time signature no longer appears on the staves.** It was drawn between the
-staves at the head of every system, where it collided with the first notes. The
-reference states the pulse once in the page header (`♩. = 50 · 6/8`) and nowhere
-else, so nothing is drawn on the staves now. A key change mid-piece (measure 42)
-still redraws the key signature, but never a time signature.
-
-**5. The pencil look and the typography.** The drawing is now sized so one drawing
-unit is one CSS pixel (`maxSystemWidth: 1200`), which lets every measurement be a
-plain pixel figure and brings the annotation type up to the reference's size:
-
-| Element | Before | Now |
-|---|---|---|
-| Melody labels | 17 | 22 |
-| Bass labels | 15 | 18, always below the note |
-| Measure numbers | 15 | 17 |
-| Staff space | 8.3 px | 10 px |
-
-Noteheads, stems, beams, ledger lines, barlines and the clefs are all drawn in
-`#3a3630` — the reference's graphite rather than black — and all of them carry the
-pencil-edge filter. The clefs and the key-signature sharps are drawn as glyphs with
-that filter over them, so they read as pencil strokes. The active-measure shading and
-the handwritten measure numbers above the top staff line are both restored.
+**Not built yet:** the audio engine, the polyphonic detector, and the two modes
+(phases 3 and 4). The microphone button currently toggles its own state and nothing
+else, and clicking a note or a key plays a plain tone instead of a piano sample.

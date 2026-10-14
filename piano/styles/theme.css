@@ -1,145 +1,145 @@
-/**
- * Theme: the paper, the graphite, and the type.
+/*
+ * The theme: coarse paper, graphite pencil, handwritten type.
  *
- * The look is "pencil on coarse cold-press paper": a bright warm off-white sheet
- * with a bump-lit grain, everything drawn on it in graphite with a multiply blend
- * so the strokes pick up the paper's texture instead of sitting on top of it.
- *
- * Change a colour here and the whole page follows — nothing else hard-codes one.
+ * Every value here is test.html's, unchanged — the paper colour and grain, the four
+ * graphite tones, the filters every stroke carries, and the sizes of the writing on
+ * the staff. Nothing in this file should be tuned without looking at test.html first.
  */
 
 :root {
-  /* Paper — lighter and warmer than the first draft, like fresh sketch paper. */
-  --paper-base: #f8f4ea;
-  --paper-lit: #fdfaf3;
+  --paper-base: #ece6da;
+  --graphite-2b: #282624;
+  --graphite-hb: #595550;
+  --graphite-faint: #8c867e;
+  --pencil-highlight: rgba(40, 38, 36, 0.09);
+  --modern-border: rgba(40, 38, 36, 0.16);
+  --modern-surface: rgba(255, 252, 245, 0.72);
 
-  /* Graphite. The values are lifted slightly from pure black so the drawing
-     reads as pencil rather than ink. */
-  --graphite-2b: #312d29;
-  --graphite-hb: #655f57;
-  --graphite-faint: #9a938a;
-
-  /* Fills */
-  --pencil-highlight: rgba(49, 45, 41, 0.10);
-  --pencil-hover: rgba(49, 45, 41, 0.06);
-  --pencil-active: rgba(49, 45, 41, 0.16);
-
-  /* Controls are line-only with a transparent background. */
-  --control-border: rgba(49, 45, 41, 0.45);
-  --control-hover: rgba(49, 45, 41, 0.08);
-
-  --accent-practice: #b0492f; /* used only for the live-microphone state */
-
-  --font-hand: 'Caveat', 'Segoe Script', cursive;
-  --font-ui: 'Inter', -apple-system, 'Segoe UI', sans-serif;
-
-  --paper-texture-opacity: 0.58;
+  /* The keyboard's height, and the air between two systems (js/app.js sets the gap). */
+  --keyboard-h: clamp(150px, 22vh, 205px);
+  --system-gap: 22px;
 }
 
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-}
-
-html,
-body {
-  height: 100%;
-  overflow: hidden;
+  user-select: none;
 }
 
 body {
   background-color: var(--paper-base);
   color: var(--graphite-2b);
-  font-family: var(--font-ui);
-  -webkit-font-smoothing: antialiased;
+  font-family: 'Caveat', cursive;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
 }
 
-/* Nothing on this page should be selectable or draggable: it is an instrument,
-   not a document. */
-body,
-button {
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-/**
- * The paper grain. A fixed, full-viewport SVG lit by feDiffuseLighting, blended
- * with `multiply` so the graphite strokes below it share the same surface.
- */
-.paper-layer {
+/* FULL-SCREEN COARSE WATERCOLOR PAPER TEXTURE (3D Bump-Lit SVG Filter) */
+.coarse-paper-layer {
   position: fixed;
   inset: 0;
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
   pointer-events: none;
   z-index: 1;
   mix-blend-mode: multiply;
-  opacity: var(--paper-texture-opacity);
+  opacity: 0.78;
 }
 
-/* Everything drawn on the paper. */
+/* Everything sits in 2D directly on the paper with multiply blending */
 .app-layer {
   position: relative;
   z-index: 5;
-  width: 100%;
-  height: 100%;
+  height: 100vh;
+  width: 100vw;
   display: flex;
   flex-direction: column;
-  mix-blend-mode: multiply;
+  justify-content: space-between;
 }
 
-/* Handwriting used for the title and the annotations on the score. */
-.title-group h1,
-.title-group span,
-.note-label,
-.measure-number {
-  font-family: var(--font-hand);
-  color: var(--graphite-2b);
-}
+/* ---------------------------------------------------------------- the staff */
 
-/* The pencil-edge filter turns a clean vector stroke into a stroke drawn on
-   rough paper. It costs a filter pass per element, so it is applied to the
-   staff furniture and noteheads only, never to text (which it would blur). */
-.pencil-stroke,
-.note-head,
-.note-stem,
-.note-beam,
-.ledger-line,
-.augmentation-dot,
-.bar-line,
-.measure-highlight {
+.pencil-stroke {
   filter: url(#graphite-edge);
 }
 
-.fatal-error {
-  max-width: 620px;
-  margin: 12vh auto 0;
-  font-family: var(--font-ui);
-  color: var(--graphite-2b);
+.staff-line {
+  stroke: var(--graphite-hb);
+  stroke-width: 1.35;
+  stroke-linecap: round;
+  opacity: 0.85;
 }
 
-.fatal-error h2 {
-  font-family: var(--font-hand);
-  font-size: 30px;
-  margin-bottom: 12px;
+.bar-line {
+  stroke: var(--graphite-2b);
+  stroke-width: 1.9;
+  stroke-linecap: round;
 }
 
-.fatal-error p {
-  margin-bottom: 10px;
-  line-height: 1.6;
+.note-group {
+  cursor: pointer;
 }
 
-.fatal-error pre,
-.fatal-error code {
-  font-family: 'Cascadia Code', Consolas, monospace;
-  background: rgba(49, 45, 41, 0.07);
-  border-radius: 4px;
-  padding: 2px 6px;
+.note-head {
+  fill: var(--graphite-2b);
+  filter: url(#graphite-edge);
 }
 
-.fatal-error pre {
-  padding: 12px;
-  margin-bottom: 10px;
-  white-space: pre-wrap;
+.note-head.hollow {
+  fill: none;
+  stroke: var(--graphite-2b);
+  stroke-width: 2.3;
+}
+
+.note-stem {
+  stroke: var(--graphite-2b);
+  stroke-width: 1.85;
+  stroke-linecap: round;
+  filter: url(#graphite-edge);
+}
+
+.note-beam {
+  stroke: var(--graphite-2b);
+  stroke-width: 4.2;
+  stroke-linecap: round;
+  filter: url(#graphite-edge);
+}
+
+/* Handwritten Graphite Pencil Note Labels */
+.written-note-rh {
+  font-family: 'Caveat', cursive;
+  font-size: 23px;
+  font-weight: 700;
+  fill: var(--graphite-2b);
+  text-anchor: middle;
+  filter: url(#graphite-edge);
+}
+
+.written-note-lh {
+  font-family: 'Caveat', cursive;
+  font-size: 19px;
+  font-weight: 600;
+  fill: var(--graphite-hb);
+  text-anchor: middle;
+  filter: url(#graphite-edge);
+}
+
+.measure-num {
+  font-family: 'Caveat', cursive;
+  font-size: 18px;
+  fill: var(--graphite-faint);
+  filter: url(#graphite-edge);
+}
+
+/* Active Measure Graphite Smudge Shading */
+.graphite-rub-highlight {
+  fill: var(--pencil-highlight);
+  filter: url(#graphite-edge);
+  rx: 6;
 }
