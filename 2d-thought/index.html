@@ -1,0 +1,2205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Otter Lane — Cozy 2D Interactive Street & Lo-Fi Player</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Gaegu:wght@400;700&family=Lora:ital,wght@0,500;0,600;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --ink: #2b2320;
+            --cream: #f8f3e6;
+            --paper: #efe6d5;
+            --sage: #8da683;
+            --terracotta: #c86452;
+            --slate-blue: #8499b1;
+        }
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            box-sizing: border-box;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #2b2320;
+            font-family: 'Fredoka', sans-serif;
+            color: #2b2320;
+        }
+        .font-hand {
+            font-family: 'Gaegu', cursive;
+        }
+        .font-serif-cozy {
+            font-family: 'Lora', serif;
+        }
+        /* Thick hand-drawn style borders for UI elements */
+        .cozy-card {
+            background-color: #f8f3e6;
+            border: 3.5px solid #2b2320;
+            box-shadow: 0 6px 0 #2b2320, 0 10px 20px rgba(0,0,0,0.25);
+            border-radius: 18px;
+        }
+        .cozy-btn {
+            background-color: #f8f3e6;
+            border: 3px solid #2b2320;
+            box-shadow: 0 4px 0 #2b2320;
+            border-radius: 12px;
+            transition: all 0.12s cubic-bezier(0.34, 1.56, 0.64, 1);
+            cursor: pointer;
+        }
+        .cozy-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 0 #2b2320;
+            background-color: #fffdf7;
+        }
+        .cozy-btn:active, .cozy-btn.active-btn {
+            transform: translateY(2px);
+            box-shadow: 0 1px 0 #2b2320;
+        }
+        .cozy-pill {
+            background-color: rgba(248, 243, 230, 0.94);
+            border: 3px solid #2b2320;
+            box-shadow: 0 4px 0 #2b2320;
+        }
+        /* Vinyl spinning animation */
+        @keyframes spinSlow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .vinyl-spin {
+            animation: spinSlow 6s linear infinite;
+        }
+        .vinyl-paused {
+            animation-play-state: paused;
+        }
+        /* Custom Range Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+            width: 100%;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            height: 10px;
+            border-radius: 6px;
+            background: #ded4c1;
+            border: 2px solid #2b2320;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #c86452;
+            border: 2.5px solid #2b2320;
+            margin-top: -7px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="relative w-full h-full select-none">
+
+    <header class="fixed top-3 left-3 right-3 z-30 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+        <!-- Brand & Auto-Stroll Controls -->
+        <div class="flex items-center gap-2 pointer-events-auto">
+            <div class="cozy-pill px-3.5 py-1.5 rounded-2xl flex items-center gap-2.5">
+                <span class="text-xl">🦦</span>
+                <div>
+                    <h1 class="font-bold text-sm sm:text-base leading-tight tracking-tight text-[#2b2320]">Otter Lane</h1>
+                    <p class="text-[11px] text-[#6e5d53] font-medium hidden sm:block">2D Interactive Street & Lo-Fi</p>
+                </div>
+            </div>
+
+            <button id="autoStrollBtn" onclick="toggleAutoStroll()" class="cozy-btn px-3.5 py-2 flex items-center gap-2 text-xs sm:text-sm font-semibold bg-[#d6eadf]">
+                <span id="autoStrollDot" class="w-2.5 h-2.5 rounded-full bg-[#3f7a52] border border-[#2b2320] animate-pulse"></span>
+                <span id="autoStrollText">Auto-Stroll: ON</span>
+            </button>
+
+            <button id="charSwitchBtn" onclick="cycleMainCharacter()" class="cozy-btn px-3 py-2 flex items-center gap-1.5 text-xs sm:text-sm font-semibold" title="Switch Playable Character">
+                <span id="charSwitchIcon">🐻‍❄️</span>
+                <span class="hidden md:inline" id="charSwitchLabel">Boba Bear</span>
+            </button>
+        </div>
+
+        <!-- Time of Day Lighting Switcher -->
+        <div class="cozy-pill p-1.5 rounded-2xl flex items-center gap-1 pointer-events-auto">
+            <button onclick="setTimeOfDay('sunrise')" id="tod-sunrise" class="tod-btn px-2.5 py-1 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1 transition-all">
+                <span>🌅</span><span class="hidden sm:inline">Sunrise</span>
+            </button>
+            <button onclick="setTimeOfDay('noon')" id="tod-noon" class="tod-btn px-2.5 py-1 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1 transition-all bg-[#e8d5b5] border-2 border-[#2b2320]">
+                <span>☀️</span><span class="hidden sm:inline">Noon</span>
+            </button>
+            <button onclick="setTimeOfDay('sunset')" id="tod-sunset" class="tod-btn px-2.5 py-1 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1 transition-all">
+                <span>🌇</span><span class="hidden sm:inline">Sunset</span>
+            </button>
+            <button onclick="setTimeOfDay('night')" id="tod-night" class="tod-btn px-2.5 py-1 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1 transition-all">
+                <span>🌙</span><span class="hidden sm:inline">Night</span>
+            </button>
+        </div>
+
+        <!-- Quick Mini Music Pill -->
+        <div class="cozy-pill px-3 py-1.5 rounded-2xl flex items-center gap-2.5 pointer-events-auto">
+            <button id="miniPlayBtn" onclick="toggleMusicPlayback()" class="w-8 h-8 rounded-full bg-[#c86452] text-[#f8f3e6] border-2 border-[#2b2320] flex items-center justify-center hover:scale-105 active:scale-95 transition">
+                <span id="miniPlayIcon" class="text-xs">▶</span>
+            </button>
+            <div class="cursor-pointer pr-1" onclick="openShopModal('vinyl')">
+                <div class="text-[10px] uppercase tracking-wider font-bold text-[#7c6a5e]">Lo-Fi Radio</div>
+                <div id="miniTrackTitle" class="text-xs font-bold text-[#2b2320] truncate max-w-[120px] sm:max-w-[155px]">Tap ▶ for Cozy Beats</div>
+            </div>
+            <button onclick="openShopModal('vinyl')" class="text-xs bg-[#e9decb] hover:bg-[#dfd0b8] px-2 py-1 rounded-lg border-2 border-[#2b2320] font-bold" title="Open Music & Ambient Mixer">
+                🎚️ Mixer
+            </button>
+        </div>
+    </header>
+
+    <footer class="fixed bottom-3 left-3 right-3 z-30 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+        <!-- Left/Right Touch & Keyboard Hint -->
+        <div class="flex items-center gap-2 pointer-events-auto">
+            <button onmousedown="startTouchMove(-1)" onmouseup="stopTouchMove()" onmouseleave="stopTouchMove()" ontouchstart="startTouchMove(-1); event.preventDefault();" ontouchend="stopTouchMove()" class="cozy-btn w-11 h-11 flex items-center justify-center text-lg font-bold active:bg-[#e5d9c3]" title="Walk Left (A / Left Arrow)">
+                ◀
+            </button>
+            <button onmousedown="startTouchMove(1)" onmouseup="stopTouchMove()" onmouseleave="stopTouchMove()" ontouchstart="startTouchMove(1); event.preventDefault();" ontouchend="stopTouchMove()" class="cozy-btn w-11 h-11 flex items-center justify-center text-lg font-bold active:bg-[#e5d9c3]" title="Walk Right (D / Right Arrow)">
+                ▶
+            </button>
+            <div class="cozy-pill px-3 py-1.5 rounded-xl text-xs font-medium hidden lg:flex items-center gap-2 text-[#54463e]">
+                <span>⌨️ <b>A / D</b> or <b>◀ / ▶</b> to walk</span>
+                <span>•</span>
+                <span><b>E</b> or <b>Click Shop</b> to enter</span>
+            </div>
+        </div>
+
+        <!-- Shop Quick-Access & Carry Prop Indicator -->
+        <div class="flex items-center gap-2 pointer-events-auto">
+            <button onclick="openShopModal('flowers')" class="cozy-btn px-3 py-2 text-xs sm:text-sm font-semibold flex items-center gap-1.5 bg-[#f4dcd6]">
+                <span>🌷</span><span>Flowers</span>
+            </button>
+            <button onclick="openShopModal('books')" class="cozy-btn px-3 py-2 text-xs sm:text-sm font-semibold flex items-center gap-1.5 bg-[#d5e1ec]">
+                <span>📖</span><span>Otter Books</span>
+            </button>
+            <button onclick="openShopModal('vinyl')" class="cozy-btn px-3 py-2 text-xs sm:text-sm font-semibold flex items-center gap-1.5 bg-[#d8e6d1]">
+                <span>💿</span><span>Vinyl &amp; Cafe</span>
+            </button>
+        </div>
+    </footer>
+
+    <div id="modalBackdrop" class="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] hidden items-center justify-center p-4 transition-opacity" onclick="handleBackdropClick(event)">
+
+        <!-- 1. VINYL & BEATS MUSIC SHOP MODAL -->
+        <div id="modal-vinyl" class="shop-modal cozy-card w-full max-w-md p-5 sm:p-6 hidden relative">
+            <button onclick="closeShopModal()" class="absolute top-3.5 right-3.5 w-8 h-8 rounded-full bg-[#e8dcc8] border-2 border-[#2b2320] font-bold flex items-center justify-center hover:bg-[#c86452] hover:text-white transition">✕</button>
+
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-11 h-11 rounded-2xl bg-[#6f9278] border-2 border-[#2b2320] flex items-center justify-center text-2xl shadow-sm">💿</div>
+                <div>
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-[#5b7a63]">The Green Awning</span>
+                    <h2 class="text-xl font-bold text-[#2b2320] leading-none">Vinyl &amp; Matcha Cafe</h2>
+                </div>
+            </div>
+
+            <!-- Spinning Vinyl Deck & Track Info -->
+            <div class="bg-[#ece2d0] border-3 border-[#2b2320] rounded-2xl p-4 mb-4 flex items-center gap-4" style="border-width: 3px;">
+                <div id="vinylDisc" class="relative w-20 h-20 rounded-full bg-[#24201e] border-4 border-[#2b2320] flex items-center justify-center shrink-0 shadow-md vinyl-spin vinyl-paused">
+                    <div class="absolute inset-2 rounded-full border border-white/15"></div>
+                    <div class="absolute inset-4 rounded-full border border-white/15"></div>
+                    <div id="vinylCenterLabel" class="w-7 h-7 rounded-full bg-[#c86452] border-2 border-[#2b2320] flex items-center justify-center">
+                        <div class="w-2 h-2 rounded-full bg-[#f8f3e6] border border-[#2b2320]"></div>
+                    </div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="text-xs font-semibold text-[#75655a] mb-0.5" id="modalTrackMood">Warm Rhodes &amp; Soft Beats</div>
+                    <div class="text-base font-bold text-[#2b2320] truncate mb-2" id="modalTrackTitle">1. Otter Books Rainy Lullaby</div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="prevTrack()" class="cozy-btn px-2.5 py-1 text-xs font-bold">⏮</button>
+                        <button id="modalPlayBtn" onclick="toggleMusicPlayback()" class="cozy-btn px-4 py-1 text-xs font-bold bg-[#c86452] text-[#f8f3e6]">▶ Play</button>
+                        <button onclick="nextTrack()" class="cozy-btn px-2.5 py-1 text-xs font-bold">⏭</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Selectable Lo-Fi Tracks -->
+            <div class="mb-4">
+                <label class="block text-xs font-bold uppercase tracking-wider text-[#6e5d53] mb-2">Select Cassette / Vinyl Track</label>
+                <div class="space-y-1.5" id="trackListContainer">
+                    <button onclick="selectTrack(0)" id="track-btn-0" class="w-full text-left px-3.5 py-2 rounded-xl border-2 border-[#2b2320] bg-[#e4d6be] font-semibold text-xs sm:text-sm flex items-center justify-between transition">
+                        <span>🌧️ 1. Otter Books Rainy Lullaby</span>
+                        <span class="text-[11px] opacity-75">72 BPM</span>
+                    </button>
+                    <button onclick="selectTrack(1)" id="track-btn-1" class="w-full text-left px-3.5 py-2 rounded-xl border-2 border-[#2b2320] bg-[#f8f3e6] hover:bg-[#efe5d4] font-semibold text-xs sm:text-sm flex items-center justify-between transition">
+                        <span>🥖 2. Sunny Baguette Stroll</span>
+                        <span class="text-[11px] opacity-75">84 BPM</span>
+                    </button>
+                    <button onclick="selectTrack(2)" id="track-btn-2" class="w-full text-left px-3.5 py-2 rounded-xl border-2 border-[#2b2320] bg-[#f8f3e6] hover:bg-[#efe5d4] font-semibold text-xs sm:text-sm flex items-center justify-between transition">
+                        <span>🌙 3. Midnight Lantern Waltz</span>
+                        <span class="text-[11px] opacity-75">66 BPM</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Ambient Soundscape Mixer -->
+            <div class="bg-[#efe6d5] border-2 border-[#2b2320] rounded-2xl p-3.5 space-y-2.5">
+                <div class="text-xs font-bold uppercase tracking-wider text-[#5b4d44] flex items-center justify-between">
+                    <span>Cozy Ambient Mixer</span>
+                    <span class="text-[11px] font-normal">Web Audio Synth</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs font-semibold w-28">🎹 Music Vol</span>
+                    <input type="range" min="0" max="100" value="75" oninput="updateMixer('music', this.value)">
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs font-semibold w-28">🌧️ Cozy Rain</span>
+                    <input id="rainSlider" type="range" min="0" max="100" value="25" oninput="updateMixer('rain', this.value)">
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs font-semibold w-28">🔥 Vinyl Crackle</span>
+                    <input id="crackleSlider" type="range" min="0" max="100" value="35" oninput="updateMixer('crackle', this.value)">
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs font-semibold w-28">☕ Cafe Murmur</span>
+                    <input id="chatterSlider" type="range" min="0" max="100" value="15" oninput="updateMixer('chatter', this.value)">
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. OTTER BOOKS (POMODORO TIMER & COZY BOOK NOTES) MODAL -->
+        <div id="modal-books" class="shop-modal cozy-card w-full max-w-md p-5 sm:p-6 hidden relative">
+            <button onclick="closeShopModal()" class="absolute top-3.5 right-3.5 w-8 h-8 rounded-full bg-[#e8dcc8] border-2 border-[#2b2320] font-bold flex items-center justify-center hover:bg-[#c86452] hover:text-white transition">✕</button>
+
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-11 h-11 rounded-2xl bg-[#8499b1] border-2 border-[#2b2320] flex items-center justify-center text-2xl shadow-sm">🦦</div>
+                <div>
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-[#546a82]">Est. 1998 • Mr. Otto's Shop</span>
+                    <h2 class="text-xl font-bold text-[#2b2320] leading-none font-serif-cozy">Otter Books &amp; Study Nook</h2>
+                </div>
+            </div>
+
+            <!-- Cozy Reading Quote Card -->
+            <div class="bg-[#e8eef4] border-2 border-[#2b2320] rounded-2xl p-4 mb-4 relative">
+                <div class="text-xs font-bold uppercase tracking-wider text-[#546a82] mb-1">📖 Page from Today's Book</div>
+                <p id="cozyQuoteText" class="font-serif-cozy italic text-sm sm:text-base text-[#2b2320] leading-relaxed mb-2">
+                    "There is nothing quite so comforting as the smell of old paper, warm baguettes from next door, and rain tapping softly against the windowpane."
+                </p>
+                <div class="flex items-center justify-between">
+                    <span id="cozyQuoteAuthor" class="text-xs font-semibold text-[#5b6d80]">— Chronicles of Otter Lane, Ch. 4</span>
+                    <button onclick="nextBookQuote()" class="cozy-btn px-2.5 py-1 text-xs font-bold bg-[#f8f3e6]">✨ Flip Page</button>
+                </div>
+            </div>
+
+            <!-- Reading / Focus Pomodoro Timer -->
+            <div class="bg-[#efe6d5] border-2 border-[#2b2320] rounded-2xl p-4 text-center">
+                <div class="text-xs font-bold uppercase tracking-wider text-[#6e5d53] mb-1">⏳ Cozy Focus / Reading Timer</div>
+                <div id="pomoDisplay" class="text-4xl font-bold tracking-wider text-[#2b2320] my-2 font-mono">25:00</div>
+                <div class="flex items-center justify-center gap-2 mb-3">
+                    <button onclick="togglePomodoro()" id="pomoStartBtn" class="cozy-btn px-4 py-1.5 text-xs font-bold bg-[#8499b1] text-white">Start Focus</button>
+                    <button onclick="resetPomodoro(25)" class="cozy-btn px-3 py-1.5 text-xs font-semibold">25m Read</button>
+                    <button onclick="resetPomodoro(5)" class="cozy-btn px-3 py-1.5 text-xs font-semibold">5m Tea Break</button>
+                </div>
+                <p class="text-[11px] text-[#6e5d53]">Tip: Turn on <b>Auto-Stroll</b> + <b>Lo-Fi Radio</b> while the timer runs!</p>
+            </div>
+        </div>
+
+        <!-- 3. FLOWERS SHOP (CARRY ITEM & BOUQUET CUSTOMIZER) MODAL -->
+        <div id="modal-flowers" class="shop-modal cozy-card w-full max-w-md p-5 sm:p-6 hidden relative">
+            <button onclick="closeShopModal()" class="absolute top-3.5 right-3.5 w-8 h-8 rounded-full bg-[#e8dcc8] border-2 border-[#2b2320] font-bold flex items-center justify-center hover:bg-[#c86452] hover:text-white transition">✕</button>
+
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-11 h-11 rounded-2xl bg-[#c86452] border-2 border-[#2b2320] flex items-center justify-center text-2xl shadow-sm">🌷</div>
+                <div>
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-[#9c4737]">Fresh Daily Blooms &amp; Goods</span>
+                    <h2 class="text-xl font-bold text-[#2b2320] leading-none">Flora's Corner Shop</h2>
+                </div>
+            </div>
+
+            <p class="text-xs sm:text-sm text-[#54463e] mb-3">
+                Choose what your character carries while strolling down Otter Lane! The <b>Brass Lantern</b> casts a real warm glow at Sunset &amp; Night.
+            </p>
+
+            <!-- Carry Prop Grid -->
+            <div class="grid grid-cols-2 gap-2.5 mb-4">
+                <button onclick="selectCarryProp('bouquet')" id="prop-bouquet" class="cozy-btn p-3 text-left flex items-center gap-2.5 bg-[#f4dcd6]">
+                    <span class="text-2xl">💐</span>
+                    <div>
+                        <div class="text-xs font-bold">Wildflower Bouquet</div>
+                        <div class="text-[10px] text-[#6e5d53]">Wrapped in kraft paper</div>
+                    </div>
+                </button>
+                <button onclick="selectCarryProp('baguette')" id="prop-baguette" class="cozy-btn p-3 text-left flex items-center gap-2.5">
+                    <span class="text-2xl">🥖</span>
+                    <div>
+                        <div class="text-xs font-bold">Twin Baguettes</div>
+                        <div class="text-[10px] text-[#6e5d53]">Fresh &amp; crispy in bag</div>
+                    </div>
+                </button>
+                <button onclick="selectCarryProp('lantern')" id="prop-lantern" class="cozy-btn p-3 text-left flex items-center gap-2.5">
+                    <span class="text-2xl">🏮</span>
+                    <div>
+                        <div class="text-xs font-bold">Warm Lantern</div>
+                        <div class="text-[10px] text-[#6e5d53]">Glows at Sunset &amp; Night!</div>
+                    </div>
+                </button>
+                <button onclick="selectCarryProp('coffee')" id="prop-coffee" class="cozy-btn p-3 text-left flex items-center gap-2.5">
+                    <span class="text-2xl">🍵</span>
+                    <div>
+                        <div class="text-xs font-bold">Hot Matcha Cup</div>
+                        <div class="text-[10px] text-[#6e5d53]">With gentle rising steam</div>
+                    </div>
+                </button>
+                <button onclick="selectCarryProp('book')" id="prop-book" class="cozy-btn p-3 text-left flex items-center gap-2.5">
+                    <span class="text-2xl">📘</span>
+                    <div>
+                        <div class="text-xs font-bold">Hardcover Novel</div>
+                        <div class="text-[10px] text-[#6e5d53]">From Otter Books</div>
+                    </div>
+                </button>
+                <button onclick="selectCarryProp('none')" id="prop-none" class="cozy-btn p-3 text-left flex items-center gap-2.5">
+                    <span class="text-2xl">🐾</span>
+                    <div>
+                        <div class="text-xs font-bold">Paws Free</div>
+                        <div class="text-[10px] text-[#6e5d53]">Just a carefree stroll</div>
+                    </div>
+                </button>
+            </div>
+
+            <!-- Character Switcher inside Flower Shop too -->
+            <div class="bg-[#efe6d5] border-2 border-[#2b2320] rounded-2xl p-3 flex items-center justify-between">
+                <div class="text-xs font-bold text-[#4a3e37]">Current Stroller: <span id="modalCharName" class="text-[#c86452]">Boba (Little White Bear)</span></div>
+                <button onclick="cycleMainCharacter()" class="cozy-btn px-3 py-1 text-xs font-bold">Switch Friend 🔄</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Main 2D Interactive Canvas -->
+    <canvas id="gameCanvas" class="block w-full h-full cursor-pointer"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Ink outline color matching the reference image's warm dark charcoal-brown
+        const INK = '#2b2320';
+        const BLOCK_WIDTH = 1280; // Seamless repeating street block width
+
+        // Global Scene State
+        const state = {
+            cameraX: 0,
+            playerWorldX: 610, // Starts right in front of Otter Books
+            targetWorldX: null,
+            facing: 1, // 1 = right, -1 = left
+            isMoving: false,
+            autoStroll: true,
+            autoStrollDir: 1,
+            walkCycle: 0,
+            time: 0,
+            keys: { left: false, right: false },
+            touchDir: 0,
+            activeCharIndex: 0, // 0: Little White Bear, 1: Tan Dog, 2: Big White Dog
+            carryProp: 'bouquet', // 'bouquet', 'baguette', 'lantern', 'coffee', 'book', 'none'
+            activeShopNearby: null,
+            activeModal: null,
+            hoveredShop: null,
+            rainDrops: [],
+            fireflies: [],
+            stars: [],
+            clouds: []
+        };
+
+        // Playable character archetypes inspired directly by the reference image
+        const PLAYABLE_CHARS = [
+            { id: 'bear', name: 'Boba (Little Bear)', icon: '🐻‍❄️', bodyColor: '#fcfaf5', earType: 'bear', scale: 0.92 },
+            { id: 'tandog', name: 'Biscuit (Shiba Pup)', icon: '🐕', bodyColor: '#ebb982', earType: 'pointy', scale: 1.0 },
+            { id: 'whitedog', name: 'Mochi (Fluffy Hound)', icon: '🐶', bodyColor: '#f7f5f0', earType: 'floppy', scale: 1.1 }
+        ];
+
+        // NPC companions strolling down the sidewalk so all 3 characters from the screenshot are always present!
+        const npcs = [
+            {
+                offsetFromOrigin: 495,
+                speed: 22,
+                dir: -1,
+                walkCycle: 1.4,
+                charType: 1, // Tan dog carrying baguettes
+                prop: 'baguette',
+                pauseTimer: 0
+            },
+            {
+                offsetFromOrigin: 720,
+                speed: 18,
+                dir: -1,
+                walkCycle: 3.1,
+                charType: 2, // White dog carrying flowers
+                prop: 'bouquet',
+                pauseTimer: 0
+            }
+        ];
+
+        // Shop definitions along each 1280px repeating block
+        const SHOPS = [
+            {
+                id: 'flowers',
+                name: 'Flowers',
+                subtitle: 'Bouquets & Stroll Props',
+                icon: '🌷',
+                xStart: 30,
+                xEnd: 330,
+                doorX: 195
+            },
+            {
+                id: 'books',
+                name: 'Otter Books',
+                subtitle: 'Quotes & Reading Timer',
+                icon: '📖',
+                xStart: 340,
+                xEnd: 940,
+                doorX: 640
+            },
+            {
+                id: 'vinyl',
+                name: 'Vinyl & Matcha',
+                subtitle: 'Lo-Fi Radio & Mixer',
+                icon: '💿',
+                xStart: 950,
+                xEnd: 1270,
+                doorX: 1110
+            }
+        ];
+
+        // Dynamic Lighting Time-of-Day Color Configurations
+        const LIGHTING_PRESETS = {
+            sunrise: {
+                skyTop: '#d89ca8',
+                skyBottom: '#f7d6b5',
+                ambientTint: [255, 212, 188, 0.22], // Warm rose-gold wash
+                darkness: 0.16,
+                windowGlow: 0.55,
+                lampGlow: 0.45,
+                starAlpha: 0.15
+            },
+            noon: {
+                skyTop: '#b8d4e3',
+                skyBottom: '#e9f0ec',
+                ambientTint: [255, 252, 242, 0.0], // Crisp pastel daylight
+                darkness: 0.0,
+                windowGlow: 0.0,
+                lampGlow: 0.0,
+                starAlpha: 0.0
+            },
+            sunset: {
+                skyTop: '#564779',
+                skyBottom: '#e59572',
+                ambientTint: [218, 108, 72, 0.32], // Rich amber/violet sunset
+                darkness: 0.36,
+                windowGlow: 0.88,
+                lampGlow: 0.85,
+                starAlpha: 0.45
+            },
+            night: {
+                skyTop: '#161d33',
+                skyBottom: '#2b395c',
+                ambientTint: [22, 34, 68, 0.56], // Deep cozy indigo night
+                darkness: 0.62,
+                windowGlow: 1.0,
+                lampGlow: 1.0,
+                starAlpha: 0.95
+            }
+        };
+
+        let currentTod = 'noon';
+        let activeLight = { ...LIGHTING_PRESETS.noon, ambientTint: [...LIGHTING_PRESETS.noon.ambientTint] };
+        let targetLight = LIGHTING_PRESETS.noon;
+
+        function initAtmosphere() {
+            state.clouds = [];
+            for (let i = 0; i < 8; i++) {
+                state.clouds.push({
+                    x: i * 240 + Math.random() * 80,
+                    y: 45 + (i % 3) * 35,
+                    w: 90 + (i % 4) * 30,
+                    speed: 6 + (i % 3) * 3
+                });
+            }
+            state.stars = [];
+            for (let i = 0; i < 65; i++) {
+                state.stars.push({
+                    x: Math.random() * 1600,
+                    y: Math.random() * 260,
+                    r: 1 + Math.random() * 1.8,
+                    twinkleSpeed: 1.5 + Math.random() * 3,
+                    phase: Math.random() * Math.PI * 2
+                });
+            }
+            state.fireflies = [];
+            for (let i = 0; i < 22; i++) {
+                state.fireflies.push({
+                    x: Math.random() * BLOCK_WIDTH,
+                    y: 280 + Math.random() * 320,
+                    phase: Math.random() * Math.PI * 2,
+                    speedX: (Math.random() - 0.5) * 18,
+                    speedY: (Math.random() - 0.5) * 10
+                });
+            }
+            state.rainDrops = [];
+            for (let i = 0; i < 90; i++) {
+                state.rainDrops.push({
+                    x: Math.random() * 1600,
+                    y: Math.random() * 900,
+                    len: 12 + Math.random() * 10,
+                    speed: 520 + Math.random() * 180
+                });
+            }
+        }
+        initAtmosphere();
+
+        function resizeCanvas() {
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = window.innerWidth * dpr;
+            canvas.height = window.innerHeight * dpr;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function drawHandRect(x, y, w, h, fill, strokeWidth = 3.5, radius = 0) {
+            ctx.save();
+            ctx.beginPath();
+            if (radius > 0) {
+                ctx.roundRect(x, y, w, h, radius);
+            } else {
+                ctx.rect(x, y, w, h);
+            }
+            if (fill) {
+                ctx.fillStyle = fill;
+                ctx.fill();
+            }
+            if (strokeWidth > 0) {
+                ctx.lineWidth = strokeWidth;
+                ctx.strokeStyle = INK;
+                ctx.lineJoin = 'round';
+                ctx.lineCap = 'round';
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        // Draws a puffy hand-drawn bush or window flower box
+        function drawScallopBush(x, y, w, h, fill, hasFlowers = false) {
+            ctx.save();
+            ctx.fillStyle = fill;
+            ctx.strokeStyle = INK;
+            ctx.lineWidth = 3.5;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+
+            ctx.beginPath();
+            const bumps = Math.max(3, Math.floor(w / 24));
+            const step = w / bumps;
+            ctx.moveTo(x, y + h);
+            ctx.lineTo(x, y + h * 0.45);
+
+            for (let i = 0; i < bumps; i++) {
+                const bx = x + i * step;
+                const midX = bx + step * 0.5;
+                const nextX = bx + step;
+                const peakY = y + ((i % 2 === 0) ? 0 : 4);
+                ctx.quadraticCurveTo(midX, peakY - 6, nextX, y + h * 0.4);
+            }
+            ctx.lineTo(x + w, y + h);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Cute inner leaf detail ticks
+            ctx.beginPath();
+            for (let i = 1; i < bumps; i += 2) {
+                const lx = x + i * step;
+                ctx.moveTo(lx - 4, y + h * 0.62);
+                ctx.quadraticCurveTo(lx, y + h * 0.5, lx + 5, y + h * 0.64);
+            }
+            ctx.stroke();
+
+            // Little yellow blossoms like in the reference image's upper window boxes
+            if (hasFlowers) {
+                const flowerColors = ['#f3d87d', '#f6e49c', '#f2b880'];
+                for (let i = 0; i < bumps - 1; i++) {
+                    const fx = x + (i + 0.55) * step;
+                    const fy = y + h * 0.46 + (i % 2) * 5;
+                    ctx.fillStyle = flowerColors[i % flowerColors.length];
+                    ctx.beginPath();
+                    ctx.arc(fx, fy, 4.5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                }
+            }
+            ctx.restore();
+        }
+
+        // Draws bookshelf rows inside Otter Books
+        function drawBookshelf(x, y, w, h, seed = 1) {
+            drawHandRect(x, y, w, h, '#3d312a', 3);
+            const shelves = 4;
+            const shelfH = h / shelves;
+            const bookColors = ['#c86452', '#d9a76a', '#8499b1', '#8da683', '#dfd3be', '#b57c68', '#6d8375'];
+
+            for (let s = 0; s < shelves; s++) {
+                const sy = y + (s + 1) * shelfH;
+                // Wooden shelf plank
+                drawHandRect(x, sy - 6, w, 6, '#8c694b', 2.5);
+
+                // Books sitting on the shelf
+                let bx = x + 5;
+                let idx = s * 7 + seed;
+                while (bx < x + w - 12) {
+                    const bw = 7 + ((idx * 13) % 6);
+                    const bh = shelfH - 11 - ((idx * 7) % 7);
+                    const col = bookColors[idx % bookColors.length];
+                    drawHandRect(bx, sy - 6 - bh, bw, bh, col, 2);
+                    bx += bw + 1.5;
+                    idx++;
+                }
+            }
+        }
+
+        function drawStreetBlock(blockX, groundY, time, glowFactor) {
+            const facadeTop = groundY - 430;
+            const firstFloorTop = groundY - 245;
+
+            // =========================================================================
+            // 1. LEFT BUILDING: "FLOWERS" SHOP (Warm Tan Upper + Terracotta Red Awning)
+            // =========================================================================
+            const fX = blockX;
+            const fW = 335;
+
+            // Upper 2nd Story Wall
+            drawHandRect(fX, facadeTop, fW, 185, '#cbb195', 3.5);
+            // Cornice trim
+            drawHandRect(fX - 4, firstFloorTop - 16, fW + 8, 16, '#dfc9b0', 3.5);
+
+            // Two tall multi-pane windows on 2nd floor (matching reference)
+            [fX + 48, fX + 195].forEach((wx) => {
+                drawHandRect(wx - 6, facadeTop + 14, 82, 138, '#f4ede2', 3.5);
+                const paneColor = glowFactor > 0.2 ? '#f7d894' : '#cedbe0';
+                drawHandRect(wx, facadeTop + 20, 70, 126, paneColor, 3);
+                // Window mullions (2x4 grid)
+                ctx.beginPath();
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = INK;
+                ctx.moveTo(wx + 35, facadeTop + 20);
+                ctx.lineTo(wx + 35, facadeTop + 146);
+                for (let r = 1; r <= 3; r++) {
+                    const ry = facadeTop + 20 + r * 31.5;
+                    ctx.moveTo(wx, ry);
+                    ctx.lineTo(wx + 70, ry);
+                }
+                ctx.stroke();
+            });
+
+            // 1st Floor Flower Shop Facade
+            drawHandRect(fX, firstFloorTop, fW, 245, '#b85745', 3.5);
+
+            // Cream stone pillar on right edge of Flower shop
+            const pillarX = fX + fW - 55;
+            drawHandRect(pillarX, firstFloorTop, 55, 245, '#ece5d8', 3.5);
+            for (let py = firstFloorTop + 28; py < groundY; py += 28) {
+                ctx.beginPath();
+                ctx.moveTo(pillarX, py);
+                ctx.lineTo(pillarX + 55, py);
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = INK;
+                ctx.stroke();
+            }
+
+            // "Flowers" Sign Header
+            drawHandRect(fX + 10, firstFloorTop + 12, fW - 65, 42, '#f5eee0', 3.5);
+            ctx.save();
+            ctx.font = 'bold 28px "Gaegu", cursive';
+            ctx.fillStyle = '#b85745';
+            ctx.textAlign = 'center';
+            ctx.fillText('Flowers', fX + 140, firstFloorTop + 42);
+            ctx.restore();
+
+            // Flower Shop Interior Display Window (Warm glow at night!)
+            const fwX = fX + 18;
+            const fwY = firstFloorTop + 98;
+            const fwW = 148;
+            const fwH = 92;
+            const flowerWindowBg = glowFactor > 0.1 ? '#ffdfa0' : '#f1e6d2';
+            drawHandRect(fwX, fwY, fwW, fwH, flowerWindowBg, 3.5);
+
+            // Potted flowers inside window
+            const potPositions = [fwX + 26, fwX + 74, fwX + 120];
+            potPositions.forEach((px, idx) => {
+                // Stems & blooms
+                ctx.save();
+                ctx.strokeStyle = INK;
+                ctx.lineWidth = 2.5;
+                ctx.fillStyle = idx === 1 ? '#e88b84' : '#f7f4eb';
+                for (let b = -1; b <= 1; b++) {
+                    ctx.beginPath();
+                    ctx.arc(px + b * 7, fwY + 46 + Math.abs(b) * 4, 5.5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                }
+                // Blue/Gray ceramic pot
+                ctx.fillStyle = '#9db0be';
+                ctx.beginPath();
+                ctx.moveTo(px - 12, fwY + 58);
+                ctx.lineTo(px + 12, fwY + 58);
+                ctx.lineTo(px + 9, fwY + 90);
+                ctx.lineTo(px - 9, fwY + 90);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            });
+
+            // Flower Shop Door
+            const fdX = fX + 178;
+            drawHandRect(fdX, firstFloorTop + 98, 86, 147, '#c86452', 3.5);
+            drawHandRect(fdX + 12, firstFloorTop + 112, 62, 74, glowFactor > 0.1 ? '#ffe3a8' : '#e5d4b7', 3);
+            drawHandRect(fdX + 12, firstFloorTop + 196, 62, 36, '#b0503f', 3);
+
+            // Red Slanted Awning over Flower Shop
+            ctx.save();
+            ctx.fillStyle = '#a84738';
+            ctx.strokeStyle = INK;
+            ctx.lineWidth = 3.5;
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            ctx.moveTo(fX + 6, firstFloorTop + 54);
+            ctx.lineTo(fX + fW - 50, firstFloorTop + 54);
+            ctx.lineTo(fX + fW - 34, firstFloorTop + 100);
+            ctx.lineTo(fX - 6, firstFloorTop + 100);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            drawHandRect(fX - 6, firstFloorTop + 100, fW - 28, 12, '#c86452', 3.5);
+            ctx.restore();
+
+            // Hanging leafy plant basket on the stone pillar
+            const hangX = pillarX + 27;
+            const hangY = firstFloorTop + 118;
+            ctx.save();
+            ctx.strokeStyle = INK;
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.moveTo(hangX, hangY - 22);
+            ctx.lineTo(hangX - 10, hangY);
+            ctx.moveTo(hangX, hangY - 22);
+            ctx.lineTo(hangX + 10, hangY);
+            ctx.stroke();
+            drawScallopBush(hangX - 18, hangY - 8, 36, 18, '#6f8767', false);
+            drawHandRect(hangX - 11, hangY + 6, 22, 16, '#b88564', 2.5, 4);
+            ctx.restore();
+
+            // =========================================================================
+            // 2. CENTER BUILDING: "OTTER BOOKS" (Cream 2nd Story + Slate-Blue Bookshop)
+            // =========================================================================
+            const bX = blockX + 335;
+            const bW = 615;
+
+            // Upper Cream Wall
+            drawHandRect(bX, facadeTop, bW, 185, '#ede4d3', 3.5);
+
+            // Three Upper Windows with Red Curtains & Flower Boxes (matching reference!)
+            const upperWindows = [
+                { x: bX + 48, w: 95 },
+                { x: bX + 230, w: 155 },
+                { x: bX + 490, w: 85 }
+            ];
+            upperWindows.forEach((uw) => {
+                const wy = facadeTop + 10;
+                const wh = 122;
+                drawHandRect(uw.x, wy, uw.w, wh, glowFactor > 0.2 ? '#f7dca0' : '#d5e0e6', 3.5);
+
+                // Mullions
+                ctx.beginPath();
+                ctx.strokeStyle = INK;
+                ctx.lineWidth = 3;
+                ctx.moveTo(uw.x + uw.w / 2, wy);
+                ctx.lineTo(uw.x + uw.w / 2, wy + wh);
+                ctx.moveTo(uw.x, wy + wh * 0.55);
+                ctx.lineTo(uw.x + uw.w, wy + wh * 0.55);
+                ctx.stroke();
+
+                // Terracotta Red Swooping Curtains inside top of window
+                ctx.save();
+                ctx.fillStyle = '#b85745';
+                ctx.strokeStyle = INK;
+                ctx.lineWidth = 3;
+                // Left curtain
+                ctx.beginPath();
+                ctx.moveTo(uw.x, wy);
+                ctx.lineTo(uw.x + 28, wy);
+                ctx.quadraticCurveTo(uw.x + 22, wy + 55, uw.x, wy + 85);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                // Right curtain
+                ctx.beginPath();
+                ctx.moveTo(uw.x + uw.w, wy);
+                ctx.lineTo(uw.x + uw.w - 28, wy);
+                ctx.quadraticCurveTo(uw.x + uw.w - 22, wy + 55, uw.x + uw.w, wy + 85);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+
+                // Wooden planter box + green bush with little yellow flowers
+                drawHandRect(uw.x - 6, wy + wh - 4, uw.w + 12, 16, '#9c7a5b', 3);
+                drawScallopBush(uw.x - 12, wy + wh - 24, uw.w + 24, 28, '#8da683', true);
+            });
+
+            // Otter Books 1st Floor Slate-Blue Facade
+            drawHandRect(bX, firstFloorTop, bW, 245, '#899bb0', 3.5);
+            // Top blue trim bar
+            drawHandRect(bX, firstFloorTop, bW, 14, '#76899f', 3.5);
+            // Cream Signboard Banner
+            drawHandRect(bX + 8, firstFloorTop + 14, bW - 16, 46, '#f8f3e6', 3.5);
+
+            // "• Otter Books •" serif lettering
+            ctx.save();
+            ctx.font = '600 28px "Lora", serif';
+            ctx.fillStyle = '#9c785b';
+            ctx.textAlign = 'center';
+            ctx.fillText('•   Otter Books   •', bX + bW / 2, firstFloorTop + 47);
+            ctx.restore();
+
+            // Left Twin Bookstore Windows
+            const winY = firstFloorTop + 74;
+            const winH = 115;
+            const leftWinBg = glowFactor > 0.1 ? '#ffdfa3' : '#f2ead9';
+            drawHandRect(bX + 68, winY, 76, winH, leftWinBg, 3.5);
+            drawBookshelf(bX + 74, winY + 12, 64, winH - 16, 1);
+
+            drawHandRect(bX + 158, winY, 76, winH, leftWinBg, 3.5);
+            drawBookshelf(bX + 164, winY + 26, 64, winH - 30, 2);
+
+            // Right Twin Bookstore Windows (with Mr. Otto the Otter Shopkeeper inside!)
+            drawHandRect(bX + 382, winY, 76, winH, leftWinBg, 3.5);
+            // Cute Otter Shopkeeper wearing a red cap inside the window (matching reference!)
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(bX + 382, winY, 76, winH);
+            ctx.clip();
+            const otterBob = Math.sin(time * 2.2) * 2;
+            const ox = bX + 422;
+            const oy = winY + 62 + otterBob;
+            // Otter body & head
+            ctx.fillStyle = '#f2ede4';
+            ctx.strokeStyle = INK;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.roundRect(ox - 20, oy - 22, 42, 56, 18);
+            ctx.fill();
+            ctx.stroke();
+            // Red cap
+            ctx.fillStyle = '#c86452';
+            ctx.beginPath();
+            ctx.arc(ox - 2, oy - 18, 15, Math.PI, 0);
+            ctx.fill();
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(ox - 18, oy - 18);
+            ctx.lineTo(ox + 18, oy - 16);
+            ctx.stroke();
+            // Round ear & eye & nose
+            ctx.fillStyle = '#f2ede4';
+            ctx.beginPath();
+            ctx.arc(ox - 14, oy - 10, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = INK;
+            ctx.beginPath();
+            ctx.arc(ox + 4, oy - 11, 2.3, 0, Math.PI * 2);
+            ctx.arc(ox + 16, oy - 9, 3.2, 0, Math.PI * 2);
+            ctx.fill();
+            // Stack of books on counter in front of Otter
+            drawHandRect(bX + 388, winY + 86, 64, 28, '#9e7b5c', 3);
+            drawHandRect(bX + 425, winY + 66, 9, 20, '#6e8c74', 2.5);
+            drawHandRect(bX + 434, winY + 68, 9, 18, '#c86452', 2.5);
+            ctx.restore();
+
+            // Far Right Window of Otter Books
+            drawHandRect(bX + 472, winY, 76, winH, leftWinBg, 3.5);
+            drawBookshelf(bX + 478, winY + 10, 52, winH - 14, 3);
+
+            // Center Double Doors of Otter Books (with cute pink bunny peeking inside!)
+            const doorLeftX = bX + 250;
+            drawHandRect(doorLeftX, winY, 54, 171, '#798ca1', 3.5);
+            drawHandRect(doorLeftX + 58, winY, 54, 171, '#798ca1', 3.5);
+            // Door glass panes
+            drawHandRect(doorLeftX + 9, winY + 10, 36, 96, leftWinBg, 3);
+            drawHandRect(doorLeftX + 67, winY + 10, 36, 96, leftWinBg, 3);
+
+            // Cute Pink Bunny browsing inside the right door pane (from the reference!)
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(doorLeftX + 67, winY + 10, 36, 96);
+            ctx.clip();
+            ctx.fillStyle = '#f2d3cf';
+            ctx.strokeStyle = INK;
+            ctx.lineWidth = 3;
+            const bunX = doorLeftX + 92;
+            const bunY = winY + 82;
+            // Bunny ears
+            ctx.beginPath();
+            ctx.ellipse(bunX - 6, bunY - 26, 4.5, 13, -0.15, 0, Math.PI * 2);
+            ctx.ellipse(bunX + 3, bunY - 26, 4.5, 13, 0.1, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            // Bunny head & shoulders
+            ctx.beginPath();
+            ctx.arc(bunX - 2, bunY - 10, 13, 0, Math.PI * 2);
+            ctx.arc(bunX - 2, bunY + 12, 15, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+
+            // Lower wainscoting panels under bookstore windows
+            drawHandRect(bX + 58, firstFloorTop + 198, 184, 34, '#798ca1', 3);
+            drawHandRect(bX + 374, firstFloorTop + 198, 184, 34, '#798ca1', 3);
+
+            // Wooden A-Frame Sandwich Board outside Otter Books
+            const signX = bX + 180;
+            const signY = groundY - 58;
+            ctx.save();
+            ctx.strokeStyle = INK;
+            ctx.lineWidth = 3.5;
+            ctx.lineJoin = 'round';
+            // Back leg
+            ctx.fillStyle = '#754c38';
+            ctx.beginPath();
+            ctx.moveTo(signX + 18, signY - 18);
+            ctx.lineTo(signX - 6, signY + 54);
+            ctx.lineTo(signX + 6, signY + 54);
+            ctx.lineTo(signX + 26, signY - 12);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            // Front frame
+            ctx.fillStyle = '#9c6248';
+            ctx.beginPath();
+            ctx.moveTo(signX + 14, signY - 20);
+            ctx.lineTo(signX + 56, signY - 20);
+            ctx.lineTo(signX + 66, signY + 56);
+            ctx.lineTo(signX + 22, signY + 56);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            // White note paper with scribbles
+            ctx.fillStyle = '#f8f3e6';
+            ctx.beginPath();
+            ctx.moveTo(signX + 20, signY - 11);
+            ctx.lineTo(signX + 50, signY - 11);
+            ctx.lineTo(signX + 57, signY + 42);
+            ctx.lineTo(signX + 27, signY + 42);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            // Scribble lines
+            ctx.lineWidth = 2;
+            for (let l = 0; l < 4; l++) {
+                ctx.beginPath();
+                ctx.moveTo(signX + 27 + l, signY + 2 + l * 9);
+                ctx.lineTo(signX + 47 + l, signY + 2 + l * 9);
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            // =========================================================================
+            // 3. RIGHT BUILDING: "VINYL & MATCHA" (Terracotta Upper + Sage Green Shop)
+            // =========================================================================
+            const vX = blockX + 950;
+            const vW = 330;
+
+            // Upper Terracotta Brick Wall
+            drawHandRect(vX, facadeTop, vW, 185, '#b67d65', 3.5);
+
+            // Cream Quoin Corner Stones (matching the rounded stones on the right building in reference)
+            for (let q = 0; q < 6; q++) {
+                const qw = (q % 2 === 0) ? 38 : 28;
+                drawHandRect(vX - 4, facadeTop + q * 30, qw, 28, '#ede4d3', 3.5, 9);
+            }
+
+            // Upper Window with Cream Frame & Drapes
+            drawHandRect(vX + 75, facadeTop + 12, 96, 118, '#f5eee0', 3.5);
+            drawHandRect(vX + 85, facadeTop + 20, 76, 100, glowFactor > 0.2 ? '#f7dca0' : '#d5e0e6', 3);
+            drawHandRect(vX + 205, facadeTop + 12, 86, 118, '#f5eee0', 3.5);
+            drawHandRect(vX + 215, facadeTop + 20, 66, 100, glowFactor > 0.2 ? '#f7dca0' : '#d5e0e6', 3);
+
+            // 1st Floor Sage Green Vinyl & Matcha Shop
+            drawHandRect(vX, firstFloorTop, vW, 245, '#6e9475', 3.5);
+            drawHandRect(vX, firstFloorTop + 14, vW, 44, '#6e9475', 3.5);
+
+            // Gold Sign Lettering
+            ctx.save();
+            ctx.font = 'bold 23px "Fredoka", sans-serif';
+            ctx.fillStyle = '#f3d9a4';
+            ctx.textAlign = 'center';
+            ctx.fillText('THE VINYL & CAFE', vX + vW / 2, firstFloorTop + 44);
+            ctx.restore();
+
+            // Display Window with Vinyl Records, Tea Tins & Warm Shelves
+            const vwX = vX + 34;
+            const vwY = firstFloorTop + 76;
+            const vwW = 165;
+            const vwH = 112;
+            drawHandRect(vwX, vwY, vwW, vwH, glowFactor > 0.1 ? '#ffdfa3' : '#f5ebd6', 3.5);
+
+            // Shelves inside the Green Shop window (gift boxes & vinyl sleeves like reference)
+            for (let s = 1; s <= 3; s++) {
+                const sy = vwY + s * 32;
+                drawHandRect(vwX + 4, sy, vwW - 8, 5, '#8c694b', 2.5);
+                // Gift boxes, tea tins & vinyl sleeves
+                drawHandRect(vwX + 14, sy - 16, 24, 16, '#c86452', 2);
+                drawHandRect(vwX + 44, sy - 20, 18, 20, '#d9a76a', 2);
+                drawHandRect(vwX + 72, sy - 14, 28, 14, '#8499b1', 2);
+                // Spinning tiny vinyl disc inside the window!
+                ctx.save();
+                ctx.translate(vwX + 132, sy - 12);
+                ctx.rotate(time * 2 + s);
+                ctx.fillStyle = '#2b2320';
+                ctx.beginPath();
+                ctx.arc(0, 0, 11, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = s === 2 ? '#c86452' : '#e5b869';
+                ctx.beginPath();
+                ctx.arc(0, 0, 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // Green Shop Door on the right
+            drawHandRect(vX + 216, vwY, 84, 169, '#5c8063', 3.5);
+            drawHandRect(vX + 228, vwY + 12, 60, 88, glowFactor > 0.1 ? '#ffe3a8' : '#e5dbc5', 3);
+            // Floating musical notes gently rising outside the Vinyl shop when music plays
+            if (audioState.isPlaying) {
+                ctx.save();
+                ctx.font = 'bold 18px sans-serif';
+                ctx.fillStyle = '#c86452';
+                const noteY = vwY - 10 - ((time * 28) % 45);
+                const noteX = vX + 120 + Math.sin(time * 4) * 14;
+                ctx.globalAlpha = 1 - ((time * 28) % 45) / 45;
+                ctx.fillText('♪', noteX, noteY);
+                ctx.fillText('♫', noteX + 45, noteY + 15);
+                ctx.restore();
+            }
+
+            // Lower panel under green shop window
+            drawHandRect(vwX, firstFloorTop + 198, vwW, 34, '#5c8063', 3);
+
+            // Vintage Streetlamp between Otter Books and Vinyl Shop
+            const lampX = blockX + 948;
+            const lampBaseY = groundY + 6;
+            ctx.save();
+            ctx.strokeStyle = INK;
+            ctx.fillStyle = '#3b3532';
+            ctx.lineWidth = 3.5;
+            // Post
+            drawHandRect(lampX - 4, lampBaseY - 220, 8, 220, '#3b3532', 3);
+            drawHandRect(lampX - 10, lampBaseY - 18, 20, 18, '#3b3532', 3, 3);
+            // Lantern head
+            const lanternGlass = glowFactor > 0.1 ? '#ffe596' : '#e6ece8';
+            drawHandRect(lampX - 14, lampBaseY - 252, 28, 32, lanternGlass, 3.5, 5);
+            // Lantern cap
+            ctx.beginPath();
+            ctx.moveTo(lampX - 20, lampBaseY - 252);
+            ctx.lineTo(lampX, lampBaseY - 268);
+            ctx.lineTo(lampX + 20, lampBaseY - 252);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        function drawCozyCharacter(screenX, screenY, charConfig, propType, facing, walkPhase, isMoving, isPlayer) {
+            ctx.save();
+            const s = charConfig.scale || 1;
+            const bob = isMoving ? Math.abs(Math.sin(walkPhase * 2)) * 5.5 : Math.sin(state.time * 2.4) * 1.5;
+            const tilt = isMoving ? Math.sin(walkPhase * 2) * 0.045 : 0;
+
+            ctx.translate(screenX, screenY);
+
+            // Soft ground shadow under character
+            ctx.fillStyle = 'rgba(43, 35, 32, 0.22)';
+            ctx.beginPath();
+            ctx.ellipse(0, 4, 24 * s, 7 * s, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.scale(facing * s, s);
+            ctx.translate(0, -bob);
+            ctx.rotate(tilt);
+
+            ctx.strokeStyle = INK;
+            ctx.lineWidth = 3.8;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+
+            // Swing legs
+            const legSwing = isMoving ? Math.sin(walkPhase * 2) * 9 : 0;
+            ctx.fillStyle = charConfig.bodyColor;
+
+            // Back foot
+            ctx.beginPath();
+            ctx.ellipse(-7 - legSwing * 0.6, -6, 8, 9, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Cute little tail
+            ctx.beginPath();
+            ctx.arc(-18, -22, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Main Bean / Pear Body
+            ctx.beginPath();
+            ctx.moveTo(-16, -12);
+            ctx.quadraticCurveTo(-20, -38, -8, -44);
+            ctx.lineTo(10, -44);
+            ctx.quadraticCurveTo(20, -36, 17, -12);
+            ctx.quadraticCurveTo(0, -6, -16, -12);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Front foot
+            ctx.beginPath();
+            ctx.ellipse(6 + legSwing * 0.6, -5, 8.5, 9, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Head (Marshmallow snout facing right in local coords)
+            ctx.beginPath();
+            if (charConfig.earType === 'bear') {
+                // Cute compact round bear head
+                ctx.ellipse(2, -56, 22, 19, 0, 0, Math.PI * 2);
+            } else {
+                // Cute dog head with rounded snout
+                ctx.moveTo(-18, -55);
+                ctx.quadraticCurveTo(-18, -78, 4, -76);
+                ctx.quadraticCurveTo(20, -75, 22, -62);
+                ctx.quadraticCurveTo(31, -60, 30, -50);
+                ctx.quadraticCurveTo(29, -40, 12, -41);
+                ctx.quadraticCurveTo(-18, -40, -18, -55);
+            }
+            ctx.fill();
+            ctx.stroke();
+
+            // Ears based on character type
+            if (charConfig.earType === 'bear') {
+                ctx.beginPath();
+                ctx.arc(-10, -72, 7.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(8, -73, 7.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            } else if (charConfig.earType === 'pointy') {
+                // Shiba-style upright ears (like the tan baguette dog in the image)
+                ctx.beginPath();
+                ctx.moveTo(-10, -71);
+                ctx.quadraticCurveTo(-4, -90, 4, -73);
+                ctx.fill();
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(-2, -73);
+                ctx.quadraticCurveTo(6, -91, 13, -72);
+                ctx.fill();
+                ctx.stroke();
+            } else if (charConfig.earType === 'floppy') {
+                // Floppy ear on back of head (like the tall white flower dog)
+                ctx.beginPath();
+                ctx.ellipse(-15, -62, 10, 15, 0.35, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            }
+
+            // Eye & Tiny Nose
+            ctx.fillStyle = INK;
+            ctx.beginPath();
+            ctx.arc(11, -58, 2.7, 0, Math.PI * 2);
+            ctx.fill();
+
+            if (charConfig.earType !== 'bear') {
+                ctx.beginPath();
+                ctx.arc(28, -54, 3.2, 0, Math.PI * 2);
+                ctx.fill();
+            } else {
+                // Little smile on bear
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.arc(15, -52, 4, 0.2, Math.PI * 0.85);
+                ctx.stroke();
+            }
+
+            // HELD PROP (Baguettes, Flower Bouquet, Glowing Lantern, Matcha Cup, or Book)
+            ctx.lineWidth = 3.2;
+            if (propType === 'baguette') {
+                // Two golden baguettes in a white paper bag (just like the middle dog!)
+                ctx.save();
+                ctx.translate(14, -30);
+                ctx.rotate(0.22);
+                // Two crusty baguettes sticking out
+                ctx.fillStyle = '#d1924e';
+                for (let b = -1; b <= 1; b += 2) {
+                    ctx.beginPath();
+                    ctx.roundRect(b * 4 - 5, -26, 11, 28, 5);
+                    ctx.fill();
+                    ctx.stroke();
+                    // Score marks
+                    ctx.beginPath();
+                    ctx.moveTo(b * 4 - 2, -18);
+                    ctx.lineTo(b * 4 + 3, -15);
+                    ctx.moveTo(b * 4 - 2, -11);
+                    ctx.lineTo(b * 4 + 3, -8);
+                    ctx.stroke();
+                }
+                // White paper bag
+                ctx.fillStyle = '#f5f2eb';
+                ctx.beginPath();
+                ctx.roundRect(-10, -6, 20, 20, 3);
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            } else if (propType === 'bouquet') {
+                // Wrapped flower bouquet (just like the tall white dog!)
+                ctx.save();
+                ctx.translate(15, -30);
+                ctx.rotate(0.18);
+                // Leafy twigs & blooms at top
+                const blooms = [
+                    { x: -6, y: -18, c: '#c86452' },
+                    { x: 5, y: -21, c: '#7c96ab' },
+                    { x: 0, y: -13, c: '#f2d388' }
+                ];
+                blooms.forEach(bl => {
+                    ctx.fillStyle = bl.c;
+                    ctx.beginPath();
+                    ctx.arc(bl.x, bl.y, 5.5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                });
+                // Kraft paper cone wrap
+                ctx.fillStyle = '#d8b28a';
+                ctx.beginPath();
+                ctx.moveTo(-12, -10);
+                ctx.lineTo(12, -10);
+                ctx.lineTo(4, 15);
+                ctx.lineTo(-5, 15);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            } else if (propType === 'lantern') {
+                // Brass Lantern that illuminates the night!
+                ctx.save();
+                ctx.translate(18, -28);
+                ctx.strokeStyle = INK;
+                ctx.fillStyle = '#ffe28a';
+                ctx.beginPath();
+                ctx.roundRect(-7, -4, 14, 18, 4);
+                ctx.fill();
+                ctx.stroke();
+                ctx.fillStyle = '#5e493a';
+                ctx.fillRect(-9, -6, 18, 4);
+                ctx.fillRect(-9, 12, 18, 4);
+                ctx.restore();
+            } else if (propType === 'coffee') {
+                // Hot Matcha Cup
+                ctx.save();
+                ctx.translate(16, -28);
+                ctx.fillStyle = '#a3bfa8';
+                ctx.beginPath();
+                ctx.roundRect(-7, -6, 14, 17, 3);
+                ctx.fill();
+                ctx.stroke();
+                ctx.fillStyle = '#f8f3e6';
+                ctx.fillRect(-8, -8, 16, 4);
+                ctx.strokeRect(-8, -8, 16, 4);
+                ctx.restore();
+            } else if (propType === 'book') {
+                // Cozy Novel
+                ctx.save();
+                ctx.translate(15, -28);
+                ctx.rotate(-0.15);
+                drawHandRect(-8, -9, 16, 20, '#8499b1', 3, 2);
+                drawHandRect(-5, -5, 10, 6, '#f8f3e6', 2);
+                ctx.restore();
+            }
+
+            // Cute Arm holding the prop
+            ctx.fillStyle = charConfig.bodyColor;
+            ctx.beginPath();
+            const armAngle = propType === 'none' ? Math.sin(walkPhase * 2) * 0.25 : -0.35;
+            ctx.ellipse(7, -27, 10, 6.5, armAngle, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.restore();
+
+            // Subtle "You" indicator arrow above player character
+            if (isPlayer) {
+                ctx.save();
+                const indicatorY = screenY - 95 * s - Math.sin(state.time * 4) * 3;
+                ctx.fillStyle = '#f8f3e6';
+                ctx.strokeStyle = INK;
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(screenX - 6, indicatorY - 8);
+                ctx.lineTo(screenX + 6, indicatorY - 8);
+                ctx.lineTo(screenX, indicatorY);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        const audioState = {
+            ctx: null,
+            isPlaying: false,
+            currentTrack: 0,
+            stepIndex: 0,
+            nextNoteTime: 0,
+            timerId: null,
+            volumes: {
+                music: 0.75,
+                rain: 0.25,
+                crackle: 0.35,
+                chatter: 0.15
+            },
+            nodes: {
+                musicGain: null,
+                rainGain: null,
+                crackleGain: null,
+                chatterGain: null
+            }
+        };
+
+        const LOFI_TRACKS = [
+            {
+                title: '1. Otter Books Rainy Lullaby',
+                mood: 'Warm Rhodes & Soft Vinyl Beat • 72 BPM',
+                color: '#c86452',
+                bpm: 72,
+                // Fmaj7 -> Em7 -> Dm7 -> Cmaj7
+                chords: [
+                    [261.63, 329.63, 349.23, 440.00],
+                    [246.94, 293.66, 329.63, 392.00],
+                    [220.00, 261.63, 293.66, 349.23],
+                    [196.00, 246.94, 261.63, 329.63]
+                ],
+                melody: [523.25, 0, 440.00, 392.00, 0, 349.23, 329.63, 0, 293.66, 349.23, 0, 440.00, 392.00, 0, 329.63, 261.63]
+            },
+            {
+                title: '2. Sunny Baguette Stroll',
+                mood: 'Bouncy Acoustic Rhodes & Shaker • 84 BPM',
+                color: '#d99b52',
+                bpm: 84,
+                // Gmaj7 -> Em7 -> Am7 -> D9
+                chords: [
+                    [196.00, 246.94, 293.66, 369.99],
+                    [164.81, 246.94, 293.66, 329.63],
+                    [220.00, 261.63, 329.63, 392.00],
+                    [220.00, 277.18, 329.63, 392.00]
+                ],
+                melody: [392.00, 440.00, 493.88, 0, 587.33, 0, 493.88, 440.00, 392.00, 0, 329.63, 392.00, 440.00, 0, 369.99, 0]
+            },
+            {
+                title: '3. Midnight Lantern Waltz',
+                mood: 'Dreamy Celesta & Deep Sub • 66 BPM',
+                color: '#6b7fa8',
+                bpm: 66,
+                // Ebmaj7 -> Cm7 -> Fm7 -> Bb7
+                chords: [
+                    [233.08, 293.66, 311.13, 392.00],
+                    [196.00, 261.63, 311.13, 392.00],
+                    [174.61, 261.63, 311.13, 349.23],
+                    [233.08, 293.66, 349.23, 415.30]
+                ],
+                melody: [466.16, 0, 392.00, 0, 523.25, 466.16, 392.00, 0, 349.23, 0, 311.13, 349.23, 392.00, 0, 0, 0]
+            }
+        ];
+
+        function initWebAudio() {
+            if (audioState.ctx) return;
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            const actx = new AudioCtx();
+            audioState.ctx = actx;
+
+            // Master Gain for Music
+            audioState.nodes.musicGain = actx.createGain();
+            audioState.nodes.musicGain.gain.value = audioState.volumes.music * 0.45;
+            audioState.nodes.musicGain.connect(actx.destination);
+
+            // Create 3 seconds of noise buffer for Rain, Vinyl Crackle, and Cafe Murmur
+            const bufferSize = actx.sampleRate * 3;
+            const rainBuffer = actx.createBuffer(1, bufferSize, actx.sampleRate);
+            const crackleBuffer = actx.createBuffer(1, bufferSize, actx.sampleRate);
+            const chatterBuffer = actx.createBuffer(1, bufferSize, actx.sampleRate);
+
+            const rData = rainBuffer.getChannelData(0);
+            const cData = crackleBuffer.getChannelData(0);
+            const mData = chatterBuffer.getChannelData(0);
+
+            let lastOut = 0;
+            for (let i = 0; i < bufferSize; i++) {
+                const white = Math.random() * 2 - 1;
+                // Pink-ish noise for rain
+                rData[i] = (lastOut + (0.04 * white)) / 1.04;
+                lastOut = rData[i];
+                // Sparse pops for vinyl crackle
+                cData[i] = Math.random() > 0.9965 ? (Math.random() * 2 - 1) * 0.9 : white * 0.015;
+                // Modulated warm murmur for cafe ambience
+                mData[i] = white * (0.3 + 0.7 * Math.sin(i / 4000) * Math.sin(i / 1700));
+            }
+
+            // Rain Loop
+            const rainSrc = actx.createBufferSource();
+            rainSrc.buffer = rainBuffer;
+            rainSrc.loop = true;
+            const rainFilter = actx.createBiquadFilter();
+            rainFilter.type = 'lowpass';
+            rainFilter.frequency.value = 1100;
+            audioState.nodes.rainGain = actx.createGain();
+            audioState.nodes.rainGain.gain.value = audioState.volumes.rain * 0.35;
+            rainSrc.connect(rainFilter);
+            rainFilter.connect(audioState.nodes.rainGain);
+            audioState.nodes.rainGain.connect(actx.destination);
+            rainSrc.start();
+
+            // Vinyl Crackle Loop
+            const crackleSrc = actx.createBufferSource();
+            crackleSrc.buffer = crackleBuffer;
+            crackleSrc.loop = true;
+            const crackleFilter = actx.createBiquadFilter();
+            crackleFilter.type = 'highpass';
+            crackleFilter.frequency.value = 1800;
+            audioState.nodes.crackleGain = actx.createGain();
+            audioState.nodes.crackleGain.gain.value = audioState.volumes.crackle * 0.22;
+            crackleSrc.connect(crackleFilter);
+            crackleFilter.connect(audioState.nodes.crackleGain);
+            audioState.nodes.crackleGain.connect(actx.destination);
+            crackleSrc.start();
+
+            // Cafe Murmur Loop
+            const chatterSrc = actx.createBufferSource();
+            chatterSrc.buffer = chatterBuffer;
+            chatterSrc.loop = true;
+            const chatterFilter = actx.createBiquadFilter();
+            chatterFilter.type = 'bandpass';
+            chatterFilter.frequency.value = 520;
+            chatterFilter.Q.value = 1.8;
+            audioState.nodes.chatterGain = actx.createGain();
+            audioState.nodes.chatterGain.gain.value = audioState.volumes.chatter * 0.18;
+            chatterSrc.connect(chatterFilter);
+            chatterFilter.connect(audioState.nodes.chatterGain);
+            audioState.nodes.chatterGain.connect(actx.destination);
+            chatterSrc.start();
+        }
+
+        function playWarmRhodesNote(freq, time, duration, vol = 0.12) {
+            const actx = audioState.ctx;
+            if (!actx) return;
+            const osc = actx.createOscillator();
+            const subOsc = actx.createOscillator();
+            const gain = actx.createGain();
+            const filter = actx.createBiquadFilter();
+
+            // Slight tape warble detune
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, time);
+            osc.detune.setValueAtTime(Math.sin(time * 3) * 6, time);
+
+            subOsc.type = 'sine';
+            subOsc.frequency.setValueAtTime(freq, time);
+
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(950, time);
+
+            gain.gain.setValueAtTime(0.0001, time);
+            gain.gain.linearRampToValueAtTime(vol, time + 0.04);
+            gain.gain.exponentialRampToValueAtTime(0.0008, time + duration);
+
+            osc.connect(filter);
+            subOsc.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioState.nodes.musicGain);
+
+            osc.start(time);
+            subOsc.start(time);
+            osc.stop(time + duration + 0.05);
+            subOsc.stop(time + duration + 0.05);
+        }
+
+        function playLoFiDrum(type, time) {
+            const actx = audioState.ctx;
+            if (!actx) return;
+            if (type === 'kick') {
+                const osc = actx.createOscillator();
+                const gain = actx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(115, time);
+                osc.frequency.exponentialRampToValueAtTime(38, time + 0.12);
+                gain.gain.setValueAtTime(0.28, time);
+                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.22);
+                osc.connect(gain);
+                gain.connect(audioState.nodes.musicGain);
+                osc.start(time);
+                osc.stop(time + 0.24);
+            } else if (type === 'snare') {
+                // Soft brushed lo-fi snare
+                const osc = actx.createOscillator();
+                const gain = actx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(170, time);
+                osc.frequency.exponentialRampToValueAtTime(75, time + 0.08);
+                gain.gain.setValueAtTime(0.12, time);
+                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
+                osc.connect(gain);
+                gain.connect(audioState.nodes.musicGain);
+                osc.start(time);
+                osc.stop(time + 0.14);
+            }
+        }
+
+        function scheduleLoFiStep() {
+            if (!audioState.isPlaying || !audioState.ctx) return;
+            const actx = audioState.ctx;
+            const track = LOFI_TRACKS[audioState.currentTrack];
+            const secondsPerEighth = (60 / track.bpm) / 2;
+
+            while (audioState.nextNoteTime < actx.currentTime + 0.15) {
+                const step = audioState.stepIndex % 16;
+                const chordIdx = Math.floor(step / 4);
+                const t = audioState.nextNoteTime;
+
+                // Play warm Rhodes chord every 4 eighth-notes
+                if (step % 4 === 0) {
+                    const chord = track.chords[chordIdx];
+                    chord.forEach((noteFreq, i) => {
+                        playWarmRhodesNote(noteFreq, t + i * 0.018, secondsPerEighth * 3.8, 0.09);
+                    });
+                    // Warm bass root note one octave down
+                    playWarmRhodesNote(chord[0] * 0.5, t, secondsPerEighth * 3.5, 0.14);
+                }
+
+                // Play gentle bell/piano melody note
+                const melFreq = track.melody[step];
+                if (melFreq > 0) {
+                    playWarmRhodesNote(melFreq, t, secondsPerEighth * 1.9, 0.08);
+                }
+
+                // Soft lo-fi boom-bap groove
+                if (step === 0 || step === 5 || step === 8) {
+                    playLoFiDrum('kick', t);
+                }
+                if (step === 2 || step === 6 || step === 10 || step === 14) {
+                    playLoFiDrum('snare', t);
+                }
+
+                audioState.nextNoteTime += secondsPerEighth;
+                audioState.stepIndex++;
+            }
+            audioState.timerId = setTimeout(scheduleLoFiStep, 50);
+        }
+
+        function toggleMusicPlayback() {
+            initWebAudio();
+            if (audioState.ctx.state === 'suspended') {
+                audioState.ctx.resume();
+            }
+            audioState.isPlaying = !audioState.isPlaying;
+            if (audioState.isPlaying) {
+                audioState.nextNoteTime = audioState.ctx.currentTime + 0.05;
+                scheduleLoFiStep();
+            } else {
+                clearTimeout(audioState.timerId);
+            }
+            syncMusicUI();
+        }
+
+        function selectTrack(idx) {
+            audioState.currentTrack = idx;
+            audioState.stepIndex = 0;
+            if (!audioState.isPlaying) {
+                toggleMusicPlayback();
+            } else {
+                syncMusicUI();
+            }
+        }
+
+        function nextTrack() {
+            selectTrack((audioState.currentTrack + 1) % LOFI_TRACKS.length);
+        }
+
+        function prevTrack() {
+            selectTrack((audioState.currentTrack - 1 + LOFI_TRACKS.length) % LOFI_TRACKS.length);
+        }
+
+        function updateMixer(channel, val) {
+            const norm = parseFloat(val) / 100;
+            audioState.volumes[channel] = norm;
+            if (!audioState.ctx) return;
+            const now = audioState.ctx.currentTime;
+            if (channel === 'music' && audioState.nodes.musicGain) {
+                audioState.nodes.musicGain.gain.setTargetAtTime(norm * 0.45, now, 0.05);
+            } else if (channel === 'rain' && audioState.nodes.rainGain) {
+                audioState.nodes.rainGain.gain.setTargetAtTime(norm * 0.35, now, 0.05);
+            } else if (channel === 'crackle' && audioState.nodes.crackleGain) {
+                audioState.nodes.crackleGain.gain.setTargetAtTime(norm * 0.22, now, 0.05);
+            } else if (channel === 'chatter' && audioState.nodes.chatterGain) {
+                audioState.nodes.chatterGain.gain.setTargetAtTime(norm * 0.18, now, 0.05);
+            }
+        }
+
+        function syncMusicUI() {
+            const track = LOFI_TRACKS[audioState.currentTrack];
+            document.getElementById('miniPlayIcon').textContent = audioState.isPlaying ? '⏸' : '▶';
+            document.getElementById('miniTrackTitle').textContent = track.title;
+            document.getElementById('modalTrackTitle').textContent = track.title;
+            document.getElementById('modalTrackMood').textContent = track.mood;
+            document.getElementById('modalPlayBtn').textContent = audioState.isPlaying ? '⏸ Pause' : '▶ Play';
+            document.getElementById('vinylCenterLabel').style.backgroundColor = track.color;
+
+            const disc = document.getElementById('vinylDisc');
+            if (audioState.isPlaying) {
+                disc.classList.remove('vinyl-paused');
+            } else {
+                disc.classList.add('vinyl-paused');
+            }
+
+            for (let i = 0; i < LOFI_TRACKS.length; i++) {
+                const btn = document.getElementById(`track-btn-${i}`);
+                if (i === audioState.currentTrack) {
+                    btn.className = 'w-full text-left px-3.5 py-2 rounded-xl border-2 border-[#2b2320] bg-[#e4d6be] font-bold text-xs sm:text-sm flex items-center justify-between transition shadow-sm';
+                } else {
+                    btn.className = 'w-full text-left px-3.5 py-2 rounded-xl border-2 border-[#2b2320] bg-[#f8f3e6] hover:bg-[#efe5d4] font-semibold text-xs sm:text-sm flex items-center justify-between transition';
+                }
+            }
+        }
+
+        function setTimeOfDay(tod) {
+            currentTod = tod;
+            targetLight = LIGHTING_PRESETS[tod];
+            ['sunrise', 'noon', 'sunset', 'night'].forEach(k => {
+                const btn = document.getElementById(`tod-${k}`);
+                if (k === tod) {
+                    btn.className = 'tod-btn px-2.5 py-1 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1 transition-all bg-[#e8d5b5] border-2 border-[#2b2320]';
+                } else {
+                    btn.className = 'tod-btn px-2.5 py-1 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1 transition-all border-2 border-transparent hover:bg-[#efe5d4]';
+                }
+            });
+        }
+
+        function toggleAutoStroll(forceState) {
+            state.autoStroll = typeof forceState === 'boolean' ? forceState : !state.autoStroll;
+            if (state.autoStroll) state.targetWorldX = null;
+            const btn = document.getElementById('autoStrollBtn');
+            const dot = document.getElementById('autoStrollDot');
+            const txt = document.getElementById('autoStrollText');
+
+            if (state.autoStroll) {
+                btn.classList.add('bg-[#d6eadf]');
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-[#3f7a52] border border-[#2b2320] animate-pulse';
+                txt.textContent = 'Auto-Stroll: ON';
+            } else {
+                btn.classList.remove('bg-[#d6eadf]');
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-[#b85745] border border-[#2b2320]';
+                txt.textContent = 'Auto-Stroll: OFF';
+            }
+        }
+
+        function cycleMainCharacter() {
+            state.activeCharIndex = (state.activeCharIndex + 1) % PLAYABLE_CHARS.length;
+            const c = PLAYABLE_CHARS[state.activeCharIndex];
+            document.getElementById('charSwitchIcon').textContent = c.icon;
+            document.getElementById('charSwitchLabel').textContent = c.name.split(' ')[0];
+            document.getElementById('modalCharName').textContent = c.name;
+        }
+
+        function selectCarryProp(prop) {
+            state.carryProp = prop;
+            ['bouquet', 'baguette', 'lantern', 'coffee', 'book', 'none'].forEach(p => {
+                const el = document.getElementById(`prop-${p}`);
+                if (el) {
+                    if (p === prop) {
+                        el.classList.add('bg-[#f4dcd6]');
+                    } else {
+                        el.classList.remove('bg-[#f4dcd6]');
+                    }
+                }
+            });
+        }
+
+        function openShopModal(shopId) {
+            state.activeModal = shopId;
+            const backdrop = document.getElementById('modalBackdrop');
+            backdrop.classList.remove('hidden');
+            backdrop.classList.add('flex');
+
+            document.querySelectorAll('.shop-modal').forEach(el => el.classList.add('hidden'));
+            const modal = document.getElementById(`modal-${shopId}`);
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function closeShopModal() {
+            state.activeModal = null;
+            const backdrop = document.getElementById('modalBackdrop');
+            backdrop.classList.add('hidden');
+            backdrop.classList.remove('flex');
+        }
+
+        function handleBackdropClick(e) {
+            if (e.target.id === 'modalBackdrop') {
+                closeShopModal();
+            }
+        }
+
+        // Otter Books Quotes & Pomodoro Timer
+        const COZY_QUOTES = [
+            { text: '"There is nothing quite so comforting as the smell of old paper, warm baguettes from next door, and rain tapping softly against the windowpane."', author: '— Chronicles of Otter Lane, Ch. 4' },
+            { text: '"Mr. Otto always keeps a stack of poetry by the register and a pot of chamomile tea simmering for weary travelers."', author: '— Notes from the Bookshop Window' },
+            { text: '"Even on the cloudiest afternoons, the flower shop on the corner paints the sidewalk in shades of marigold and rose."', author: '— Autumn on Otter Lane' },
+            { text: '"Take a slow breath. You don\'t have to finish the whole chapter today; simply walking down the street is enough."', author: '— Little Bear\'s Pocket Journal' }
+        ];
+        let quoteIdx = 0;
+        function nextBookQuote() {
+            quoteIdx = (quoteIdx + 1) % COZY_QUOTES.length;
+            document.getElementById('cozyQuoteText').textContent = COZY_QUOTES[quoteIdx].text;
+            document.getElementById('cozyQuoteAuthor').textContent = COZY_QUOTES[quoteIdx].author;
+        }
+
+        let pomoSeconds = 25 * 60;
+        let pomoInterval = null;
+        function updatePomoUI() {
+            const m = String(Math.floor(pomoSeconds / 60)).padStart(2, '0');
+            const s = String(pomoSeconds % 60).padStart(2, '0');
+            document.getElementById('pomoDisplay').textContent = `${m}:${s}`;
+        }
+        function togglePomodoro() {
+            const btn = document.getElementById('pomoStartBtn');
+            if (pomoInterval) {
+                clearInterval(pomoInterval);
+                pomoInterval = null;
+                btn.textContent = 'Resume Focus';
+            } else {
+                btn.textContent = 'Pause Timer';
+                pomoInterval = setInterval(() => {
+                    if (pomoSeconds > 0) {
+                        pomoSeconds--;
+                        updatePomoUI();
+                    } else {
+                        clearInterval(pomoInterval);
+                        pomoInterval = null;
+                        btn.textContent = 'Session Complete! 🎉';
+                    }
+                }, 1000);
+            }
+        }
+        function resetPomodoro(mins) {
+            if (pomoInterval) {
+                clearInterval(pomoInterval);
+                pomoInterval = null;
+            }
+            pomoSeconds = mins * 60;
+            updatePomoUI();
+            document.getElementById('pomoStartBtn').textContent = 'Start Focus';
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && state.activeModal) {
+                closeShopModal();
+                return;
+            }
+            if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') {
+                state.keys.left = true;
+                state.targetWorldX = null;
+                if (state.autoStroll) toggleAutoStroll(false);
+            }
+            if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') {
+                state.keys.right = true;
+                state.targetWorldX = null;
+                if (state.autoStroll) toggleAutoStroll(false);
+            }
+            if ((e.key === 'e' || e.key === 'E' || e.key === ' ') && !state.activeModal) {
+                if (state.activeShopNearby) {
+                    openShopModal(state.activeShopNearby.id);
+                }
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') state.keys.left = false;
+            if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') state.keys.right = false;
+        });
+
+        function startTouchMove(dir) {
+            state.touchDir = dir;
+            state.targetWorldX = null;
+            if (state.autoStroll) toggleAutoStroll(false);
+        }
+        function stopTouchMove() {
+            state.touchDir = 0;
+        }
+
+        // Clicking on a shop opens its modal; clicking on the sidewalk walks the character there
+        canvas.addEventListener('click', (e) => {
+            if (state.activeModal) return;
+            const rect = canvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+
+            const h = window.innerHeight;
+            const groundY = h - 135;
+            const firstFloorTop = groundY - 245;
+
+            const clickedWorldX = state.cameraX + clickX;
+            const localX = ((clickedWorldX % BLOCK_WIDTH) + BLOCK_WIDTH) % BLOCK_WIDTH;
+
+            // Check if user clicked on one of the shop doors/windows or floating prompt badge
+            if (clickY >= firstFloorTop - 40 && clickY <= groundY - 5) {
+                const shop = SHOPS.find(s => localX >= s.xStart && localX <= s.xEnd);
+                if (shop) {
+                    openShopModal(shop.id);
+                    return;
+                }
+            }
+
+            // Otherwise, click-to-walk on the sidewalk
+            if (state.autoStroll) toggleAutoStroll(false);
+            state.targetWorldX = clickedWorldX;
+        });
+
+        let lastFrameTime = performance.now();
+
+        function updateAndRender(now) {
+            const dt = Math.min(0.05, (now - lastFrameTime) / 1000);
+            lastFrameTime = now;
+            state.time += dt;
+
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            const groundY = h - 135; // Sidewalk level
+
+            // 1. Smoothly interpolate lighting toward target Time-of-Day
+            const lerpFactor = Math.min(1, dt * 3.5);
+            activeLight.darkness += (targetLight.darkness - activeLight.darkness) * lerpFactor;
+            activeLight.windowGlow += (targetLight.windowGlow - activeLight.windowGlow) * lerpFactor;
+            activeLight.lampGlow += (targetLight.lampGlow - activeLight.lampGlow) * lerpFactor;
+            activeLight.starAlpha += (targetLight.starAlpha - activeLight.starAlpha) * lerpFactor;
+            for (let i = 0; i < 4; i++) {
+                activeLight.ambientTint[i] += (targetLight.ambientTint[i] - activeLight.ambientTint[i]) * lerpFactor;
+            }
+
+            // 2. Character Movement & Auto-Stroll Logic
+            const moveSpeed = 145;
+            const autoSpeed = 48;
+            let vx = 0;
+
+            if (state.keys.left || state.touchDir === -1) {
+                vx = -moveSpeed;
+                state.facing = -1;
+            } else if (state.keys.right || state.touchDir === 1) {
+                vx = moveSpeed;
+                state.facing = 1;
+            } else if (state.targetWorldX !== null) {
+                const diff = state.targetWorldX - state.playerWorldX;
+                if (Math.abs(diff) > 6) {
+                    vx = Math.sign(diff) * moveSpeed;
+                    state.facing = Math.sign(diff);
+                } else {
+                    state.targetWorldX = null;
+                }
+            } else if (state.autoStroll) {
+                vx = state.autoStrollDir * autoSpeed;
+                state.facing = state.autoStrollDir;
+            }
+
+            state.isMoving = Math.abs(vx) > 0.1;
+            state.playerWorldX += vx * dt;
+            if (state.isMoving) {
+                state.walkCycle += dt * (Math.abs(vx) / 36);
+            }
+
+            // Smooth camera follow centered on player
+            const desiredCamX = state.playerWorldX - w * 0.46;
+            state.cameraX += (desiredCamX - state.cameraX) * Math.min(1, dt * 7);
+
+            // Determine which shop the player is currently standing in front of
+            const playerBlockLocalX = ((state.playerWorldX % BLOCK_WIDTH) + BLOCK_WIDTH) % BLOCK_WIDTH;
+            state.activeShopNearby = SHOPS.find(s => Math.abs(playerBlockLocalX - s.doorX) < 115) || null;
+
+            // Update NPC companions
+            npcs.forEach(npc => {
+                npc.offsetFromOrigin += npc.dir * npc.speed * dt;
+                npc.walkCycle += dt * 1.9;
+            });
+
+            // =========================================================================
+            // LAYER 1: SKY GRADIENT, STARS & DRIFTING CLOUDS (0.15x Parallax)
+            // =========================================================================
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, groundY - 220);
+            skyGrad.addColorStop(0, targetLight.skyTop);
+            skyGrad.addColorStop(1, targetLight.skyBottom);
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, w, h);
+
+            // Twinkling Stars at Sunset/Night
+            if (activeLight.starAlpha > 0.02) {
+                ctx.save();
+                state.stars.forEach(st => {
+                    const sx = ((st.x - state.cameraX * 0.05) % w + w) % w;
+                    const alpha = activeLight.starAlpha * (0.45 + 0.55 * Math.sin(state.time * st.twinkleSpeed + st.phase));
+                    ctx.fillStyle = `rgba(255, 248, 224, ${alpha})`;
+                    ctx.beginPath();
+                    ctx.arc(sx, st.y, st.r, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                ctx.restore();
+            }
+
+            // Soft Hand-Drawn Clouds
+            state.clouds.forEach(cl => {
+                cl.x += cl.speed * dt;
+                const cx = ((cl.x - state.cameraX * 0.12) % (w + 300) + (w + 300)) % (w + 300) - 150;
+                ctx.save();
+                ctx.fillStyle = activeLight.darkness > 0.4 ? 'rgba(65, 78, 112, 0.55)' : 'rgba(248, 243, 230, 0.85)';
+                ctx.strokeStyle = INK;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.roundRect(cx, cl.y, cl.w, 26, 13);
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            });
+
+            // =========================================================================
+            // LAYER 2: DISTANT ROOFTOPS & CHIMNEYS (0.45x Parallax)
+            // =========================================================================
+            const bgParallaxX = state.cameraX * 0.45;
+            const startRoofIdx = Math.floor(bgParallaxX / 420) - 1;
+            const endRoofIdx = Math.ceil((bgParallaxX + w) / 420) + 1;
+            for (let r = startRoofIdx; r <= endRoofIdx; r++) {
+                const rx = r * 420 - bgParallaxX;
+                const roofTop = groundY - 485 - ((Math.abs(r) % 3) * 22);
+                drawHandRect(rx + 20, roofTop, 360, 90, (r % 2 === 0) ? '#9a7b69' : '#7b8794', 3.5, 4);
+                // Chimney
+                drawHandRect(rx + 280, roofTop - 32, 34, 34, '#b86c58', 3.5);
+            }
+
+            // =========================================================================
+            // LAYER 3: SIDEWALK PAVEMENT & CURB (1.0x World Layer)
+            // =========================================================================
+            drawHandRect(-10, groundY, w + 20, h - groundY + 10, '#f2eee6', 3.5);
+
+            // Sidewalk concrete joints and little pebbles matching reference
+            const firstBlockIndex = Math.floor(state.cameraX / BLOCK_WIDTH) - 1;
+            const lastBlockIndex = Math.ceil((state.cameraX + w) / BLOCK_WIDTH) + 1;
+
+            // =========================================================================
+            // LAYER 4: MODULAR STREET BUILDINGS ("Flowers", "Otter Books", "Vinyl & Cafe")
+            // =========================================================================
+            for (let b = firstBlockIndex; b <= lastBlockIndex; b++) {
+                const blockScreenX = b * BLOCK_WIDTH - state.cameraX;
+                drawStreetBlock(blockScreenX, groundY, state.time, activeLight.windowGlow);
+
+                // Sidewalk details (little stone specks like in the screenshot)
+                ctx.fillStyle = INK;
+                [140, 260, 490, 680, 860, 1140].forEach((px, idx) => {
+                    ctx.beginPath();
+                    ctx.ellipse(blockScreenX + px, groundY + 42 + (idx % 3) * 18, 4, 2, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            }
+
+            // =========================================================================
+            // LAYER 5: STROLLING NPCs & MAIN PLAYER CHARACTER
+            // =========================================================================
+            // Draw the 2 companion characters strolling along the street
+            npcs.forEach((npc) => {
+                // Wrap NPC position around the camera so the street always feels lively
+                const relX = ((npc.offsetFromOrigin - state.cameraX) % BLOCK_WIDTH + BLOCK_WIDTH) % BLOCK_WIDTH;
+                const screenX = relX;
+                // Avoid overlapping the player character's exact type if possible
+                const npcCharIndex = (npc.charType === state.activeCharIndex)
+                    ? (npc.charType + 1) % PLAYABLE_CHARS.length
+                    : npc.charType;
+
+                drawCozyCharacter(
+                    screenX,
+                    groundY + 50,
+                    PLAYABLE_CHARS[npcCharIndex],
+                    npc.prop,
+                    npc.dir,
+                    npc.walkCycle,
+                    true,
+                    false
+                );
+            });
+
+            // Draw Player Character
+            const playerScreenX = state.playerWorldX - state.cameraX;
+            const playerScreenY = groundY + 56;
+            drawCozyCharacter(
+                playerScreenX,
+                playerScreenY,
+                PLAYABLE_CHARS[state.activeCharIndex],
+                state.carryProp,
+                state.facing,
+                state.walkCycle,
+                state.isMoving,
+                true
+            );
+
+            // =========================================================================
+            // LAYER 6: FOREGROUND GREEN HEDGE BUSHES AT BOTTOM (1.18x Parallax)
+            // =========================================================================
+            const fgParallaxX = state.cameraX * 1.18;
+            const bushChunkW = 320;
+            const startBush = Math.floor(fgParallaxX / bushChunkW) - 1;
+            const endBush = Math.ceil((fgParallaxX + w) / bushChunkW) + 1;
+
+            for (let i = startBush; i <= endBush; i++) {
+                const bx = i * bushChunkW - fgParallaxX;
+                drawScallopBush(bx - 8, h - 68, bushChunkW + 16, 85, '#869c7a', false);
+            }
+
+            // Soft dark gradient at the very bottom edge (like the video player bar area in reference)
+            const bottomVignette = ctx.createLinearGradient(0, h - 55, 0, h);
+            bottomVignette.addColorStop(0, 'rgba(30, 38, 28, 0)');
+            bottomVignette.addColorStop(1, 'rgba(26, 33, 24, 0.55)');
+            ctx.fillStyle = bottomVignette;
+            ctx.fillRect(0, h - 55, w, 55);
+
+            // =========================================================================
+            // LAYER 7: DYNAMIC TIME-OF-DAY AMBIENT COLOR GRADING & EMISSIVE GLOWS
+            // =========================================================================
+            if (activeLight.ambientTint[3] > 0.01 || activeLight.darkness > 0.01) {
+                ctx.save();
+                const [r, g, b, a] = activeLight.ambientTint;
+                ctx.fillStyle = `rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}, ${a.toFixed(3)})`;
+                ctx.fillRect(0, 0, w, h);
+                ctx.restore();
+            }
+
+            // Warm Emissive Window Light Cones & Streetlamps at Sunset / Night
+            if (activeLight.windowGlow > 0.05) {
+                ctx.save();
+                ctx.globalCompositeOperation = 'screen';
+
+                for (let b = firstBlockIndex; b <= lastBlockIndex; b++) {
+                    const blockScreenX = b * BLOCK_WIDTH - state.cameraX;
+                    const winGlowPositions = [
+                        { x: blockScreenX + 92, y: groundY - 110, r: 120, intensity: 0.35 },  // Flowers Window
+                        { x: blockScreenX + 490, y: groundY - 115, r: 155, intensity: 0.42 }, // Otter Books Left
+                        { x: blockScreenX + 795, y: groundY - 115, r: 155, intensity: 0.42 }, // Otter Books Right (Mr. Otto)
+                        { x: blockScreenX + 1065, y: groundY - 115, r: 145, intensity: 0.40 }, // Vinyl Shop Window
+                        { x: blockScreenX + 948, y: groundY - 235, r: 190, intensity: 0.58 }  // Streetlamp Glow
+                    ];
+
+                    winGlowPositions.forEach(gl => {
+                        const grad = ctx.createRadialGradient(gl.x, gl.y, 8, gl.x, gl.y + 45, gl.r);
+                        const alpha = (gl.intensity * activeLight.windowGlow).toFixed(3);
+                        grad.addColorStop(0, `rgba(255, 222, 138, ${alpha})`);
+                        grad.addColorStop(0.55, `rgba(255, 185, 92, ${(alpha * 0.45).toFixed(3)})`);
+                        grad.addColorStop(1, 'rgba(255, 160, 60, 0)');
+                        ctx.fillStyle = grad;
+                        ctx.beginPath();
+                        ctx.arc(gl.x, gl.y + 25, gl.r, 0, Math.PI * 2);
+                        ctx.fill();
+                    });
+                }
+
+                // If player is carrying the Warm Brass Lantern, emit a personal light halo!
+                if (state.carryProp === 'lantern') {
+                    const lx = playerScreenX + state.facing * 20;
+                    const ly = playerScreenY - 28;
+                    const lGrad = ctx.createRadialGradient(lx, ly, 4, lx, ly, 155);
+                    lGrad.addColorStop(0, `rgba(255, 230, 150, ${(0.75 * activeLight.windowGlow).toFixed(3)})`);
+                    lGrad.addColorStop(0.5, `rgba(255, 180, 80, ${(0.32 * activeLight.windowGlow).toFixed(3)})`);
+                    lGrad.addColorStop(1, 'rgba(255, 150, 50, 0)');
+                    ctx.fillStyle = lGrad;
+                    ctx.beginPath();
+                    ctx.arc(lx, ly, 155, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Drifting golden fireflies near the hedges at sunset/night
+                state.fireflies.forEach(ff => {
+                    ff.x = (ff.x + ff.speedX * dt + BLOCK_WIDTH) % BLOCK_WIDTH;
+                    ff.y += Math.sin(state.time * 2 + ff.phase) * 0.35;
+                    const fx = ((ff.x - state.cameraX) % w + w) % w;
+                    const pulse = 0.4 + 0.6 * Math.sin(state.time * 3.5 + ff.phase);
+                    const fAlpha = (pulse * activeLight.windowGlow).toFixed(3);
+                    ctx.fillStyle = `rgba(255, 238, 145, ${fAlpha})`;
+                    ctx.beginPath();
+                    ctx.arc(fx, ff.y, 3.2, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+
+                ctx.restore();
+            }
+
+            // =========================================================================
+            // LAYER 8: COZY RAIN PARTICLES (Linked to the Rain Slider in the Mixer!)
+            // =========================================================================
+            if (audioState.volumes.rain > 0.05) {
+                ctx.save();
+                ctx.strokeStyle = `rgba(220, 232, 245, ${(audioState.volumes.rain * 0.55).toFixed(2)})`;
+                ctx.lineWidth = 1.6;
+                ctx.beginPath();
+                state.rainDrops.forEach(rd => {
+                    rd.y += rd.speed * dt;
+                    rd.x -= 65 * dt;
+                    if (rd.y > h) {
+                        rd.y = -20;
+                        rd.x = Math.random() * w;
+                    }
+                    if (rd.x < 0) rd.x = w;
+                    ctx.moveTo(rd.x, rd.y);
+                    ctx.lineTo(rd.x - 3, rd.y + rd.len);
+                });
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // =========================================================================
+            // LAYER 9: FLOATING INTERACTIVE SHOP PROMPT ABOVE NEARBY DOOR
+            // =========================================================================
+            if (state.activeShopNearby && !state.activeModal) {
+                const shop = state.activeShopNearby;
+                // Compute screen X of the shop door closest to player
+                const playerBlock = Math.floor(state.playerWorldX / BLOCK_WIDTH);
+                const doorWorldX = playerBlock * BLOCK_WIDTH + shop.doorX;
+                const promptX = doorWorldX - state.cameraX;
+                const promptY = groundY - 265 + Math.sin(state.time * 4) * 4;
+
+                ctx.save();
+                ctx.font = 'bold 13px "Fredoka", sans-serif';
+                const label = `${shop.icon}  [E] or Click: ${shop.name}`;
+                const boxW = ctx.measureText(label).width + 28;
+                const boxH = 34;
+
+                drawHandRect(promptX - boxW / 2, promptY - boxH / 2, boxW, boxH, '#f8f3e6', 3, 12);
+                ctx.fillStyle = INK;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(label, promptX, promptY + 1);
+                ctx.restore();
+            }
+
+            requestAnimationFrame(updateAndRender);
+        }
+
+        window.onload = function () {
+            requestAnimationFrame(updateAndRender);
+        };
+    </script>
+</body>
+</html>
