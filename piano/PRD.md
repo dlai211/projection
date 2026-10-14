@@ -1,312 +1,371 @@
-# PRD — 钢琴听音 / 练琴网页 (Piano Listener & Trainer)
+# PRD — Piano Listener & Trainer
 
-> 本文件是 `projection/piano/` 项目的需求规格书 + 变更记录（Changelog）。
-> 每个开发阶段完成后，在本文件底部追加一条「Phase X 完成」记录，并 git commit + push。
+> This file is the specification and changelog for `projection/piano/`.
+> After each phase, add a "Phase N complete" entry at the bottom and commit + push.
 
-- 拟定日期：2026-10-13
-- 状态：**需求已确认（v0.2）— 可进入开发**
-- 目标用户：本人（无编程背景，使用 88 键真钢琴 + 电脑浏览器练习）
-
----
-
-## 1. 项目目标
-
-做一个**单页网页**，用一台电脑（屏幕 + 麦克风）实现三件事：
-
-1. **看谱**：把 `music-sheet/flower_day.json` 里的 64 小节乐谱，以「铅笔手绘 + 粗纹水彩纸」的 2D 平面风格画在屏幕上。
-2. **听音**：用 Web Audio API 做**复音（polyphonic）音高检测**——能同时听出「和弦 + 旋律」多个音，不是一次只认一个音。
-3. **练琴**：练琴模式（Learning Mode）下，网页高亮「该弹的音」，听你弹对了就自动往下走；听音模式（Listening Mode）下，点任意小节可以试听该小节或从该处连播到结尾。
+- Drafted: 2026-10-13
+- Status: **requirements confirmed (v0.2) — implementation under way**
+- User: the author (no coding background; practises on a real 88-key piano with a
+  computer and a microphone)
 
 ---
 
-## 2. 现状盘点（已有素材）
+## 1. Goal
 
-| 路径 | 说明 | 处理方式 |
+A **single web page** that turns a computer (screen + microphone) into three things:
+
+1. **Read the score** — draw the 64 measures of `music-sheet/flower_day.json` in a
+   flat 2D "pencil on coarse watercolour paper" style.
+2. **Listen** — detect pitches with the Web Audio API **polyphonically**, i.e. hear
+   a chord and a melody at the same time, not one note at a time.
+3. **Practise** — in Learning Mode the page highlights the notes to play and moves
+   on as you play them correctly; in Listening Mode, clicking any measure lets you
+   hear that measure on its own or play from there to the end of the piece.
+
+---
+
+## 2. Starting point (what already existed)
+
+| Path | What it is | How it is used |
 |---|---|---|
-| `piano/test.html` | 视觉模板基线（单个 HTML，内含全部 CSS/JS），只画了第 1–8 小节 | **只作视觉参考，不改它**；新项目另建 `index.html` |
-| `piano/music-sheet/flower_day.json` | 目标曲谱（64 小节） | 新项目的**唯一数据源**，只读不改 |
-| `piano/test-music/flower_day.mp3` | 测试音频（4.4 MB） | 用于「测试音频模式」验证听音算法 |
-| `piano/piano-mp3/*.mp3` | 88 键钢琴音色采样（A0–C8，共 89 个文件，已在 git 历史中） | **复用为播放音源**（见 §7.3） |
-| `piano/pitch-detection/crepe/` | 旧的 ml5 CREPE 模型（**单音**检测） | **不使用**。CREPE 只能认单音，无法满足复音需求 |
-| git 历史里的 `piano/note_detector.html`、`piano.html`、`script.js` | 上一次的原型（ml5 + Font Awesome） | 已废弃，不继承 |
+| `piano/test.html` | Visual baseline (one self-contained HTML file), measures 1–8 only | **Reference only — never modified.** The new app is built separately |
+| `piano/music-sheet/flower_day.json` | The score (64 measures) | The single source of truth for the new app; read-only |
+| `piano/test-music/flower_day.mp3` | Test recording | Drives "test audio" mode to verify the detector |
+| `piano/piano-mp3/*.mp3` | 88 piano samples (A0–C8, ~10 KB each, already in git history) | Playback sound source (see §7.3) |
+| `piano/pitch-detection/crepe/` | An old ml5 CREPE model (**monophonic**) | **Not used.** CREPE cannot hear chords |
+| `note_detector.html`, `piano.html`, `script.js` in git history | An earlier prototype (ml5 + Font Awesome) | Abandoned, not carried over |
 
-**结论**：新项目从零开始写，只复用 `flower_day.json` + `flower_day.mp3` + `piano-mp3/` 采样。
+**Conclusion:** the new app was written from scratch, reusing only `flower_day.json`,
+`flower_day.mp3` and the piano samples.
 
 ---
 
-## 3. 目录结构（HTML / CSS / JS 严格分离）
+## 3. File layout (HTML / CSS / JS strictly separated)
 
 ```
 piano/
-├─ index.html                 # 只放结构骨架 + <script> 引入，不写样式和逻辑
+├─ index.html                 # structure and <script> tags only — no styling, no logic
 ├─ styles/
-│  ├─ theme.css               # 纸张、石墨色、字体、纸张纹理滤镜（视觉变量集中在这里）
-│  ├─ layout.css              # 顶栏 / 乐谱区 / 钢琴区 的响应式布局与紧凑度
-│  └─ components.css          # 图标按钮、五线谱元素、琴键、弹窗
+│  ├─ theme.css               # paper, graphite, type, the paper-grain filter
+│  ├─ layout.css              # top bar / sheet / keyboard, responsiveness, density
+│  └─ components.css          # icon buttons, staff elements, keys, popovers
 ├─ js/
-│  ├─ config.js               # 全局配置：颜色、行数策略、判定阈值、窗口尺寸基准
-│  ├─ notes-letter.js         # 【独立映射文件】字母谱映射 (C/D/E…, MIDI↔音名↔频率)
-│  ├─ notes-number.js         # 【独立映射文件】数字谱映射 (1234567 + 高低八度符号)
-│  ├─ score-loader.js         # 读取 flower_day.json，解析成内部统一的「音符对象」
-│  ├─ sheet-render.js         # 五线谱渲染（谱号/调号/拍号/大括号/音符/高亮）
-│  ├─ keyboard-render.js      # 底部钢琴键盘渲染（范围切换、黑键铅笔刮擦纹理）
-│  ├─ audio-engine.js         # 麦克风 / 测试音频 的取流与 FFT 频谱分析
-│  ├─ pitch-detect.js         # 复音检测算法（频谱峰值 → 音级 chroma → 和弦匹配）
-│  ├─ piano-sound.js          # 播放音源（piano-mp3 采样 + 合成音兜底）
-│  ├─ practice.js             # 练琴模式状态机（当前小节 / 判定 / 自动前进）
-│  ├─ playback.js             # 听音模式（试听本小节 / 连播到结尾）
-│  └─ app.js                  # 入口：初始化、顶栏按钮事件、图标渲染
-├─ music-sheet/flower_day.json
+│  ├─ config.js               # every tunable number (colours live in CSS)
+│  ├─ pitch-utils.js          # MIDI ↔ name ↔ frequency, octaves, pitch classes
+│  ├─ notes-letter.js         # LETTER notation mapping (ABC)
+│  ├─ notes-number.js         # NUMBER notation mapping (123 / Jianpu)
+│  ├─ staff-utils.js          # pitch → position on the treble/bass staff
+│  ├─ glyphs-bravura.js       # generated musical glyph outlines
+│  ├─ score-loader.js         # source JSON → score model
+│  ├─ sheet-render.js         # draws the systems
+│  ├─ keyboard-render.js      # the piano keyboard                (phase 2)
+│  ├─ audio-engine.js         # microphone / test-audio capture   (phase 3)
+│  ├─ pitch-detect.js         # polyphonic detection              (phase 3)
+│  ├─ piano-sound.js          # playback samples + synth fallback (phase 3)
+│  ├─ practice.js             # learning-mode state machine       (phase 4)
+│  ├─ playback.js             # listening mode                    (phase 4)
+│  └─ app.js                  # wiring: controls, resize, redraw
+├─ music-sheet/flower_day.json   # the score, hand-editable
+├─ music-sheet/flower-day.js     # generated from the JSON (see tools/)
 ├─ test-music/flower_day.mp3
 ├─ piano-mp3/*.mp3
-└─ PRD.md                     # 本文件
+├─ tools/                     # build and check scripts, not shipped to the browser
+└─ PRD.md                     # this file
 ```
 
-**技术约束（重要）**
-- js 之间用**经典 `<script>` 引入 + 全局命名空间**方式组织（例如 `window.App.NotesLetter`），**不用 ES Module 的 `import/export`**——这样直接双击 `index.html` 也能打开。
-- 唯一的例外：浏览器安全策略禁止 `file://` 下用 `fetch()` 读取本地 JSON。所以程序会：先尝试 `fetch('music-sheet/flower_day.json')`；失败时在屏幕上显示提示「请用本地服务器打开」并给出命令。
-- 本机已装 Python 3.11.4，起服务器命令：
-  `cd C:\Users\laiji\VSCode\projection\piano` → `python -m http.server 8080` → 浏览器打开 `http://localhost:8080/`
-- 测试音频模式（MP3）不依赖服务器，双开即用。
+**Technical constraints (important)**
+
+- Scripts are loaded as **classic `<script>` tags with a `window.App.*` namespace**,
+  not ES modules, so `index.html` also works when opened directly from disk.
+- The score is loaded from `music-sheet/flower-day.js`, a generated file that assigns
+  a global. This exists because browsers refuse to `fetch()` a local `.json` file when
+  the page is opened from `file://`. Regenerate it with `tools/build_score.py` after
+  editing the JSON.
+- The dev server (already installed: Python 3.11):
+  `cd projection/piano` → `python -m http.server 8080` → <http://localhost:8080/>
 
 ---
 
-## 4. 视觉主题要求
+## 4. Visual theme
 
-### 4.1 纸张：更亮、更暖的粗纹水彩纸
-在 `test.html` 基础上**整体提亮**，保留 `<feTurbulence>` + `<feDiffuseLighting>` 的 3D 凹凸纸纹和「平面 2D 铅笔」观感。
+### 4.1 Paper: brighter, warmer coarse stock
 
-| 变量 | test.html 现值 | **新值** | 说明 |
-|---|---|---|---|
-| `--paper-base` | `#ece6da` | **`#f8f4ea`** | 亮暖白（新鲜冷压素描纸） |
-| 纸张滤镜照明色 `lighting-color` | `#f2ece1` | **`#fdfaf3`** | 纹理高光提亮 |
-| `--graphite-2b` | `#282624` | `#312d29` | 主笔触（略提亮，不刺眼） |
-| `--graphite-hb` | `#595550` | `#655f57` | 次要线条 |
-| `--graphite-faint` | `#8c867e` | `#9a938a` | 小节号等淡笔 |
-| `--pencil-highlight` | rgba(...,0.09) | rgba(49,45,41,0.10) | 高亮涂抹 |
-| 纸张层 `opacity` | 0.78 | **0.60** | 纹理更透气，不再压暗画面 |
-
-- `feTurbulence` 的 `baseFrequency="0.045 0.05"`、`numOctaves="5"`、`surfaceScale="2.6"` 保持不变（粗纹颗粒不能丢）。
-- 铅笔边缘滤镜 `#graphite-edge`（`feDisplacementMap scale="1.9"`）保持不变。
-- 黑键的**铅笔刮擦纹理**用 Canvas 程序化生成（沿用 `test.html` 的 `createScrapedPencilDataURL()`，保留 5 张随机变体，避免相邻黑键长得一样），保留纸纹「留白小点」。
-
-### 4.2 图标：纯描边 + 透明底 + 手绘铅笔边框
-- **线性描边图标（line-only / outline）**，无填充色块。
-- **背景完全透明**（去掉 `test.html` 里 `.modern-icon-btn` 的半透明圆形底色 `--modern-surface`）。
-- 外圈边框是**手绘铅笔感的圆形**：用 SVG 圆环 + 轻微抖动滤镜（复用 `#graphite-edge`，`scale` 调小到 ~1.2）——只让**外圈**手绘化，**内部图形保持干净规整**（避免"歪七扭八很难看"）。
-- 状态反馈：激活态用**石墨色填充的小圆点/描边加重**表示（不用大红块）。
-- 图标清单：`123/ABC` 切换（分段胶囊）、麦克风、重置、松散视图、紧凑视图、屏幕自适应钢琴（默认）、全键盘钢琴。
-
----
-
-## 5. 五线谱区（乐谱）要求
-
-### 5.1 显示行数（Systems）与紧凑度
-- **基线**：2K 屏（如 2560×1440）默认显示 **3 行大谱表**（比 `test.html` 的 1 行多，实现方式：把 64 小节排版成多行，一屏显示 3 行）。
-- **自动适配**：可见行数随**浏览器窗口高度**变化（窗口变小自动少显示、变大自动多显示）。
-- **两个紧凑度按钮**（顶栏铅笔描边线条图标）：
-  1. **松散视图**：谱表行距拉大，纵向留白多，看得清楚（一屏行数少）。
-  2. **紧凑视图**：行距压缩，一屏塞下更多行（谱表本身大小不变，只压缩行与行之间的空白）。
-- 行数计算策略（写进 `config.js`，可调）：`行高 = 谱表基准高 × 缩放`，`行间距 = 模式系数 × 行高`；`可见行数 = floor(可用高度 / (行高 + 行间距))`。验收标准：**窗口 2560×1440、紧凑模式、默认缩放 → 恰好 3 行**。
-
-### 5.2 谱面左侧符号必须准确（重点）
-`test.html` 用的是字符拼凑（`𝄞` `𝄢` `♯`），位置和比例都不对。新实现要求：
-
-| 符号 | 要求 |
-|---|---|
-| **大谱表大括号 `{`** | 用**贝塞尔路径**手绘一条连接高音谱表与低音谱表的**花括号**，粗细渐变、上下端圆润收笔、中间对准两谱表之间的空隙。矢量绘制（不用字体字符，避免字体缺失） |
-| **高音谱号 𝄞** | 比例正确（螺旋中心落在 G 线 = 高音谱表第 2 线）、上下不超界 |
-| **低音谱号 𝄢** | 比例正确（两个点夹住 F 线 = 低音谱表第 4 线） |
-| **调号 ♯** | **1#（G 大调/E 小调）**：F♯ 在高音谱表**第 5 线**、低音谱表**第 4 线**；**3#（A 大调/F# 小调）**：F♯ → C♯ → G♯ 按五度圈顺序排布，每个音落在正确线/间 |
-| **拍号 6/8、3/8** | 分子分母上下堆叠、垂直居中对齐谱表中心 |
-| **小节号** | 每行行首标注小节号 |
-
-- 实现方式：谱号/花括号用**内联 SVG path**（矢量、可缩放、不依赖系统字体——本机虽有 `seguisym.ttf`，但换机器就可能缺字）。
-- 每个谱表行左侧重复：大括号 + 高音谱号 + 低音谱号；**调号/拍号只在该行第一个小节前重复一次**；曲中变调（第 42 小节转 3#）、变拍（第 32 小节 3/8、第 33 小节回 6/8）处，在对应位置**重新画出**调号/拍号。
-- 音符本体：实心/空心椭圆符头（旋转 -20°）、符干、符尾连线（beam）沿用 `test.html` 的铅笔质感。
-
-### 5.3 音符标注与「数字谱 / 字母谱」切换
-- 每个音符上方（右手）/下方（左手）写**手写体标注**（`Caveat` 字体）。
-- 顶栏 `123 / ABC` 胶囊按钮一键切换**全部**标注：乐谱上的标注 + 底部琴键上的键名标注同时切换。
-- **映射规则**（两套映射各自独立成文件，互不影响）：
-
-**数字谱（Jianpu）**：C4 = `1`，向上 `2 3 4 5 6 7`，再高八度 `1' 2'`；低八度 `1, 2,` 等（逗号数量 = 低几个八度，撇号数量 = 高几个八度）。
-| 数字 | 字母 | MIDI |
+| Token | Old value | **New value** |
 |---|---|---|
-| `1` | C | 60（C4） |
-| `2` | D | 62 |
-| `3` | E | 64 |
-| `4` | F | 65 |
-| `5` | G | 67 |
-| `6` | A | 69 |
-| `7` | B | 71 |
-| `1'` | C5 | 72 |
-| `1,` | C3 | 48 |
-| `1,,` | C2 | 36 |
-| `#1'` | C♯5 | 73 |
-| `♮4` | F♮4 | 65 |
+| `--paper-base` | `#ece6da` | **`#f8f4ea`** |
+| lighting colour in the filter | `#f2ece1` | **`#fdfaf3`** |
+| `--graphite-2b` | `#282624` | `#312d29` |
+| `--graphite-hb` | `#595550` | `#655f57` |
+| `--graphite-faint` | `#8c867e` | `#9a938a` |
+| paper layer opacity | 0.78 | **0.58** |
 
-**字母谱**：`C D E F G A B` + 升号 `♯`（如 `C♯5`）+ 还原号 `♮`（如 `F♮4`）+ 八度数字（C4 = 中央 C，即 MIDI 60）。
-- 和弦（左手）标注用 `/` 分隔，例如 `3/7,` = E3/B2，字母谱写 `E3/B2`。
+The `feTurbulence` + `feDiffuseLighting` bump-lit grain is kept exactly as it was —
+that grain is what makes the paper read as coarse cold-press stock.
 
-### 5.4 数据来源与解析规则
-`flower_day.json` 结构：
+### 4.2 Icons: outline only, transparent, pencil ring
+
+- **Line-only glyphs**: no filled shapes.
+- **Completely transparent background**: no tinted circle behind the icon.
+- The ring around each button is drawn with a **hand-drawn pencil wobble** (a small
+  `feDisplacementMap`), while the glyph inside stays clean and geometric so the
+  buttons never look lopsided.
+- Active states use graphite weight and colour, not a solid block.
+- Buttons: `123 / ABC`, microphone, reset, staff spacing, and (phase 2) the two
+  keyboard-range buttons.
+
+---
+
+## 5. The score area
+
+### 5.1 Systems per screen and the spacing control
+
+- The music is drawn at a **fixed on-screen size** — one staff space is always the
+  same number of pixels — and the **number of systems** adapts to the window height.
+  The music is never shrunk to fit more lines in.
+- Two systems' worth of headroom is the minimum; a window that cannot show two
+  systems shrinks the music, but never below `minScale`.
+- **Staff-spacing control**: one icon that cycles `normal → tight → loose`. Tight
+  packs more (smaller gaps), loose gives the music more air. The button carries a
+  small `N`/`T`/`L` badge showing the current setting.
+  *(The draft asked for two buttons, but loose/tight/normal are three states of one
+  setting — two buttons cannot express "neither".)*
+- Margins are generous: the score sits on the paper rather than running to its edge.
+
+### 5.2 The symbols at the left of each system
+
+The reference used Unicode characters (`𝄞 𝄢 ♯`), which render differently on every
+machine and are often missing entirely. The new app draws **real engraved outlines**
+taken from the Bravura music font (see `NOTICE-BRAVURA.md`):
+
+| Symbol | Requirement |
+|---|---|
+| Grand-staff brace `{` | A single curly brace spanning both staves, correctly proportioned, never clipped at the page edge |
+| Treble clef | Spiral centred on the G line (2nd line of the treble staff) |
+| Bass clef | The two dots straddle the F line (4th line of the bass staff) |
+| Key signature ♯ | **1#** (G major / E minor): F♯ on the top line of the treble staff and the 4th line of the bass staff. **3#** (A major / F♯ minor): F♯ → C♯ → G♯ in circle-of-fifths order, each on its proper line or space |
+| Time signature | Numerator over denominator, centred between the staves |
+
+- Key and time signatures repeat at the start of every system, and are redrawn
+  mid-system wherever the score changes them (measure 42 changes key; measures 32–33
+  change time signature and back).
+- Notes: tilted noteheads, stems, beams and ledger lines, all with the graphite
+  texture; the measure being practised is shaded with a graphite smudge.
+
+### 5.3 Annotations and the 123 / ABC switch
+
+- Each note carries a handwritten label (above the melody, below the bass) in the
+  `Caveat` hand.
+- The `123 / ABC` toggle switches **every** annotation at once — on the staff and,
+  from phase 2, on the keyboard as well.
+- The two notation systems live in separate modules and never import each other.
+  Both derive their spelling from the key signature, so they always agree:
+
+**Number notation (Jianpu)** — `1` is the key's tonic, so it means C in C major and
+C♯ in A major. Octave marks: `1` = middle C, `1'` = the C above, `1,` = the C below.
+Accidentals are written before the degree: `#4` is a raised 4th, `♮4` a natural 4th.
+
+**Letter notation** — `C D E F G A B` with `♯` / `♮` / `♭` as needed and an octave
+number, so middle C is `C4`.
+
+### 5.4 How the source JSON is read
+
 ```jsonc
 {
-  "meta": { "title": "꽃날 (Flower Day)", "subtitle": "드라마 '황진이' OST",
-            "composer": "Seo Woong-seok", "arranger": "PianiCast",
-            "timeSignature": "6/8", "tempoDottedQuarter": 50 },
+  "meta": { "title": "꽃날 (Flower Day)", "timeSignature": "6/8", "tempoDottedQuarter": 50 },
   "measures": [
     { "m": 1, "key": "1#",
-      "rh": [["7","B4",71], ["7","B4",71], ["6","A4",69], ...],
-      "lh": ["3/7,", "E3/B2", 52] },
+      "rh": [["7","B4",71], ["7","B4",71], ...],   // [number, letter, MIDI]
+      "lh": ["3/7,", "E3/B2", 52] },               // 2 or 3 elements, see below
     ...
   ]
 }
 ```
-解析要点（`score-loader.js` 负责，输出**统一的内部音符对象**）：
-1. `rh`：每个元素是 `[数字谱, 字母谱, MIDI]`，逐音解析。
-2. `lh`：**长度不固定**——有的是 2 项 `["3/7,", "E3/B2", 52]`，有的是 3 项 `["2,/7,,", "#1,/6,,", 50]`。解析规则：
-   - 取**第 2 项**作为字母谱（最可靠），**最后一项**作为 MIDI；
-   - 若首项是**和弦串**（含 `/`），按 `/` 拆开逐个音解析（`"3,/1,/6,,"` → E3 / C3 / A2）。
-3. 缺省继承：`key` 沿用上一个小节的值（第 1 小节定义）；`time` 同上。
-4. 内部对象统一为 `{ measure, key, time, rh: [{num, letter, midi, pitchClass, octave}], lh: [{num, letter, midi, ...}] }`。
 
-> ⚠️ **已知数据限制**：JSON 里**没有时值（音长）字段**。所以：
-> - 音符的**横向位置**按 `test.html` 参考版的 beam 分组等比例排布（例如 6/8 拍 7 个音 = 3+3+3+3+3+3+3 的十六分比例）；
-> - 每小节的**总时长**由拍号推算（6/8 拍 = 1 个附点四分音符拍 × 2；速度 ♩. = 50 → 每小节约 **1.2 秒**）；
-> - 学习模式与自动滚动的推进以**小节**为单位，不依赖逐音时值——这个限制不影响练琴体验。
+`score-loader.js` normalises all of this into one clean model:
 
----
+1. `rh` entries are `[number, letter, MIDI]` triples.
+2. `lh` entries are **irregular** — sometimes `["3/7,", "E3/B2", 52]`, sometimes
+   `["2,/7,,", "#1,/6,,", 50]`. Rule: the notation string is first, the MIDI number
+   last, and the middle element is only present sometimes. A packed chord
+   (`"3,/1,/6,,"`) is split into its individual notes.
+3. `key` and `time` carry over from the previous measure until the score changes them.
 
-## 6. 底部钢琴键盘（2 个视图按钮）
-
-| 模式 | 图标 | 行为 |
-|---|---|---|
-| **默认：屏幕自适应** | 屏幕+琴键线条图标 | 按**窗口宽度**自动决定显示八度范围（约每八度 200px 宽）。2K 屏（2560px）→ 显示 **第 2–6 八度**（C2–B6，60 个白键位置中的 35 个）。范围以中央 C 为基准，尽量落在可用音域中段 |
-| **全键盘：88 键** | 完整钢琴线条图标 | 显示 **A0–C8 全部 88 键**（52 白键 + 36 黑键），横向铺满；屏幕不够宽时整体缩小（不横向滚动，保持所见即所得） |
-
-- 白键：透明底 + 铅笔描边；黑键：**密集斜向铅笔刮擦纹理**（Canvas 生成，多张随机变体）。
-- 键面标注键名：随 `123/ABC` 一起切换（数字谱 `1` / `1,` / `1'`；字母谱 `C4` / `C3` / `C5`）。
-- 交互：点击琴键 → 发声 + 在乐谱上高亮对应音（练琴模式下点击琴键 = 手动指定「我在弹这个音」，便于调试）。
-- 该音域内**当前该弹的音**用石墨色涂抹高亮（与乐谱高亮联动）。
+> **Known data limitation.** The JSON records pitch only — there is no duration data.
+> Rhythm is therefore reconstructed: note spacing follows the reference engraving's
+> proportions, and advancement in practice mode is **per measure**, which does not
+> depend on note values.
 
 ---
 
-## 7. 音频与检测
+## 6. The piano keyboard (phase 2)
 
-### 7.1 两种音源输入（同一套分析管线）
-1. **麦克风（实时练琴）**：`getUserMedia({audio: {echoCancellation:false, noiseSuppression:false, autoGainControl:false}})`——这三个开关必须关掉，否则钢琴泛音会被吃掉，检测会失真。
-2. **测试音频（`test-music/flower_day.mp3`）**：用 `AudioBufferSourceNode` 播 MP3 → 接入**同一个 AnalyserNode**，不用麦克风也能验证算法。提供：播放/暂停、进度条、音量、以及一个「检测诊断面板」（显示实时检测到的音名集合 + 与目标小节的匹配分）。
+| Mode | Behaviour |
+|---|---|
+| **Screen-adaptive (default)** | The octave range follows the window width (about 200 px per octave). On a 2K window this shows octaves 2–6, centred on middle C |
+| **Full 88 keys** | The whole keyboard, A0–C8, scaled to fit the width |
 
-### 7.2 复音检测算法（`pitch-detect.js`）
-目标：同时听出**多个音**（左手和弦 + 右手旋律），而不是一次只认一个音。
+- White keys outlined in pencil; black keys filled with a **dense diagonal
+  pencil-scraped texture** generated on a canvas (several variants so neighbouring
+  keys differ).
+- Key labels follow the `123 / ABC` toggle.
+- Clicking a key plays it and highlights the matching note on the staff.
 
-管线：
+---
+
+## 7. Audio
+
+### 7.1 Two sources, one analysis pipeline
+
+1. **Microphone** for live practice:
+   `getUserMedia({audio: {echoCancellation:false, noiseSuppression:false, autoGainControl:false}})`
+   — these three must be off, or the browser eats the piano's overtones.
+2. **Test audio** (`test-music/flower_day.mp3`) played through an
+   `AudioBufferSourceNode` into the **same** `AnalyserNode`, so the detector can be
+   tested without a piano. Includes transport controls and a diagnostics panel
+   showing the detected notes and the match score.
+
+### 7.2 Polyphonic detection
+
 ```
-音频流 → AnalyserNode(FFT size 4096, 采样率 → 频率分辨率 ~10.8 Hz)
-      → 频谱平滑（多帧平均，抑制抖动）
-      → 峰值提取（局部极大 + 高于动态阈值，限制 3~12 个峰）
-      → 谐波归属（一个峰若同时是另一个峰的 2x/3x/4x 倍频，判为泛音并丢弃）
-      → 折叠为 12 个音级 (chroma / pitch-class) 强度向量
-      → 与「目标小节的音级集合」做匹配打分（余弦相似度 + 覆盖率）
-      → 连续 N 帧(默认 4 帧)高于阈值(默认 0.72) → 判定为「弹对」
+audio → AnalyserNode (FFT 4096)
+      → smooth across frames
+      → pick spectral peaks (local maxima above a moving threshold)
+      → discard peaks that are harmonics of a lower peak
+      → fold into a 12-bin pitch-class (chroma) vector
+      → compare with the target measure's pitch classes
+      → N consecutive frames above threshold ⇒ "correct"
 ```
-- **判定单位 = 整小节**（Q1 已确认）：本小节**所有**目标音级（右手旋律 + 左手和弦的**每个**和弦音）都出现 ⇒ 判定通过 ⇒ 高亮前进到下一小节。
-- 判定用**音级（pitch class）**而非精确音高：真钢琴 + 麦克风的八度误差不再致命（C4 弹成 C5 也认），对练琴更友好。
-- 参数（FFT 大小、阈值、连续帧数、峰数上限）全部集中在 `config.js` 顶部，方便调。
-- 提供**实时可视化调试条**（12 个音级的小柱状图），看不到时不占地方，调试时打开。
-- 不用 ml5/CREPE（那是单音模型），不引入任何外部库——纯 Web Audio API + 自己写的算法。
 
-### 7.3 播放音源（网页发声）
-- **主音源**：复用 `piano-mp3/<音名>.mp3`（88 个采样，每个约 10 KB）。首次点击页面时**预加载当前可见音域**的采样并缓存为 `AudioBuffer`，播放时零延迟。
-- **兜底**：旋律音超出采样范围时，用 Web Audio 振荡器合成（三角波 + 指数衰减包络）。
+- Matching is by **pitch class**, not exact pitch, so an octave slip on a real piano
+  is not punished.
+- Every threshold lives in `config.js`; a live 12-bar chroma display is available for
+  tuning.
+- No external library, and specifically not ml5/CREPE — that model is monophonic.
 
----
+### 7.3 Playback sound
 
-## 8. 两种交互模式
-
-### 8.1 练琴模式（麦克风 ON）
-- 进入方式：点顶栏麦克风图标（点亮 = 麦克风工作中）。
-- 目标音在**乐谱**和**琴键**上同时高亮（石墨涂抹）。
-- 你弹对了 → 高亮自动前进到下一小节；弹错/没弹 → 停留在原处（**等待你有耐心地弹**，不自动跳过）。
-- **点任意小节/音符** → 立刻跳到该处开始练（麦克风保持开启，不打断）。
-- 顶部显示当前进度（如 `第 12 / 64 小节`）。
-
-### 8.2 听音模式（麦克风 OFF）
-- 麦克风关闭时，点任意小节 → 弹出**两个选项**（小气泡菜单，不用大弹窗）：
-  1. **只播放本小节** —— 播完停止。
-  2. **从这里连播到结尾** —— 从小节 N 一直演奏到第 64 小节，可随时按暂停/停止。
-- 播放时乐谱高亮 + 琴键高亮同步跟着走，并且**自动滚动**到当前行。
-- 顶栏同时提供**全曲播放 / 暂停 / 停止**按钮。
-
-### 8.3 自动滚动规则
-- 练琴模式自动前进时，**只有当目标小节不在当前可见行内**才滚动（避免每次前进都跳一下，眼睛累）。
-- 手动点击跳转时，立刻滚动到该小节。
+- Primary source: the 88 samples in `piano-mp3/`, preloaded and cached as
+  `AudioBuffer`s on first interaction.
+- Fallback: a synthesised tone for any pitch the samples do not cover.
 
 ---
 
-## 9. 顶栏控件总清单
+## 8. The two modes
 
-| 控件 | 类型 | 功能 |
+### 8.1 Learning mode (microphone on)
+
+- The notes to play are highlighted on the staff and on the keyboard.
+- **Judging is per measure**: when every target pitch of the measure has been heard
+  — the melody *and* every note of the left-hand chord — the highlight advances.
+- Playing nothing, or playing wrong notes, simply waits.
+- Clicking any measure jumps there immediately and practice continues from that spot.
+- Progress is shown as `Measure N / 64`.
+
+### 8.2 Listening mode (microphone off)
+
+- Clicking a measure opens a small bubble menu with two choices:
+  1. **Play this measure only.**
+  2. **Play from here to the end.**
+- The staff and keyboard highlights follow the playback, and the sheet scrolls.
+- Transport controls (play / pause / stop) live in the top bar.
+
+### 8.3 Scrolling rules
+
+- During practice the sheet scrolls **only when the target measure is off screen**,
+  so the page does not jump on every advance.
+- Clicking a measure scrolls it into view straight away.
+
+---
+
+## 9. Controls
+
+| Control | Kind | Function |
 |---|---|---|
-| 꽃날 (Flower Day) + 副标题 | 标题区 | 手写体标题，来自 `meta` |
-| `123 / ABC` | 分段胶囊 | 数字谱 / 字母谱全局切换 |
-| 麦克风 | 描边图标 | 开/关麦克风 = 练琴模式 / 听音模式 |
-| 重置 | 描边图标 | 回到第 1 小节，清空高亮与判定状态 |
-| 松散视图 | 描边图标 | 谱表行距放大 |
-| 紧凑视图 | 描边图标 | 谱表行距压缩（默认） |
-| 屏幕自适应钢琴 | 描边图标 | 键盘范围 = 屏幕宽度自适应（默认） |
-| 全键盘钢琴 | 描边图标 | 键盘范围 = 88 键 A0–C8 |
-| 播放 / 暂停 / 停止 | 描边图标 | 听音模式下的整曲播放控制 |
-| 测试音频 | 小面板 | 载入 `flower_day.mp3`、进度条、检测诊断开关 |
+| Title + subtitle | text | From `meta` |
+| `123 / ABC` | pill switch | Switch all annotations |
+| Microphone | outline icon | Toggle learning mode / listening mode |
+| Reset | outline icon | Back to measure 1, clear all state |
+| Staff spacing | outline icon | Cycle normal → tight → loose (badge shows which) |
+| Keyboard range | outline icon ×2 | Screen-adaptive (default) / full 88 keys — phase 2 |
+| Transport | outline icons | Play / pause / stop — phase 4 |
+| Test audio | panel | Load the MP3, scrub, toggle the diagnostics display — phase 3 |
 
 ---
 
-## 10. 分阶段实现计划（每阶段一次 commit + push）
+## 10. Phases
 
-| 阶段 | 内容 | 验收标准 |
+| Phase | Content | Acceptance |
 |---|---|---|
-| **Phase 1** 骨架 + 乐谱渲染 | `index.html` + 三个 css + `config/notes-*/score-loader/sheet-render/app.js`；亮纸主题；64 小节全部渲染；谱号/调号/拍号/大括号精确；行数自适应；松散/紧凑按钮 | 打开页面能看到完整乐谱，2560×1440 下 3 行，切换 123/ABC 标注全变，调号/拍号在变调变拍处正确出现 |
-| **Phase 2** 钢琴键盘 | `keyboard-render.js`；两种范围模式；黑键刮擦纹理；键名标注联动；点击发声 | 两个图标能切换范围，2K 屏默认显示第 2–6 八度，全键盘模式显示 88 键 |
-| **Phase 3** 音频引擎 + 测试音频 | `audio-engine.js` + `pitch-detect.js` + `piano-sound.js`；MP3 通过分析器；诊断面板 | 播放 `flower_day.mp3` 时，诊断面板能实时显示检测到的音，且与目标小节基本吻合 |
-| **Phase 4** 练琴 / 听音模式 | `practice.js` + `playback.js`；麦克风判定与自动前进；点小节跳转；试听本小节 / 连播 | 真钢琴弹对 → 高亮自动前进；点任意小节 → 立刻从该处开始；麦克风关闭时弹出两个播放选项 |
-| **Phase 5** 打磨 | 阈值/灵敏度调参、性能优化、边界情况（窗口缩放、切换模式不丢状态）、README 使用说明 | 连续练琴 30 分钟不卡顿、不误判、不丢状态 |
+| **1** Score rendering | Page skeleton, theme, all 64 measures, symbols, notation toggle, adaptive systems, density control | The whole score draws correctly; 123/ABC switch works; the density control visibly changes the layout |
+| **2** Keyboard | `keyboard-render.js`, both range modes, scraped black keys, labels follow the notation toggle | The two icons switch range; a 2K window shows octaves 2–6 by default |
+| **3** Audio engine | `audio-engine.js`, `pitch-detect.js`, `piano-sound.js`, MP3 through the analyser, diagnostics | Playing the MP3 shows the detected notes matching the target measure |
+| **4** The two modes | `practice.js`, `playback.js`, mic judging, measure jumping, the two playback choices | Playing correctly on a real piano advances the highlight; clicking any measure jumps there |
+| **5** Polish | Tuning, performance, edge cases, usage docs | Thirty minutes of practice without a glitch or a false pass |
 
 ---
 
-## 11. 已确认的决策（Q&A，2026-10-13 确认）
+## 11. Decisions (confirmed 2026-10-13)
 
-| # | 问题 | **决定** |
+| # | Question | **Decision** |
 |---|---|---|
-| Q1 | 「弹对了」的判定单位：整小节 / 逐个音符 / 整小节但和弦只要低音？ | ✅ **整小节判定**——一小节内所有目标音（含左手和弦的**全部**和弦音）都出现才算过，高亮跳到下一小节。对真人弹琴最宽容，不会被手指先后顺序卡住 |
-| Q2 | 麦克风关闭时点小节，怎么弹出两个播放选项？ | ✅ **小气泡菜单**——点小节后在旁边弹出两个小按钮（只播本节 / 连播到结尾），不靠猜手势 |
-| Q3 | 网页播放音色：采样 / 合成音？ | ✅ **用 `piano-mp3/` 现成钢琴采样**（88 键，真实钢琴音色，首次点击后缓存）；超出采样范围的音用合成音兜底 |
-| Q4 | MP3 测试模式的推进方式？ | ✅ **检测到音才推进**——能如实反映算法准确率：卡住不动 = 需要调参，一目了然（诊断面板另显示理论时间轴作对照） |
-
-> 说明：Q1 已包含原「和弦判定」问题——既然按整小节判定，左手和弦自然要求全部和弦音都弹到。
+| Q1 | What counts as "played correctly"? | **Per measure** — every target pitch class in the measure, including all left-hand chord notes |
+| Q2 | How does clicking a measure offer the two playback choices? | **A small bubble menu** with two buttons |
+| Q3 | What sound does the page play? | **The existing `piano-mp3/` samples**, with a synthesised fallback |
+| Q4 | How does the score advance in MP3 test mode? | **Only when notes are actually detected**, so the result reflects the detector's real accuracy |
 
 ---
 
-## 12. Changelog（按阶段追加）
+## 12. Changelog
 
-- **2026-10-13** v0.1 需求初稿（根据用户需求整理 + 现状盘点 + 待确认问题）
-- **2026-10-13** v0.2 需求确认：Q1 整小节判定（含全部和弦音）、Q2 小气泡菜单、Q3 钢琴采样音色、Q4 检测到音才推进。**需求冻结，进入开发。**
+- **2026-10-13** v0.1 — first draft (requirements, inventory, open questions).
+- **2026-10-13** v0.2 — requirements confirmed (Q1–Q4 above). Frozen; implementation began.
 
-### Phase 1 完成 — 乐谱渲染（2026-10-13，commit `dd15a61`）
+### Phase 1 complete — score rendering (2026-10-13, commit `dd15a61`)
 
-**已完成**
-- 新目录结构 `index.html` + `styles/{theme,layout,components}.css` + `js/*.js`（HTML/CSS/JS 严格分离，经典 `<script>` 引入 + `window.App.*` 命名空间，双击即可打开）
-- 64 小节全部渲染：4 小节/行 × 16 行；大谱表大括号、高音/低音谱号、调号（1# 与 3#，含第 42 小节转调）、拍号（6/8，含第 32 小节 3/8 与第 33 小节回 6/8）、小节线、符杠、加线、手写标注
-- `123 / ABC` 标注切换（两套独立映射模块，各自按键号推导临时记号）
-- 行数随窗口高度自适应；谱表滚动（只渲染屏幕内的行）；`正常 → 紧凑 → 松散` 三档密度循环
-- 纸张提亮到 `#f8f4ea`，保留 `feDiffuseLighting` 粗纹纸；控件为纯描边图标 + 透明底 + 铅笔手绘圆环
+**Delivered**
 
-**与 PRD 初稿的偏差（已实测确认）**
-1. **乐理符号改用 Bravura SMuFL 矢量轮廓**，不用 Unicode 字符（`𝄞`/`𝄢`/`♯`）。原因：这些字符在多数系统字体里缺失，且无法精确对位。轮廓由 `tools/extract_bravura_glyphs.py` 从 Bravura 字体提取，附 `NOTICE-BRAVURA.md`（SIL OFL 1.1）。
-2. **乐谱按「固定屏幕字号」绘制**，行的数量随窗口变化——不是把乐谱缩小去塞更多行。这样音符在任何屏幕上一样大、一样清楚。实测：2K 窗口正常密度显示 **3 行**（符合要求），紧凑 4 行、松散 2 行；1600×900 窗口显示 1–2 行。
-3. **全曲可滚动**（16 行），只渲染屏幕内的行，避免 64 小节的 DOM 一次性全建。
-4. **密度用一个图标循环三档**，不是两个独立按钮——松散/紧凑/正常本质是同一个状态的三选一，两个按钮无法表达"都不选"。图标右下角有 N/T/L 小徽章显示当前档位。
-5. `test.html` 保持原样未改（作为视觉参考基线保留），但它已不在新页面的加载路径上。
+- The file layout of §3, with HTML, CSS and JS strictly separated and loaded as
+  classic scripts so the page opens from disk.
+- All 64 measures drawn, 4 per system across 16 systems: brace, both clefs, key
+  signatures (1#, and 3# after measure 42), time signatures (6/8, plus the 3/8 bar
+  at measure 32), barlines, beams, ledger lines and handwritten annotations.
+- The `123 / ABC` notation toggle, backed by two independent mapping modules that
+  each derive their spelling from the key signature.
+- Systems adapt to window height; the sheet scrolls, drawing only the systems on
+  screen so the DOM stays small.
+- Brighter paper (`#f8f4ea`) with the coarse grain preserved; controls reduced to
+  outline glyphs on a transparent background with a hand-drawn pencil ring.
 
-**已验证**：`node tools/check-model.js` 无问题；2K 与 1600×900 两种窗口截图确认；`123/ABC` 切换、三档密度、跳转到第 42 小节（跨谱表滚动）均实测通过。
+**Deviations from the draft, and why**
+
+1. **Symbols are Bravura SMuFL outlines**, not the Unicode characters `𝄞 𝄢 ♯`.
+   Those code points are missing from most system fonts and cannot be positioned
+   precisely. The outlines come from `tools/extract_bravura_glyphs.py`; the font is
+   OFL-licensed (see `NOTICE-BRAVURA.md`).
+2. **The music is drawn at a fixed size and the system count adapts**, rather than
+   shrinking the music to fit more lines. Notes stay equally legible on every screen.
+3. **The sheet scrolls** through all 16 systems, rendering only the visible ones.
+4. **One cycling icon for staff spacing** instead of two buttons — see §5.1.
+5. **`test.html` is untouched.** It remains in the repository as the visual
+   reference, but nothing in the new page loads it.
+
+### Phase 1 revisions (2026-10-13)
+
+Requested after reviewing phase 1:
+
+- **All text is English.** The interface, the code comments and the documentation.
+  (The score's own title and subtitle stay as they are — they are the song's name.)
+- **More room around the score**: margins widened by a fifth and the page padding
+  above and below the systems increased, so the music sits on the paper rather than
+  running to its edge.
+- **Fixed a cut-off at the left edge**: the grand-staff brace used to start left of
+  the drawing's origin and was clipped. Everything now sits inside the page.
+- **Fixed the time signature colliding with the first notes**: the header block
+  (brace, clefs, key signature, time signature) was repacked and the music now
+  starts clear of it — about two note-widths of clearance in the leftmost measure.
+- **Fixed the active-measure shading** covering the notes instead of sitting behind
+  them.
+
+**Verified:** `node tools/check-model.js` clean; screenshots at 2K and 1600×900; the
+notation toggle, all three densities, and jumping to measure 42 (which scrolls across
+systems) all checked.

@@ -534,7 +534,7 @@ window.App.SheetRender = (function () {
     if (score) state.score = score;
     if (!state.score) return null;
 
-    var padding = 28; // .sheet-area padding, both sides
+    var padding = 44; // .sheet-area padding, both sides — keep in step with layout.css
     var geometry = computeLayout(container.clientWidth - padding * 2, container.clientHeight);
     geometry.padding = padding;
     state.container = container;
@@ -605,15 +605,10 @@ window.App.SheetRender = (function () {
 
       var canvas = el('g', { class: 'system-canvas' });
 
-      var headerGroup = el('g', { class: 'pencil-stroke header-glyphs' });
-      drawSystemHeader(headerGroup, system);
-      canvas.appendChild(headerGroup);
-
-      var staffGroup = el('g', { class: 'pencil-stroke staff-group' });
-      drawStaffLines(staffGroup, sheet.staff.trebleTop, musicRight);
-      drawStaffLines(staffGroup, sheet.staff.bassTop, musicRight);
-      canvas.appendChild(staffGroup);
-
+      // Painting order is the z-order in SVG, and the graphite smudge behind the
+      // active measure has to be laid down before anything it sits under — the
+      // staff lines and the notes are drawn on top of it, as pencil would be.
+      var highlightGroup = el('g', { class: 'highlight-layer' });
       var notesGroup = el('g', { class: 'notes-group' });
       var cursor = sheet.header.musicStart;
       var remaining = musicRight - cursor;
@@ -621,10 +616,10 @@ window.App.SheetRender = (function () {
 
       system.measures.forEach(function (measure, measureIndex) {
         if (measure.number === state.activeMeasure) {
-          notesGroup.appendChild(el('rect', {
-            x: cursor - 3,
+          highlightGroup.appendChild(el('rect', {
+            x: cursor - 5,
             y: sheet.staff.trebleTop - 10,
-            width: measureWidth + 3,
+            width: measureWidth + 5,
             height: sheet.staff.bassTop + sheet.staff.space * 4 - sheet.staff.trebleTop + 20,
             rx: 6,
             class: 'measure-highlight',
@@ -638,6 +633,17 @@ window.App.SheetRender = (function () {
 
         cursor += measureWidth;
       });
+
+      canvas.appendChild(highlightGroup);
+
+      var headerGroup = el('g', { class: 'pencil-stroke header-glyphs' });
+      drawSystemHeader(headerGroup, system);
+      canvas.appendChild(headerGroup);
+
+      var staffGroup = el('g', { class: 'pencil-stroke staff-group' });
+      drawStaffLines(staffGroup, sheet.staff.trebleTop, musicRight);
+      drawStaffLines(staffGroup, sheet.staff.bassTop, musicRight);
+      canvas.appendChild(staffGroup);
 
       canvas.appendChild(notesGroup);
       svg.appendChild(canvas);

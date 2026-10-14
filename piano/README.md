@@ -33,6 +33,18 @@ cycles normal → tight → loose.
 Later phases (see PRD §10) add the keyboard, the audio engine, the polyphonic
 detector and the practice/listening modes.
 
+## Controls
+
+| Control | What it does |
+|---|---|
+| `123` / `ABC` | Switch every annotation between number notation and letter names |
+| Microphone | Turn the listening mode on or off (wired up in phase 3) |
+| Circular arrow | Back to measure 1 |
+| Three lines (badge `N`/`T`/`L`) | Cycle the staff spacing: normal → tight → loose |
+
+Clicking any measure moves the practice position there. The sheet scrolls when the
+piece is longer than the window.
+
 ## Editing the score
 
 `music-sheet/flower_day.json` is the source of truth. After editing it, rebuild the

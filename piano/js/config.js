@@ -38,19 +38,23 @@ window.App.Config = (function () {
         trebleTop: 42,   // y of the top line of the treble staff
         bassTop: 122,    // y of the top line of the bass staff
         lines: 5,
-        marginLeft: 18,  // where the staff lines start (left of the brace)
+        marginLeft: 6,   // where the staff lines start, just left of the brace
         marginRight: 985, // where the staff lines end
       },
       header: {
-        braceX: 16.5,       // left edge of the grand-staff brace
+        // The header block is packed as tightly as the glyphs allow, because every
+        // unit spent here is a unit the measures do not get. Reading left to right:
+        // brace 8..13, clefs 11..38, up to three sharps 44..74, time signature
+        // 78..96, and the music starts at 108.
+        braceX: 8,          // left edge of the grand-staff brace
         braceTop: 80,       // the brace spans the gap between the two staves
         braceHeight: 75,    // 80 + 75 = 155, the bottom line of the bass staff
-        gClefX: 25,         // the clef's own origin; its ink starts a little right of this
-        fClefX: 25,
-        sharpX: 56,         // centre of the first key-signature accidental
-        sharpStep: 12.5,    // horizontal distance between successive sharps
-        timeSigX: 105,      // centre of the time signature
-        musicStart: 118,    // first note column of measure 1
+        gClefX: 11,         // the clef's own origin; its ink starts a little right of this
+        fClefX: 11,
+        sharpX: 44,         // centre of the first key-signature accidental
+        sharpStep: 11,      // horizontal distance between successive sharps
+        timeSigX: 87,       // centre of the time signature
+        musicStart: 108,    // first note column of measure 1, clear of the signature
       },
       note: {
         rx: 6.2,           // notehead half-width
@@ -80,9 +84,10 @@ window.App.Config = (function () {
       // (1.0 = a 10px staff space, the size of the reference engraving). On a 2K
       // window that yields three systems at the normal density, which is the
       // screen full without crowding.
-      preferredScale: 1.2,
+      preferredScale: 1.15,
       minScale: 0.5,         // below this the annotations stop being readable
-      pagePadding: 14,
+      // Breathing room above the first system and below the last, in CSS pixels.
+      pagePadding: 30,
       // How much empty air sits between two systems, as a fraction of a system's
       // own height. Bigger ratios mean fewer, airier systems on screen.
       density: {

@@ -136,8 +136,8 @@ window.App.Main = (function () {
     }
 
     if (dom.progress) {
-      dom.progress.textContent = '第 ' + state.activeMeasure + ' / ' +
-        (state.score ? state.score.totalMeasures : 0) + ' 小节';
+      dom.progress.textContent = 'Measure ' + state.activeMeasure + ' / ' +
+        (state.score ? state.score.totalMeasures : 0);
     }
   }
 

@@ -50,7 +50,9 @@
   flex: 1 1 auto;
   min-height: 0; /* lets the flex child actually shrink */
   width: 100%;
-  padding: 0 28px;
+  /* Roomy margins, measured from the reference design and widened by a fifth —
+     the score sits on the paper rather than running to its edge. */
+  padding: 0 44px;
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -67,8 +69,8 @@
 .system-svg {
   position: absolute;
   top: var(--system-top, 0);
-  left: 28px;
-  width: calc(100% - 56px);
+  left: 44px;
+  width: calc(100% - 88px);
   height: var(--system-height, 140px);
   display: block;
 }
