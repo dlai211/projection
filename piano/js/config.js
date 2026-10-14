@@ -106,8 +106,23 @@ window.App.Config = (function () {
        * air between two systems. None of them can change the size of the music —
        * that is maxSystemWidth's job alone.
        */
-      pagePaddingTop: 100,
+      pagePaddingTop: 150,
       pagePaddingBottom: 100,
+
+      /**
+       * Where the actual ink sits inside the drawing band, in drawing units.
+       *
+       * The band is `sheet.viewBox.h` tall but the notes do not reach its edges:
+       * the highest note tops out at -18 and the lowest reaches 172. The layout
+       * uses these to work out how far apart to place the boxes, so that
+       * `systemGapPx` measures the *visible* gap between the bottom of one system
+       * and the top of the next — not the invisible gap between two boxes.
+       *
+       * Re-measure after editing the score's range, or after changing which
+       * clefs the notes sit on. `tools/check-model.js` prints the values.
+       */
+      inkTop: -18,
+      inkBottom: 172,
 
       /**
        * How much empty air sits between two systems, in CSS pixels, for each of
@@ -119,8 +134,8 @@ window.App.Config = (function () {
        * you see is often larger than the value here.
        */
       density: {
-        tight: { systemGapPx: 40 },
-        normal: { systemGapPx: 120 },
+        tight: { systemGapPx: 0 },
+        normal: { systemGapPx: 10 },
         loose: { systemGapPx: 280 },
       },
       defaultDensity: 'normal',

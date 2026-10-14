@@ -109,7 +109,19 @@ window.App.SheetRender = (function () {
     var scale = systemWidth / sheet.viewBox.w;
 
     var musicHeight = sheet.viewBox.h * scale;
-    var gap = density.systemGapPx; // a plain pixel distance, not a ratio
+
+    /**
+     * Turning the *visible* gap into the space between two drawing boxes.
+     *
+     * A box is `viewBox.h` tall, but its ink stops short of the bottom edge (and
+     * starts a little above the top). So the distance between two boxes has to be
+     * shrunk by that unused space, or `systemGapPx: 0` would still leave the
+     * boxes' own empty margins showing as a gap.
+     */
+    var inkTop = layout.inkTop !== undefined ? layout.inkTop : sheet.viewBox.from;
+    var inkBottom = layout.inkBottom !== undefined ? layout.inkBottom : sheet.viewBox.from + sheet.viewBox.h;
+    var emptyInBand = (sheet.viewBox.from + sheet.viewBox.h - inkBottom) + (inkTop - sheet.viewBox.from);
+    var gap = Math.max(0, density.systemGapPx - emptyInBand * scale);
 
     var systems = count;
     if (availableHeight < musicHeight) {

@@ -77,6 +77,32 @@ for (const number of [4, 46]) {
   console.log(`        LH: ${m.leftHand.map(x => App.NotesNumber.label(x, m.key)).join('/')}`);
 }
 
+// --- where the ink actually sits in the drawing band --------------------------
+// These are the values that belong in Config.layout.inkTop / inkBottom: the
+// layout needs them so that systemGapPx measures the visible gap between systems
+// rather than the invisible gap between two drawing boxes.
+let inkTop = Infinity;
+let inkBottom = -Infinity;
+const consider = (midi) => {
+  const clef = midi < 60 ? 'bass' : 'treble';
+  const pos = App.Staff.position(midi, clef);
+  inkTop = Math.min(inkTop, pos.y - 4.2);
+  inkBottom = Math.max(inkBottom, pos.y + 4.2);
+  for (const ledger of App.Staff.ledgerLines(pos.y, clef, App.Config.sheet)) {
+    inkTop = Math.min(inkTop, ledger);
+    inkBottom = Math.max(inkBottom, ledger);
+  }
+};
+for (const m of score.measures) {
+  m.rightHand.forEach(n => consider(n.midi));
+  m.leftHand.forEach(consider);
+}
+// Labels and stems reach past the noteheads (stems are 32 units long).
+console.log(`\nink extents (noteheads + ledger lines): top ${inkTop.toFixed(1)}, bottom ${inkBottom.toFixed(1)}`);
+console.log(`  with stems and written labels: top ${(inkTop - 12).toFixed(1)}, bottom ${(inkBottom + 12).toFixed(1)}`);
+console.log(`  drawing band: ${App.Config.sheet.viewBox.from} .. ${App.Config.sheet.viewBox.from + App.Config.sheet.viewBox.h}`);
+console.log(`  config inkTop=${App.Config.layout.inkTop} inkBottom=${App.Config.layout.inkBottom}`);
+
 // --- anything obviously broken ----------------------------------------------
 const problems = [];
 for (const m of score.measures) {
