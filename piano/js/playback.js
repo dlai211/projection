@@ -28,10 +28,25 @@ window.App.Playback = (function () {
 
   function noop() {}
 
-  /** How long a measure lasts, from the melody's own note lengths. */
+  /**
+   * How long one unit lasts. Note lengths are counted in sixty-fourth notes, and an
+   * eighth is 0.4 s at this tempo, so a unit is 0.05 s — the figure every position and
+   * every length below is multiplied by.
+   */
+  function unitSeconds() {
+    return Config.tempo.eighthSeconds / Config.durations['8'];
+  }
+
+  /**
+   * How long a measure lasts. The time signature decides, not the number of notes that
+   * happened to be written in it — so a bar whose melody is an eighth short still takes
+   * its full two and a half seconds, and playback keeps a steady pulse.
+   */
   function secondsOf(measure) {
-    const units = measure.rh.reduce(function (total, note) { return total + note.units; }, 0);
-    return Math.max(1, units) * Config.tempo.eighthSeconds;
+    const units = measure.measureUnits || measure.rh.reduce(function (total, event) {
+      return total + event.units;
+    }, 0);
+    return Math.max(1, units) * unitSeconds();
   }
 
   /** Start playing. `options.measureAt(n)` must return the laid-out measure. */
@@ -71,35 +86,32 @@ window.App.Playback = (function () {
     startMeasure();
   }
 
-  /** Lay every note of one measure onto the audio clock. */
+  /**
+   * Lay every note of one measure onto the audio clock.
+   *
+   * Both hands are placed the same way, from the beat's own position on the time axis,
+   * so a bass note sounds when the melody note above it does. A rest sounds nothing; a
+   * grace note leans in just before the beat it belongs to. Notes are played at their
+   * *sounding* pitch, which is an octave above what is written under an 8va.
+   */
   function schedule(measure, at) {
-    const eighth = Config.tempo.eighthSeconds;
-    const starts = [];
-    let elapsed = 0;
+    const unit = unitSeconds();
+    const shift = measure.octaveShift || 0;
 
-    measure.rh.forEach(function (note) {
-      starts.push(elapsed);
-      elapsed += note.units;
-    });
+    const place = function (event, loudness) {
+      if (event.rest || !event.notes.length) return;
 
-    const wholeBar = Math.max(1, elapsed) * eighth;
+      const lead = event.grace ? Config.playback.graceLeadSeconds : 0;
+      const when = at + event.start * unit - lead;
+      const length = Math.max(Config.playback.minimumSeconds, event.units * unit) + lead;
 
-    measure.rh.forEach(function (note, index) {
-      const when = at + starts[index] * eighth;
-      const length = Math.max(0.25, note.units * eighth * 0.95);
-      note.notes.forEach(function (midi) {
-        handles.push(Sound.play(context, destination, midi, when, length, 0.7));
+      event.notes.forEach(function (note) {
+        handles.push(Sound.play(context, destination, note.midi + shift, when, length, loudness));
       });
-    });
+    };
 
-    measure.lh.forEach(function (chord) {
-      const when = at + (starts[chord.beatIndex] || 0) * eighth;
-      // A held bass note lasts the bar; a moving one lasts until its next entry.
-      const held = chord.beatIndex === 0 ? wholeBar * 0.95 : wholeBar * 0.5;
-      chord.notes.forEach(function (midi) {
-        handles.push(Sound.play(context, destination, midi, when, held, 0.55));
-      });
-    });
+    measure.rh.forEach(function (event) { place(event, 0.7); });
+    measure.lh.forEach(function (event) { place(event, 0.55); });
   }
 
   function clearHandles() {

@@ -169,10 +169,11 @@ class FakeAudioContext {
     this.state = 'running';
     this.currentTime = 0;
     this.destination = { name: 'destination' };
-    this.oscillatorsStarted = 0;
+    this.started = [];          // every start(when) the page asks for, in seconds
+    this.resumed = 0;
     this.analyser = null;
   }
-  resume() {}
+  resume() { this.resumed++; this.state = 'running'; }
   createAnalyser() { this.analyser = new FakeAnalyser(); return this.analyser; }
   createGain() {
     return {
@@ -182,9 +183,20 @@ class FakeAudioContext {
   }
   createOscillator() {
     const self = this;
-    return { type: '', frequency: { value: 0 }, connect() {}, start() { self.oscillatorsStarted++; }, stop() {} };
+    return {
+      type: '', frequency: { value: 0 }, connect() {},
+      start(when) { self.started.push(when === undefined ? self.currentTime : when); },
+      stop() {}
+    };
   }
-  createBufferSource() { return { buffer: null, connect() {}, start() {}, stop() {} }; }
+  createBufferSource() {
+    const self = this;
+    return {
+      buffer: null, connect() {},
+      start(when) { self.started.push(when === undefined ? self.currentTime : when); },
+      stop() {}
+    };
+  }
   createMediaStreamSource() { return { connect() {}, disconnect() {} }; }
   createMediaElementSource() { return { connect() {}, disconnect() {} }; }
   decodeAudioData() { return Promise.resolve({ duration: 1 }); }
@@ -324,8 +336,74 @@ async function main() {
   App.onMeasureClick(3, { clientX: 300, clientY: 300 });
   report('clicking a measure opens', menu.hidden ? 'nothing' : 'the measure menu');
   report('and offers', JSON.stringify(byId['menu-here'].textContent) + ' / ' + JSON.stringify(byId['menu-onward'].textContent));
+  // Every note the page asks the sound engine for, so the count and the pitches can be
+  // checked rather than assumed.
+  const played = [];
+  const realPlay = sandbox.App.PianoSound.play;
+  sandbox.App.PianoSound.play = function (context, destination, midi, when, duration, loudness) {
+    played.push({ midi: midi, when: when, duration: duration });
+    return realPlay.apply(null, arguments);
+  };
+
   byId['menu-onward'].dispatch('click');
   report('playing from it to the end', App.Playback.isPlaying() ? 'started' : 'did not start');
+
+  // The point of the whole exercise: pressing play has to put notes on the audio clock,
+  // at the right pitches and the right times.
+  const audio = audioContexts[0];
+  const started = audio ? audio.started.slice().sort((a, b) => a - b) : [];
+  const bar = App.Playback.secondsOf(App.layoutOf().byNumber[3]);
+  const first = App.layoutOf().byNumber[3];
+  const expected = first.rh.concat(first.lh).reduce((total, event) => total + event.notes.length, 0);
+  const notesWanted = first.rh.concat(first.lh).reduce(function (total, event) {
+    return total + (event.rest ? 0 : event.notes.length);
+  }, 0);
+  report('notes sounded, of notes in the bar', played.length + ' of ' + notesWanted);
+  report('first note starts at', started.length ? started[0].toFixed(2) + 's' : '—');
+  report('last note starts at', started.length ? started[started.length - 1].toFixed(2) + 's' : '—');
+  report('the bar is', bar.toFixed(2) + 's long (6/8 at a dotted quarter = 50)');
+  // Two sixteenths inside a beat are 0.2 s apart at this tempo; if the units were not
+  // converted, everything would be eight times slower.
+  const gaps = [];
+  for (let i = 1; i < started.length; i++) gaps.push(started[i] - started[i - 1]);
+  const smallest = gaps.length ? Math.min.apply(null, gaps.filter((g) => g > 0.001)) : 0;
+  report('the shortest gap between notes', smallest.toFixed(3) + 's');
+
+  // An 8va bar is written low and sounds high: every note asked for must be the written
+  // pitch an octave up, or the page would be practising the wrong notes.
+  played.length = 0;
+  const eighthBar = App.layoutOf().byNumber[30];
+  App.Playback.stop();
+  App.Playback.play({
+    context: audio, destination: audio.destination, total: 65, measure: 30, toEnd: false,
+    measureAt: function (number) { return App.layoutOf().byNumber[number]; },
+    onMeasure: function () {}, onFinish: function () {}
+  });
+  const written = [];
+  eighthBar.rh.concat(eighthBar.lh).forEach(function (event) {
+    event.notes.forEach(function (note) { written.push(note.midi); });
+  });
+  const soundings = played.map(function (note) { return note.midi; });
+  report('measure 30 is written under an 8va', eighthBar.octaveShift === 12 ? 'yes' : 'no');
+  // Counted, not just looked up: the melody and the bass overlap in range, so a pitch
+  // that was written low can legitimately equal another note's sounding pitch.
+  const tally = function (list) {
+    const counts = {};
+    list.forEach(function (value) { counts[value] = (counts[value] || 0) + 1; });
+    return counts;
+  };
+  const wantedCounts = tally(written.map(function (midi) { return midi + 12; }));
+  const soundedCounts = tally(soundings);
+  const same = Object.keys(wantedCounts).length === Object.keys(soundedCounts).length &&
+    Object.keys(wantedCounts).every(function (key) { return wantedCounts[key] === soundedCounts[key]; });
+  report('its notes sound an octave higher', same ? 'yes, all of them' : 'NO',
+    written.length + ' written, ' + soundings.length + ' sounded');
+  App.Playback.stop();
+
+  // A context that the browser has parked must be woken before anything is heard.
+  audio.state = 'suspended';
+  sandbox.App.AudioEngine.ensure();
+  report('a parked audio context is resumed', audio.resumed > 0 ? 'yes' : 'NO — it would stay silent');
   report('the transport switched to', byId['btn-play'].querySelector('.icon-pause').style.display === '' ? 'pause' : 'play');
   byId['btn-stop'].dispatch('click');
   report('stop leaves it', App.Playback.isPlaying() ? 'still playing' : 'stopped');

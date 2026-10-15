@@ -666,6 +666,39 @@ for a human to decide, and neither has been changed here:
 - The reference score is described as having **65 bars**, with the last system running
   from measure 60 to 65; the file has **64**. Worth a look at the final page.
 
+### Playback repaired, and the score corrected (2026-10-15)
+
+Playing a measure made no sound. Three faults in `playback.js`, all left over from the
+move to 64th-note units and note objects:
+
+1. **Note objects were passed where MIDI numbers were wanted.** `event.notes` became an
+   array of `{ num, let, midi, … }`, and `Sound.play` was still being handed the objects,
+   which failed the pitch check and returned in silence.
+2. **Units were used as if they were eighths.** A note length is counted in sixty-fourths,
+   so multiplying by `eighthSeconds` made every note eight times too long — a 6/8 bar
+   would have taken 19.2 seconds.
+3. **The bass was still placed by `beatIndex`**, which the layout stopped producing, so
+   every bass note was stacked at the barline and held for half a bar.
+
+All three are fixed in one place, and the left hand is now placed exactly like the right:
+from the beat's own position on the time axis, at its sounding pitch (an octave up under
+an 8va), with rests silent and grace notes leaning in 0.08 s ahead of their beat. A bar's
+length comes from its time signature rather than from how many notes were written in it,
+so playback keeps a steady pulse even where the transcription is short.
+
+**The check that would have caught all three** now runs in `check_render.js`, which plays
+measure 3 through the real menu and reads the audio clock: **10 of 10 notes scheduled**,
+the first at 0.12 s, the last at 2.12 s, the bar 2.40 s long, the shortest gap between
+notes 0.200 s. Measure 30 is played back with **every note sounding exactly an octave
+above what is written**, and a parked audio context is confirmed to be resumed.
+
+**The corrected score.** The octave and rhythm corrections landed: **65 measures instead
+of 64** (the reference score's last bar is now there), 990 notes all agreeing across the
+three spellings, the bar-length report down from **24 short measures to 2** (measures 24
+and 41, each an eighth short in the melody), and the stranded-note report from **18 to
+none** — every left-hand note now sits within four steps of its staff, so the tall
+systems that those notes forced have shrunk back with them.
+
 ### The transcription was not done here, and could not be honestly
 
 **`flower_day.json` is still the simplified score.** Reading the notes off

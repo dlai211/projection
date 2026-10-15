@@ -230,7 +230,11 @@ window.App.Config = (function () {
     playback: {
       leadInSeconds: 0.12,
       releaseSeconds: 0.4,
-      lookaheadMs: 60
+      lookaheadMs: 60,
+      /** A grace note leans in this far ahead of the beat it belongs to. */
+      graceLeadSeconds: 0.08,
+      /** Even a thirty-second is held this long, so it is heard rather than clicked. */
+      minimumSeconds: 0.12
     },
 
     /** The sample set: one file per key, named with flats. */

@@ -139,7 +139,9 @@ function main() {
   const realLayout = App.Layout.build(real);
   const realMeasures = realLayout.systems.reduce(function (all, system) { return all.concat(system.measures); }, []);
 
-  check('the real score builds 16 systems', realLayout.systems.length === 16);
+  check('the real score builds a system for every four measures',
+    realLayout.systems.length === Math.ceil(real.measures.length / 4),
+    real.measures.length + ' measures in ' + realLayout.systems.length + ' systems');
   check('every measure is on the time axis', realMeasures.every(function (measure) { return measure.timed; }));
   const treble = realMeasures.filter(function (measure) { return measure.lhClef === 'treble'; }).length;
   check('the left hand really does change clef', treble > 0 && treble < realMeasures.length,
