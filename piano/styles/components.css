@@ -148,6 +148,165 @@
 .keys-dense .white-key span { font-size: 11px; }
 .keys-dense .black-key span { font-size: 9px; }
 
+/* ------------------------------------------------------- clicks on the sheet */
+
+/* Decoration is drawn for the eye only; clicks fall through it to the measure's own
+   invisible target, so pressing anywhere in a measure chooses that measure. */
+.no-pointer {
+  pointer-events: none;
+}
+
+.measure-hit {
+  fill: none;
+  pointer-events: all;
+  cursor: pointer;
+}
+
+/* ---------------------------------------------------------- the measure menu */
+
+.measure-menu {
+  position: fixed;
+  z-index: 9;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 190px;
+  padding: 10px 12px 12px;
+  background: var(--modern-surface);
+  border: 1px solid var(--modern-border);
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(40, 38, 36, 0.16);
+  backdrop-filter: blur(8px);
+  font-family: 'Inter', -apple-system, sans-serif;
+}
+
+.measure-menu[hidden] {
+  display: none;
+}
+
+.menu-title {
+  font-family: 'Caveat', cursive;
+  font-size: 19px;
+  color: var(--graphite-hb);
+  margin-bottom: 4px;
+}
+
+.menu-button {
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--graphite-2b);
+  padding: 7px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.menu-button:hover {
+  background: rgba(40, 38, 36, 0.08);
+}
+
+/* ------------------------------------------------------- the listening panel */
+
+.diag {
+  position: fixed;
+  left: 16px;
+  bottom: calc(var(--keyboard-h) + 14px);
+  z-index: 8;
+  width: 288px;
+  padding: 12px 14px 14px;
+  background: var(--modern-surface);
+  border: 1px solid var(--modern-border);
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(40, 38, 36, 0.14);
+  backdrop-filter: blur(8px);
+  mix-blend-mode: multiply;
+  font-family: 'Inter', -apple-system, sans-serif;
+}
+
+.diag[hidden] {
+  display: none;
+}
+
+.diag-title {
+  font-family: 'Caveat', cursive;
+  font-size: 21px;
+  font-weight: 700;
+  color: var(--graphite-2b);
+}
+
+.diag-line {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--graphite-hb);
+}
+
+.chroma {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 46px;
+  margin: 8px 0 6px;
+}
+
+.chroma-column {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 2px;
+}
+
+.chroma-bar {
+  width: 100%;
+  height: 0;
+  min-height: 1px;
+  background: var(--graphite-2b);
+  border-radius: 1px;
+  opacity: 0.8;
+  transition: height 0.06s linear;
+}
+
+.chroma-column span {
+  font-size: 8px;
+  color: var(--graphite-faint);
+}
+
+.diag-audio {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.diag-button {
+  border: 1px solid var(--modern-border);
+  background: transparent;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--graphite-2b);
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.diag-button:hover,
+.diag-button.active {
+  background: rgba(40, 38, 36, 0.09);
+}
+
+#test-seek {
+  width: 100%;
+  height: 3px;
+  accent-color: var(--graphite-hb);
+}
+
 /* ---------------------------------------------------------------- the ruler */
 
 .ruler-edge {

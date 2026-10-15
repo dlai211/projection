@@ -355,12 +355,31 @@ source ──▶ AnalyserNode (FFT 4096) ──▶ detector ──▶ highlight 
 
 ### 9.2 Polyphonic detection (no ml5, no CREPE)
 
-Frames → spectral peaks above a moving threshold → drop peaks that are harmonics of a
-lower peak → fold into a 12-bin pitch-class (chroma) vector → compare with the target
-measure's pitch classes → *N* consecutive good frames means "heard it".
+Frames → spectral peaks above a moving threshold → mark the peaks a lower one explains
+as harmonics → fold into a 12-bin pitch-class (chroma) vector → accumulate what has been
+played since the measure began → compare with the measure's pitch classes.
 
 - Matching is by **pitch class**, so an octave slip is not punished.
-- Every threshold lives in `config.js`, with a live chroma readout for tuning.
+- **A measure is judged as a whole and remembered.** The melody is played one note at a
+  time, so each pitch class holds its strongest recent value (a level meter's peak hold,
+  not an average) and is cleared outright when the page moves on. Judging a measure by
+  the notes sounding *at one instant* would be wrong: by the time the last note of a
+  twelve-note measure arrives, the first has stopped sounding.
+- **Harmonics are quietened, not discarded.** A note played on purpose can sit exactly
+  on another note's harmonic — measure 37 asks for B2 and F#4, and F#4 is B2's third
+  harmonic to within a tenth of a hertz. Nothing in the sound can separate them, so the
+  detector keeps what it hears: a note wrongly left out blocks a measure that was played
+  correctly, which is far worse than one wrongly included.
+- **The window is 8192, not 4096.** It is not a free choice: measure 12 asks for D3 and
+  C#3 together, 8 Hz apart, and at 4096 (a bin every 11.7 Hz) they land in the same bin,
+  so that measure can never be heard complete. `tools/check_detect.js` plays all 64
+  measures through the detector and prints what each window size would cost.
+
+**What the detector assumes.** Matching asks whether a note is present, not whether it
+is the loudest, so it tolerates wrong extra notes. What it cannot tolerate is a note
+played far softer than the rest: `detect.matchThreshold` (0.25) means the left hand has
+to be at least about a quarter as loud as the melody. If a real piano is being heard but
+not recognised, that is the first number to lower.
 
 ### 9.3 Sound
 
@@ -491,6 +510,53 @@ the notation switch; and the keyboard in both ranges.
 5. **The keyboard's second button shows the full A0–C8**, 52 white and 36 black keys,
    with the labels shrunk so five-character marks like `1,,,` still fit.
 
-**Not built yet:** the audio engine, the polyphonic detector, and the two modes
-(phases 3 and 4). The microphone button currently toggles its own state and nothing
-else, and clicking a note or a key plays a plain tone instead of a piano sample.
+### Phases 3 and 4 complete — the listener and the two modes (2026-10-14)
+
+Built: `audio-engine.js` (microphone and test recording into one analyser),
+`pitch-detect.js` (peaks, harmonics, chroma, matching), `piano-sound.js` (the 88
+samples, with a synthesised tone for anything they cannot reach), `practice.js`
+(Learning Mode) and `playback.js` (Listening Mode), plus the measure menu, the transport
+and the listening panel.
+
+**What the checks say**
+
+- `check_detect.js`: single notes are named correctly from E2 to E6; the E3/B2 chord of
+  measure 1 comes back as exactly `B2 E3`; a low C does **not** also report the G a
+  fifth above, while a real G played above it **is** heard; the wrong notes do not pass a
+  measure. Then the test that matters: **all 64 measures, played as written — melody one
+  note at a time over the held bass chord, frames arriving twenty times a second — are
+  heard complete**, at FFT 8192 and at 16384. At 4096 measure 12 fails.
+- `check_render.js`: the whole page runs headless and the listening path is exercised
+  end to end with a synthesised spectrum — click a measure and the menu opens, play from
+  it and the transport follows, turn the microphone on and **playing measure 1 correctly
+  advances the page to measure 2**, while holding the notes that are already ringing does
+  not advance it, and playing measure 2 advances again.
+
+**Decisions taken while building, and why**
+
+1. **FFT 8192 instead of the 4096 first asked for** — the reason is in §9.2, and it is
+   measured rather than guessed: 4096 cannot separate the two notes of measure 12's bass
+   chord. The cost is a 171 ms window, which at this tempo is not noticeable.
+2. **The measure is remembered, not sampled** — see §9.2. This was found by testing:
+   judging each frame on its own failed 33 of the 64 measures.
+3. **Harmonics are quietened rather than removed** — see §9.2. This was found by testing
+   too: removing them made measure 37 impossible to pass.
+4. **Pause replays the measure it stopped in.** Nothing is scheduled more than a bar
+   ahead, so stopping is immediate; resuming starts that bar again rather than trying to
+   land mid-bar.
+5. **The test recording only plays over `http://localhost`.** A page opened from disk
+   cannot feed a local file through the Web Audio graph — the browser refuses it — and
+   the panel says so when it happens. Everything else works from disk.
+
+**Known limits, recorded rather than hidden**
+
+- Two notes a semitone apart in the bottom octave are beyond any window this size, so
+  the bass is heard by its third and fifth harmonics as much as by its fundamental.
+- The left hand has to be played at least about a quarter as loud as the melody (§9.2).
+- Playing back a measure schedules the notes at the score's own note values, which are
+  reconstructed from the notation (§5.4) — the timing is musically right but not
+  identical to the recording.
+
+### Phase 5 — polish (not started)
+
+Tuning on a real piano, performance, and the usage notes in `README.md`.

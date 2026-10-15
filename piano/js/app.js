@@ -1,10 +1,17 @@
 /**
  * Wiring: the score goes in, the page comes out, and the controls change things.
  *
- * Everything visual lives in the other modules; this file only holds the state, calls
- * the renderers when something changes, and keeps the ruler and the scroll position in
- * step. Where a change can be made without redrawing (the notation switch, the measure
- * highlight, the compactness gap) it is made in place, so the sheet never flickers.
+ * Everything visual lives in the other modules; this file holds the state, calls the
+ * renderers when something changes, keeps the ruler and the scroll position in step,
+ * and runs the two modes:
+ *
+ *   Learning Mode  (microphone on)  — the measure is shaded, its keys are lit, and the
+ *                                     page moves on when the notes have been played;
+ *   Listening Mode (microphone off) — clicking a measure offers to play it, or to play
+ *                                     from there to the end.
+ *
+ * Where a change can be made without redrawing — the notation switch, the measure
+ * highlight, the compactness gap — it is made in place, so the sheet never flickers.
  */
 window.App = window.App || {};
 
@@ -12,6 +19,19 @@ window.App = window.App || {};
   'use strict';
 
   const Config = window.App.Config;
+  const Pitch = window.App.Pitch;
+  const Loader = window.App.ScoreLoader;
+  const Sheet = window.App.SheetRender;
+  const Keys = window.App.KeyboardRender;
+  const Ruler = window.App.Ruler;
+  const Engine = window.App.AudioEngine;
+  const Detect = window.App.PitchDetect;
+  const Practice = window.App.Practice;
+  const Playback = window.App.Playback;
+  const Sound = window.App.PianoSound;
+
+  const COMPACT_CYCLE = ['normal', 'tight', 'loose'];
+  const TEST_RECORDING = 'test-music/flower_day.mp3';
 
   const state = {
     mode: 'number',                                    // 'number' | 'letter'
@@ -19,37 +39,36 @@ window.App = window.App || {};
     activeMidis: new Set(),
     micActive: false,
     compact: Config.defaultCompact,                    // 'normal' | 'tight' | 'loose'
-    keyboardRange: 'default'                           // 'default' | 'full'
+    keyboardRange: 'default',                          // 'default' | 'full'
+    panelOpen: false
   };
-
-  const COMPACT_CYCLE = ['normal', 'tight', 'loose'];
 
   let score = null;
   let layout = null;
   let sheet = null;
   const dom = {};
-  let audioCtx = null;
   let scrollQueued = false;
+  let judgeFrame = null;
+  let frameCount = 0;
+  let menuMeasure = null;
+  let highlightTimer = null;
 
   // ---------------------------------------------------------------- start up
 
   function init() {
-    dom.sheetArea = document.getElementById('sheet-area');
-    dom.sheetCanvas = document.getElementById('sheet-canvas');
-    dom.pianoFrame = document.getElementById('piano-frame');
-    dom.rulerLayer = document.getElementById('ruler-layer');
-    dom.progress = document.getElementById('progress');
-    dom.title = document.getElementById('song-title');
-    dom.subtitle = document.getElementById('song-subtitle');
-    dom.meta = document.getElementById('song-meta');
+    ['sheet-area', 'sheet-canvas', 'piano-frame', 'ruler-layer', 'progress', 'song-title',
+      'song-subtitle', 'song-meta', 'btn-num', 'btn-let', 'btn-compact', 'btn-keys-default',
+      'btn-keys-full', 'btn-mic', 'btn-reset', 'btn-play', 'btn-stop', 'btn-panel',
+      'measure-menu', 'menu-here', 'menu-onward', 'diag', 'diag-source', 'diag-target',
+      'diag-heard', 'diag-notes', 'diag-chroma', 'btn-test', 'test-seek'
+    ].forEach(function (id) {
+      dom[id] = document.getElementById(id);
+    });
 
     const raw = window[Config.scoreGlobal];
-    if (!raw) {
-      document.body.appendChild(document.createTextNode('The score did not load.'));
-      return;
-    }
+    if (!raw) return;
 
-    score = window.App.ScoreLoader.load(raw);
+    score = Loader.load(raw);
     layout = window.App.Layout.build(score);
 
     if (score.warnings.length) {
@@ -62,7 +81,8 @@ window.App = window.App || {};
     }
 
     renderHeader();
-    window.App.Ruler.mount(dom.rulerLayer);
+    buildChromaBars();
+    Ruler.mount(dom['ruler-layer']);
     setCompact(state.compact);
     renderAll();
     bindControls();
@@ -72,78 +92,96 @@ window.App = window.App || {};
 
   function renderHeader() {
     const meta = score.meta;
-    dom.title.textContent = meta.title || '';
-    dom.subtitle.textContent = meta.subtitle || '';
-    const tempo = meta.tempoDottedQuarter ? '♩. = ' + meta.tempoDottedQuarter : '';
-    const time = meta.timeSignature || '';
-    dom.meta.textContent = [tempo, time].filter(Boolean).join(' • ');
+    dom['song-title'].textContent = meta.title || '';
+    dom['song-subtitle'].textContent = meta.subtitle || '';
+    dom['song-meta'].textContent = [
+      meta.tempoDottedQuarter ? '♩. = ' + meta.tempoDottedQuarter : '',
+      meta.timeSignature || ''
+    ].filter(Boolean).join(' • ');
   }
 
   /** Draw everything from scratch. Only needed when the score or a range changes. */
   function renderAll() {
-    sheet = window.App.SheetRender.renderSheet(dom.sheetCanvas, layout, state);
-    window.App.KeyboardRender.renderKeyboard(dom.pianoFrame, state);
+    sheet = Sheet.renderSheet(dom['sheet-canvas'], layout, state);
+    Keys.renderKeyboard(dom['piano-frame'], state);
     layoutRuler();
     updateProgress();
     updateRangeButtons();
+    updateTransport();
   }
 
   // ---------------------------------------------------------------- controls
 
   function bindControls() {
-    document.getElementById('btn-num').addEventListener('click', function () { setMode('number'); });
-    document.getElementById('btn-let').addEventListener('click', function () { setMode('letter'); });
+    dom['btn-num'].addEventListener('click', function () { setMode('number'); });
+    dom['btn-let'].addEventListener('click', function () { setMode('letter'); });
+    dom['btn-compact'].addEventListener('click', function () {
+      setCompact(COMPACT_CYCLE[(COMPACT_CYCLE.indexOf(state.compact) + 1) % COMPACT_CYCLE.length]);
+    });
+    dom['btn-keys-default'].addEventListener('click', function () { setKeyboardRange('default'); });
+    dom['btn-keys-full'].addEventListener('click', function () { setKeyboardRange('full'); });
 
-    document.getElementById('btn-compact').addEventListener('click', function () {
-      const next = COMPACT_CYCLE[(COMPACT_CYCLE.indexOf(state.compact) + 1) % COMPACT_CYCLE.length];
-      setCompact(next);
+    dom['btn-mic'].addEventListener('click', function () { toggleMicrophone(); });
+    dom['btn-reset'].addEventListener('click', function () { resetScore(); });
+    dom['btn-play'].addEventListener('click', function () { toggleTransport(); });
+    dom['btn-stop'].addEventListener('click', function () { stopEverything(); });
+    dom['btn-panel'].addEventListener('click', function () { setPanel(!state.panelOpen); });
+
+    dom['btn-test'].addEventListener('click', function () { toggleTestRecording(); });
+    dom['test-seek'].addEventListener('input', function () {
+      const element = Engine.testElement();
+      if (element && element.duration) element.currentTime = element.duration * (dom['test-seek'].value / 1000);
     });
 
-    document.getElementById('btn-keys-default').addEventListener('click', function () { setKeyboardRange('default'); });
-    document.getElementById('btn-keys-full').addEventListener('click', function () { setKeyboardRange('full'); });
+    dom['menu-here'].addEventListener('click', function () { startPlayback(menuMeasure, false); closeMenu(); });
+    dom['menu-onward'].addEventListener('click', function () { startPlayback(menuMeasure, true); closeMenu(); });
 
-    document.getElementById('btn-mic').addEventListener('click', function () { toggleMic(); });
-    document.getElementById('btn-reset').addEventListener('click', function () { resetScore(); });
+    document.addEventListener('click', function (event) {
+      if (!dom['measure-menu'].hidden && !dom['measure-menu'].contains(event.target)) closeMenu();
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') { closeMenu(); setPanel(false); }
+    });
   }
 
   function setMode(mode) {
     state.mode = mode;
-    document.getElementById('btn-num').classList.toggle('active', mode === 'number');
-    document.getElementById('btn-let').classList.toggle('active', mode === 'letter');
+    dom['btn-num'].classList.toggle('active', mode === 'number');
+    dom['btn-let'].classList.toggle('active', mode === 'letter');
     // Only the writing changes, so the sheet is not redrawn.
-    window.App.SheetRender.applyMode(dom.sheetCanvas, mode);
-    window.App.KeyboardRender.applyMode(dom.pianoFrame, mode);
+    Sheet.applyMode(dom['sheet-canvas'], mode);
+    Keys.applyMode(dom['piano-frame'], mode);
   }
 
   function setCompact(compact) {
     state.compact = compact;
-    dom.sheetCanvas.style.setProperty('--system-gap', Config.systemGapPx[compact] + 'px');
-    document.getElementById('btn-compact').dataset.setting = compact;
-    document.getElementById('btn-compact').title = 'Spacing between systems: ' + compact;
+    dom['sheet-canvas'].style.setProperty('--system-gap', Config.systemGapPx[compact] + 'px');
+    dom['btn-compact'].dataset.setting = compact;
+    dom['btn-compact'].title = 'Spacing between systems: ' + compact;
     layoutRuler();
   }
 
   function setKeyboardRange(range) {
     state.keyboardRange = range;
-    window.App.KeyboardRender.renderKeyboard(dom.pianoFrame, state);
-    window.App.KeyboardRender.applyMode(dom.pianoFrame, state.mode);
+    Keys.renderKeyboard(dom['piano-frame'], state);
+    Keys.applyMode(dom['piano-frame'], state.mode);
     updateRangeButtons();
   }
 
   function updateRangeButtons() {
-    document.getElementById('btn-keys-default').classList.toggle('active', state.keyboardRange === 'default');
-    document.getElementById('btn-keys-full').classList.toggle('active', state.keyboardRange === 'full');
+    dom['btn-keys-default'].classList.toggle('active', state.keyboardRange === 'default');
+    dom['btn-keys-full'].classList.toggle('active', state.keyboardRange === 'full');
   }
 
-  function toggleMic() {
-    state.micActive = !state.micActive;
-    document.getElementById('btn-mic').classList.toggle('mic-active', state.micActive);
-    document.getElementById('btn-mic').setAttribute('aria-pressed', String(state.micActive));
-    // The microphone itself arrives with the listener in phase 3.
+  function setPanel(open) {
+    state.panelOpen = open;
+    dom['diag'].hidden = !open;
+    dom['btn-panel'].classList.toggle('active', open);
   }
 
   function resetScore() {
-    setActiveMeasure(1, window.App.ScoreLoader.targetMidis(layout.byNumber[1]));
+    stopEverything();
+    setActiveMeasure(1, Loader.targetMidis(layout.byNumber[1]));
     jumpToMeasure(1);
   }
 
@@ -159,31 +197,285 @@ window.App = window.App || {};
         sheet.highlights[key].style.display = Number(key) === number ? '' : 'none';
       });
     }
-    window.App.KeyboardRender.applyActive(dom.pianoFrame, state.activeMidis);
+    Keys.applyActive(dom['piano-frame'], state.activeMidis);
     updateProgress();
   }
 
   function updateProgress() {
-    const total = score ? score.measures.length : 0;
-    dom.progress.textContent = 'Measure ' + state.activeMeasure + ' / ' + total;
+    dom.progress.textContent = 'Measure ' + state.activeMeasure + ' / ' + (score ? score.measures.length : 0);
   }
 
+  /** Clicking a measure: jump there to practise, or offer to play it. */
+  window.App.onMeasureClick = function (measureNumber, event) {
+    if (state.micActive) {
+      stopPlayback();
+      Practice.goTo(measureNumber);
+      setActiveMeasure(measureNumber, Loader.targetMidis(layout.byNumber[measureNumber]));
+      jumpToMeasure(measureNumber);
+      return;
+    }
+    openMenu(measureNumber, event);
+  };
+
   window.App.onNoteClick = function (measureNumber, midi) {
-    const measure = layout.byNumber[measureNumber];
-    setActiveMeasure(measureNumber, window.App.ScoreLoader.targetMidis(measure));
+    setActiveMeasure(measureNumber, Loader.targetMidis(layout.byNumber[measureNumber]));
+    if (state.micActive) Practice.goTo(measureNumber);
     playNote(midi);
   };
 
   window.App.onKeyClick = function (midi) {
     state.activeMidis = new Set([midi]);
-    window.App.KeyboardRender.applyActive(dom.pianoFrame, state.activeMidis);
+    Keys.applyActive(dom['piano-frame'], state.activeMidis);
     playNote(midi);
   };
+
+  // ---------------------------------------------------------------- the measure menu
+
+  function openMenu(measureNumber, event) {
+    if (event && event.stopPropagation) event.stopPropagation();
+    menuMeasure = measureNumber;
+    dom['measure-menu'].hidden = false;
+    dom['measure-menu'].querySelector('.menu-title').textContent = 'Measure ' + measureNumber;
+
+    const point = event || { clientX: 200, clientY: 200 };
+    const width = 210;
+    const height = 108;
+    dom['measure-menu'].style.left = Math.max(8, Math.min(point.clientX, window.innerWidth - width - 8)) + 'px';
+    dom['measure-menu'].style.top = Math.max(8, Math.min(point.clientY, window.innerHeight - height - 8)) + 'px';
+  }
+
+  function closeMenu() {
+    dom['measure-menu'].hidden = true;
+    menuMeasure = null;
+  }
+
+  // ---------------------------------------------------------------- listening
+
+  function startPlayback(from, toEnd) {
+    if (!from) return;
+    stopLearning();
+    const context = Engine.ensure();
+    const total = score.measures.length;
+
+    Sound.preload(context, Loader.targetMidis(layout.byNumber[from]));
+
+    Playback.play({
+      context: context,
+      destination: context.destination,
+      total: total,
+      measure: from,
+      toEnd: toEnd,
+      measureAt: function (number) { return layout.byNumber[number]; },
+      onMeasure: function (number, at) {
+        // Move the highlight in step with the sound, not before it.
+        const delay = Math.max(0, (at - context.currentTime) * 1000);
+        clearTimeout(highlightTimer);
+        highlightTimer = setTimeout(function () {
+          setActiveMeasure(number, Loader.targetMidis(layout.byNumber[number]));
+          jumpToMeasure(number);
+          Sound.preload(context, Loader.targetMidis(layout.byNumber[number + 1] || layout.byNumber[number]));
+        }, delay);
+      },
+      onFinish: function () { updateTransport(); }
+    });
+    updateTransport();
+  }
+
+  function toggleTransport() {
+    if (Playback.isPlaying()) Playback.pause();
+    else if (Playback.isPaused()) Playback.resume();
+    else startPlayback(state.activeMeasure, true);
+    updateTransport();
+  }
+
+  function stopPlayback() {
+    clearTimeout(highlightTimer);
+    Playback.stop();
+    updateTransport();
+  }
+
+  function updateTransport() {
+    const playing = Playback.isPlaying();
+    dom['btn-play'].classList.toggle('active', playing);
+    dom['btn-play'].title = playing ? 'Pause' : 'Play from this measure to the end';
+    dom['btn-play'].setAttribute('aria-label', playing ? 'Pause' : 'Play');
+    dom['btn-play'].querySelector('.icon-play').style.display = playing ? 'none' : '';
+    dom['btn-play'].querySelector('.icon-pause').style.display = playing ? '' : 'none';
+  }
+
+  // ---------------------------------------------------------------- learning
+
+  function toggleMicrophone() {
+    if (state.micActive) stopLearning();
+    else startLearning();
+  }
+
+  function startLearning() {
+    stopPlayback();
+    Engine.startMicrophone().then(function (started) {
+      state.micActive = started;
+      dom['btn-mic'].classList.toggle('mic-active', started);
+      dom['btn-mic'].setAttribute('aria-pressed', String(started));
+
+      if (!started) {
+        showMessage(Engine.lastMessage());
+        return;
+      }
+      closeMenu();
+      setPanel(true);
+      Practice.start(state.activeMeasure, score.measures.length);
+      startJudging();
+    });
+  }
+
+  function stopLearning() {
+    if (!state.micActive && !judgeFrame) return;
+    state.micActive = false;
+    dom['btn-mic'].classList.remove('mic-active');
+    dom['btn-mic'].setAttribute('aria-pressed', 'false');
+    Engine.stopMicrophone();
+    Practice.stop();
+    stopJudging();
+  }
+
+  /** Playback of the test recording counts as listening too: same loop, same judging. */
+  function startJudging() {
+    if (judgeFrame) return;
+    frameCount = 0;
+    judgeFrame = window.requestAnimationFrame(judge);
+  }
+
+  function stopJudging() {
+    if (judgeFrame) window.cancelAnimationFrame(judgeFrame);
+    judgeFrame = null;
+  }
+
+  function judge() {
+    judgeFrame = window.requestAnimationFrame(judge);
+
+    const spectrum = Engine.read();
+    if (!spectrum) return;
+
+    const detection = Detect.analyse(spectrum.decibels, spectrum.binHz);
+    const measure = layout.byNumber[state.activeMeasure];
+    if (!measure) return;
+
+    const status = Practice.tick(detection.chroma, Loader.targetPitchClasses(measure));
+
+    if (status && status.advanced) {
+      if (status.finished) {
+        Practice.stop();
+        stopLearning();
+        Engine.pauseTestAudio();
+        updateTestButton();
+        showMessage('That is the whole piece — all 64 measures.');
+        return;
+      }
+      const next = status.measure;
+      setActiveMeasure(next, Loader.targetMidis(layout.byNumber[next]));
+      jumpToMeasure(next);
+    }
+
+    // The readout does not need sixty updates a second.
+    frameCount++;
+    if (state.panelOpen && frameCount % 4 === 0) updateDiagnostics(detection, status);
+  }
+
+  // ---------------------------------------------------------------- test recording
+
+  function toggleTestRecording() {
+    stopPlayback();
+    const element = Engine.useTestAudio(TEST_RECORDING);
+
+    if (element.paused) {
+      Engine.playTestAudio().then(function (started) {
+        updateTestButton();
+        if (!started) { showMessage(Engine.lastMessage()); return; }
+        setPanel(true);
+        Practice.start(state.activeMeasure, score.measures.length);
+        startJudging();
+        bindTestProgress();
+      });
+    } else {
+      Engine.pauseTestAudio();
+      updateTestButton();
+    }
+  }
+
+  function bindTestProgress() {
+    const element = Engine.testElement();
+    if (!element || element.dataset.bound) return;
+    element.dataset.bound = '1';
+    element.addEventListener('timeupdate', function () {
+      if (!element.duration) return;
+      dom['test-seek'].value = Math.round((element.currentTime / element.duration) * 1000);
+    });
+    element.addEventListener('ended', function () {
+      updateTestButton();
+      Practice.stop();
+      stopJudging();
+    });
+  }
+
+  function updateTestButton() {
+    const element = Engine.testElement();
+    const playing = element && !element.paused;
+    dom['btn-test'].textContent = playing ? 'Pause the test recording' : 'Play the test recording';
+    dom['btn-test'].classList.toggle('active', !!playing);
+  }
+
+  // ---------------------------------------------------------------- diagnostics
+
+  function buildChromaBars() {
+    dom['diag-chroma'].textContent = '';
+    for (let i = 0; i < 12; i++) {
+      const column = document.createElement('div');
+      column.className = 'chroma-column';
+      const bar = document.createElement('div');
+      bar.className = 'chroma-bar';
+      const label = document.createElement('span');
+      label.textContent = Pitch.SHARP_NAMES[i];
+      column.appendChild(bar);
+      column.appendChild(label);
+      dom['diag-chroma'].appendChild(column);
+    }
+  }
+
+  function updateDiagnostics(detection, status) {
+    const bars = dom['diag-chroma'].querySelectorAll('.chroma-bar');
+    for (let i = 0; i < 12 && i < bars.length; i++) {
+      bars[i].style.height = Math.round(detection.chroma[i] * 100) + '%';
+    }
+
+    const source = Engine.currentMode();
+    dom['diag-source'].textContent = source === 'microphone' ? 'Listening to the microphone'
+      : source === 'test' ? 'Listening to the test recording'
+        : 'Not listening — press the microphone';
+
+    const measure = layout.byNumber[state.activeMeasure];
+    const wanted = Loader.targetMidis(measure).map(Pitch.letterName).join(' ');
+    dom['diag-target'].textContent = 'Measure ' + measure.m + ' needs ' + wanted;
+
+    dom['diag-notes'].textContent = 'heard: ' + (Detect.describeNotes(detection.notes).join(' ') || '—');
+
+    if (status) {
+      const missing = status.missing.map(function (pc) { return Pitch.SHARP_NAMES[pc]; });
+      dom['diag-heard'].textContent = status.waiting ? 'get ready…'
+        : status.complete ? 'all notes heard'
+          : Math.round(status.score * 100) + '% — still missing ' + (missing.join(' ') || '—');
+    }
+  }
+
+  function showMessage(text) {
+    if (!text) return;
+    setPanel(true);
+    dom['diag-source'].textContent = text;
+  }
 
   // ---------------------------------------------------------------- scrolling
 
   function bindScroll() {
-    dom.sheetArea.addEventListener('scroll', function () {
+    dom['sheet-area'].addEventListener('scroll', function () {
       if (scrollQueued) return;
       scrollQueued = true;
       window.requestAnimationFrame(function () {
@@ -194,41 +486,39 @@ window.App = window.App || {};
   }
 
   function layoutRuler() {
-    if (!dom.rulerLayer || !sheet) return;
+    if (!dom['ruler-layer'] || !sheet) return;
     const offsets = layout.systems.map(function (system) {
-      const element = sheet.systems[system.index];
-      return offsetInScroll(element);
+      return offsetInScroll(sheet.systems[system.index]);
     });
-    window.App.Ruler.layout(offsets, dom.sheetArea.scrollHeight, dom.sheetArea.clientHeight);
+    Ruler.layout(offsets, dom['sheet-area'].scrollHeight, dom['sheet-area'].clientHeight);
     updateRulerViewport();
   }
 
   /** How far an element sits below the top of the scrolling content. */
   function offsetInScroll(element) {
-    const area = dom.sheetArea.getBoundingClientRect();
+    const area = dom['sheet-area'].getBoundingClientRect();
     const box = element.getBoundingClientRect();
-    return box.top - area.top + dom.sheetArea.scrollTop;
+    return box.top - area.top + dom['sheet-area'].scrollTop;
   }
 
   function updateRulerViewport() {
-    window.App.Ruler.updateViewport(dom.sheetArea.scrollTop, dom.sheetArea.clientHeight);
+    Ruler.updateViewport(dom['sheet-area'].scrollTop, dom['sheet-area'].clientHeight);
   }
 
   /** Called by the ruler when it is pressed or dragged. */
   window.App.scrollToRatio = function (ratio) {
-    const top = window.App.Ruler.scrollTopForRatio(ratio, dom.sheetArea.clientHeight);
-    dom.sheetArea.scrollTop = top;
+    dom['sheet-area'].scrollTop = Ruler.scrollTopForRatio(ratio, dom['sheet-area'].clientHeight);
   };
 
   function jumpToMeasure(number) {
     const element = sheet.systems[Math.floor((number - 1) / Config.layout.measuresPerSystem)];
     if (!element) return;
     const offset = offsetInScroll(element);
+    const top = dom['sheet-area'].scrollTop;
+    const bottom = top + dom['sheet-area'].clientHeight;
     // Only move when it is not already in view, so practising does not jerk the page.
-    const top = dom.sheetArea.scrollTop;
-    const bottom = top + dom.sheetArea.clientHeight;
     if (offset < top + 8 || offset + element.offsetHeight > bottom) {
-      dom.sheetArea.scrollTop = Math.max(0, offset - 12);
+      dom['sheet-area'].scrollTop = Math.max(0, offset - 12);
     }
   }
 
@@ -237,23 +527,21 @@ window.App = window.App || {};
     updateRulerViewport();
   }
 
+  /** Everything off: the microphone, the playback and the test recording. */
+  function stopEverything() {
+    stopLearning();
+    stopPlayback();
+    Engine.pauseTestAudio();
+    updateTestButton();
+  }
+
   // ---------------------------------------------------------------- sound
-  // A plain tone for now; the recorded piano samples arrive with the audio engine.
 
+  /** One note, from the recordings when they are available. */
   function playNote(midi) {
-    if (!window.App.Pitch.isValidMidi(midi)) return;
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-    const oscillator = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    oscillator.type = 'triangle';
-    oscillator.frequency.value = window.App.Pitch.frequency(midi);
-    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.7);
-    oscillator.connect(gain);
-    gain.connect(audioCtx.destination);
-    oscillator.start();
-    oscillator.stop(audioCtx.currentTime + 0.7);
+    if (!Pitch.isValidMidi(midi)) return;
+    const context = Engine.ensure();
+    Sound.play(context, context.destination, midi, context.currentTime + 0.01, 1.1, 0.7);
   }
 
   window.App.state = state;

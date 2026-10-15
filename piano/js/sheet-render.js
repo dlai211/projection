@@ -90,7 +90,9 @@ window.App.SheetRender = (function () {
       svg.appendChild(smudge);
     });
 
-    const staffGroup = make('g', null, 'pencil-stroke');
+    // Everything drawn for its looks alone lets clicks through, so a click anywhere in
+    // a measure reaches that measure's own invisible target instead of a staff line.
+    const staffGroup = make('g', null, 'pencil-stroke no-pointer');
 
     staff.trebleLines.concat(staff.bassLines).forEach(function (y) {
       staffGroup.appendChild(make('line', {
@@ -105,7 +107,7 @@ window.App.SheetRender = (function () {
     });
 
     // Ledger strokes, drawn with the staff so they carry the same pencil edge.
-    const ledger = make('g', null, 'pencil-stroke');
+    const ledger = make('g', null, 'pencil-stroke no-pointer');
     system.measures.forEach(function (measure) {
       measure.rh.concat(measure.lh).forEach(function (note) {
         note.ledger.forEach(function (y) {
@@ -125,12 +127,12 @@ window.App.SheetRender = (function () {
     // Handwritten clefs, exactly where test.html puts them.
     svg.appendChild(make('text', {
       x: header.trebleClef.x, y: header.trebleClef.y, 'font-size': header.trebleClef.size,
-      fill: 'var(--graphite-2b)', class: 'pencil-stroke clef'
+      fill: 'var(--graphite-2b)', class: 'pencil-stroke clef no-pointer'
     })).textContent = '𝄞';
 
     svg.appendChild(make('text', {
       x: header.bassClef.x, y: header.bassClef.y, 'font-size': header.bassClef.size,
-      fill: 'var(--graphite-2b)', class: 'pencil-stroke clef'
+      fill: 'var(--graphite-2b)', class: 'pencil-stroke clef no-pointer'
     })).textContent = '𝄢';
 
     // Key signature at the head of the system, and again wherever the key changes
@@ -145,14 +147,30 @@ window.App.SheetRender = (function () {
       runningKey = measure.key;
     });
 
+    // Click targets: one invisible rectangle per measure, under the notes but over
+    // everything else. Clicking a note plays it; clicking anywhere else in the measure
+    // chooses the measure.
+    system.measures.forEach(function (measure) {
+      const target = make('rect', {
+        x: measure.slotStart, y: 0,
+        width: measure.slotEnd - measure.slotStart,
+        height: viewHeight
+      }, 'measure-hit');
+      target.addEventListener('click', function (event) {
+        window.App.onMeasureClick(measure.m, event);
+      });
+      svg.appendChild(target);
+    });
+
     system.measures.forEach(function (measure) {
       svg.appendChild(makeLabel(measure.xStart + Config.layout.measureNumber.dx,
-        Config.layout.measureNumber.dy, 'measure-num', String(measure.m), String(measure.m)));
+        Config.layout.measureNumber.dy, 'measure-num no-pointer',
+        String(measure.m), String(measure.m)));
 
       measure.beams.forEach(function (beam) {
         svg.appendChild(make('line', {
           x1: beam[0], y1: beam[1], x2: beam[2], y2: beam[3]
-        }, 'note-beam'));
+        }, 'note-beam no-pointer'));
       });
 
       measure.rh.forEach(function (note) {
@@ -175,7 +193,7 @@ window.App.SheetRender = (function () {
       const y = window.App.Layout.staffY(position.letter, position.octave, 'treble') + sharp.baselineLift;
       svg.appendChild(make('text', {
         x: startX + index * gap, y: y, 'font-size': sharp.size,
-        fill: 'var(--graphite-2b)', class: 'pencil-stroke key-sharp'
+        fill: 'var(--graphite-2b)', class: 'pencil-stroke key-sharp no-pointer'
       })).textContent = '♯';
     });
   }

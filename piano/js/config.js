@@ -116,6 +116,69 @@ window.App.Config = (function () {
     defaultCompact: 'normal',
 
     /** Six-eight at a dotted quarter = 50: one eighth lasts 0.4 s. */
-    tempo: { dottedQuarterPerMinute: 50, eighthSeconds: 0.4 }
+    tempo: { dottedQuarterPerMinute: 50, eighthSeconds: 0.4 },
+
+    /**
+     * Listening.
+     *
+     * The window size is not a free choice: it decides whether two notes a semitone
+     * apart can be told apart at all. Measure 12 asks for D3 and C#3 together, which are
+     * 8 Hz apart — at FFT 4096 (a bin every 11.7 Hz) they land in the same bin and the
+     * measure can never be heard complete. At 8192 they are three bins apart and every
+     * one of the 64 measures passes; tools/check_detect.js prints the comparison.
+     *
+     * The price is latency: an 8192 window is 171 ms long, so the readout trails the
+     * playing by about a fifth of a second. At this tempo that is not noticeable.
+     */
+    audio: {
+      fftSize: 8192,
+      smoothing: 0.4,             // the analyser's own smoothing between frames
+      minFrequency: 60,           // below this the bins are too wide to name a note
+      maxFrequency: 4300,         // above the top key of an 88-key piano
+      peakFloorDb: -78,           // a peak must be above this to count at all
+      peakRatio: 0.03,            // ...and above this share of the loudest peak
+      harmonicTolerance: 0.03,    // how close to a whole multiple counts as a harmonic
+      harmonicMax: 8,             // harmonics past the eighth are not worth chasing
+      harmonicStrength: 0.22,     // the lower peak must be at least this strong
+      /**
+       * What a harmonic still contributes to the chroma. It is quietened rather than
+       * dropped, because a note played on purpose can sit exactly on another note's
+       * harmonic — see markHarmonics in js/pitch-detect.js.
+       */
+      harmonicFold: 0.45
+    },
+
+    /** Judging what was played. */
+    detect: {
+      /**
+       * A pitch class counts as heard at this share of the strongest one. Set it too
+       * high and a left hand played softly stops counting; too low and a note's own
+       * harmonics start passing measures on their own. At 0.25 the left hand has to be
+       * at least a quarter as loud as the melody, and a note's third harmonic — the
+       * loudest one that lands on a different note — stays quiet enough not to count.
+       */
+      matchThreshold: 0.25,
+      holdFrames: 3,              // frames in a row before the measure counts as played
+      /**
+       * How long a note keeps counting after it stops sounding — long enough to cover
+       * the slowest measure here (twelve notes take about four seconds to play), and
+       * cleared outright whenever the page moves on to the next measure.
+       */
+      measureMemorySeconds: 6,
+      settleMs: 600               // everything is ignored for this long after advancing
+    },
+
+    /** Playing the score back. */
+    playback: {
+      leadInSeconds: 0.12,
+      releaseSeconds: 0.4,
+      lookaheadMs: 60
+    },
+
+    /** The sample set: one file per key, named with flats. */
+    samples: {
+      folder: 'piano-mp3/',
+      fileNames: ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B']
+    }
   };
 })();

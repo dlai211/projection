@@ -189,7 +189,8 @@ window.App.Layout = (function () {
     });
 
     const lh = measure.lh.map(function (chord, index) {
-      const anchor = rh[beatStartIndex(measure.rh, index)];
+      const beatIndex = beatStartIndex(measure.rh, index);
+      const anchor = rh[beatIndex];
       const x = anchor ? anchor.x : boxLeft;
       const y = chord.midi === null ? staff.bassLines[0] : staffY(chord.letter, chord.octave, 'bass');
       return {
@@ -200,6 +201,8 @@ window.App.Layout = (function () {
         hollow: chord.hollow,
         x: x,
         y: y,
+        /** Which melody note this chord lines up with — playback starts it there. */
+        beatIndex: beatIndex,
         ledger: ledgerStrokes(y, 'bass')
       };
     });
