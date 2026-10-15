@@ -3,9 +3,11 @@
  *
  * This is test.html's renderSheet(), kept whole: the same elements, the same classes,
  * the same order, so the pencil filters and the CSS land on exactly the same shapes.
- * The only differences are that it draws sixteen systems instead of two, takes its
- * coordinates from js/layout.js instead of from hand-written numbers, and can grow a
- * system's drawing window upward when a note sits above the staff.
+ * What it adds is what the full arrangement needs — a beat that carries a chord on one
+ * stem, beams that double and triple, a left hand whose clef changes, rests, grace
+ * notes, ties, an 8va line and mid-score time signatures — every one of them drawn
+ * with test.html's own marks: the same strokes, the same `pencil-stroke` filter, the
+ * same graphite colours.
  *
  * Nothing here decides where anything goes — that all happened in the layout engine.
  */
@@ -40,6 +42,16 @@ window.App.SheetRender = (function () {
     return node;
   }
 
+  function linesFor(staff) {
+    return staff === 'top' ? Config.staff.topStaffLines : Config.staff.bottomStaffLines;
+  }
+
+  /** Where a clef's foot sits: a treble clef on its G line, a bass clef on its F line. */
+  function clefBaseline(clef, staff) {
+    const lines = linesFor(staff);
+    return clef === 'treble' ? lines[3] + 4 : lines[1] + 20;
+  }
+
   /**
    * Draw the whole score into a container.
    *
@@ -64,6 +76,7 @@ window.App.SheetRender = (function () {
     const staff = Config.staff;
     const header = Config.header;
     const viewHeight = Config.viewBox.height + system.extraTop;
+    const first = system.measures[0];
 
     const svg = make('svg', {
       viewBox: '0 ' + (-system.extraTop) + ' ' + Config.viewBox.width + ' ' + viewHeight,
@@ -94,15 +107,14 @@ window.App.SheetRender = (function () {
     // a measure reaches that measure's own invisible target instead of a staff line.
     const staffGroup = make('g', null, 'pencil-stroke no-pointer');
 
-    staff.trebleLines.concat(staff.bassLines).forEach(function (y) {
-      staffGroup.appendChild(make('line', {
-        x1: staff.x1, x2: staff.x2, y1: y, y2: y
-      }, 'staff-line'));
+    staff.topStaffLines.concat(staff.bottomStaffLines).forEach(function (y) {
+      staffGroup.appendChild(make('line', { x1: staff.x1, x2: staff.x2, y1: y, y2: y }, 'staff-line'));
     });
 
     staff.barlineX.forEach(function (x) {
       staffGroup.appendChild(make('line', {
-        x1: x, x2: x, y1: staff.trebleLines[0], y2: staff.bassLines[staff.bassLines.length - 1]
+        x1: x, x2: x, y1: staff.topStaffLines[0],
+        y2: staff.bottomStaffLines[staff.bottomStaffLines.length - 1]
       }, 'bar-line'));
     });
 
@@ -110,11 +122,11 @@ window.App.SheetRender = (function () {
     const ledger = make('g', null, 'pencil-stroke no-pointer');
     system.measures.forEach(function (measure) {
       measure.rh.concat(measure.lh).forEach(function (note) {
-        note.ledger.forEach(function (y) {
+        note.ledger.forEach(function (stroke) {
           ledger.appendChild(make('line', {
-            x1: note.x - Config.layout.ledgerHalfWidth,
-            x2: note.x + Config.layout.ledgerHalfWidth,
-            y1: y, y2: y
+            x1: stroke.x - Config.layout.ledgerHalfWidth,
+            x2: stroke.x + Config.layout.ledgerHalfWidth,
+            y1: stroke.y, y2: stroke.y
           }, 'staff-line ledger-line'));
         });
       });
@@ -124,27 +136,35 @@ window.App.SheetRender = (function () {
     // Ledger strokes go on before the notes, so a notehead always covers its own line.
     svg.appendChild(ledger);
 
-    // Handwritten clefs, exactly where test.html puts them.
-    svg.appendChild(make('text', {
-      x: header.trebleClef.x, y: header.trebleClef.y, 'font-size': header.trebleClef.size,
-      fill: 'var(--graphite-2b)', class: 'pencil-stroke clef no-pointer'
-    })).textContent = '𝄞';
+    // Handwritten clefs: treble on the top staff as test.html has it, and on the bottom
+    // staff whichever clef the left hand is reading in.
+    appendClef(svg, 'treble', 'top');
+    appendClef(svg, first.lhClef, 'bottom');
 
-    svg.appendChild(make('text', {
-      x: header.bassClef.x, y: header.bassClef.y, 'font-size': header.bassClef.size,
-      fill: 'var(--graphite-2b)', class: 'pencil-stroke clef no-pointer'
-    })).textContent = '𝄢';
+    // Key signatures, on both staves, each in the lines its own clef gives it.
+    appendKeySignature(svg, first.key, 'treble', 'top', header.sharp.x, header.sharp.gap);
+    appendKeySignature(svg, first.key, first.lhClef, 'bottom', header.sharp.x, header.sharp.gap);
 
-    // Key signature at the head of the system, and again wherever the key changes
-    // inside it (measure 42 is the one place that happens).
-    appendKeySignature(svg, system.measures[0].key, header.sharp.x, header.sharp.gap);
-    let runningKey = system.measures[0].key;
+    // A key that changes inside the system, and a time signature that changes at all,
+    // are written where they happen.
+    let runningKey = first.key;
     system.measures.forEach(function (measure, index) {
       if (index > 0 && measure.key !== runningKey) {
-        appendKeySignature(svg, measure.key,
+        appendKeySignature(svg, measure.key, 'treble', 'top',
+          measure.slotStart + header.inlineSharp.offset, header.inlineSharp.gap);
+        appendKeySignature(svg, measure.key, measure.lhClef, 'bottom',
           measure.slotStart + header.inlineSharp.offset, header.inlineSharp.gap);
       }
       runningKey = measure.key;
+
+      if (measure.timeChange) {
+        appendTimeSignature(svg, measure.timeChange, 'top', measure.slotStart + header.timeSignature.gapFromBarline);
+        appendTimeSignature(svg, measure.timeChange, 'bottom', measure.slotStart + header.timeSignature.gapFromBarline);
+      }
+      if (measure.cueClef) {
+        appendCueClef(svg, measure.cueClef, measure.slotEnd - header.cueClef.backFromBarline);
+      }
+      if (measure.octaveShift > 0) appendOctaveLine(svg, measure);
     });
 
     // Click targets: one invisible rectangle per measure, under the notes but over
@@ -169,37 +189,107 @@ window.App.SheetRender = (function () {
 
       measure.beams.forEach(function (beam) {
         svg.appendChild(make('line', {
-          x1: beam[0], y1: beam[1], x2: beam[2], y2: beam[3]
-        }, 'note-beam no-pointer'));
+          x1: beam.x1, y1: beam.y1, x2: beam.x2, y2: beam.y2
+        }, 'note-beam no-pointer' + (beam.level > 1 ? ' beam-secondary' : '')));
       });
 
-      measure.rh.forEach(function (note) {
-        svg.appendChild(renderMelodyNote(note, measure));
+      measure.ties.forEach(function (tie) {
+        const middleX = (tie.x1 + tie.x2) / 2;
+        const middleY = (tie.y1 + tie.y2) / 2 - Config.layout.tie.height;
+        svg.appendChild(make('path', {
+          d: 'M ' + tie.x1 + ' ' + tie.y1 + ' Q ' + middleX + ' ' + middleY + ' ' + tie.x2 + ' ' + tie.y2
+        }, 'tie-arc no-pointer'));
       });
-      measure.lh.forEach(function (note) {
-        svg.appendChild(renderBassNote(note, measure));
-      });
+
+      measure.rh.forEach(function (note) { svg.appendChild(renderEvent(note, measure, 'rh')); });
+      measure.lh.forEach(function (note) { svg.appendChild(renderEvent(note, measure, 'lh')); });
     });
 
     return svg;
   }
 
-  /** The sharps of a key signature, in circle-of-fifths order. */
-  function appendKeySignature(svg, key, startX, gap) {
+  function appendClef(svg, clef, staff) {
+    const definition = Config.header.clefs[clef] || Config.header.clefs.treble;
+    const node = make('text', {
+      x: definition.x, y: clefBaseline(clef, staff), 'font-size': definition.size,
+      fill: 'var(--graphite-2b)', class: 'pencil-stroke clef no-pointer'
+    });
+    node.textContent = definition.glyph;
+    svg.appendChild(node);
+  }
+
+  /** The sharps of a key signature, in circle-of-fifths order, on one staff. */
+  function appendKeySignature(svg, key, clef, staff, startX, gap) {
     const sharp = Config.header.sharp;
-    const signature = Config.keySignatures[key] || [];
+    const signature = (Config.keySignatures[key] || {})[clef] || [];
 
     signature.forEach(function (position, index) {
-      const y = window.App.Layout.staffY(position.letter, position.octave, 'treble') + sharp.baselineLift;
-      svg.appendChild(make('text', {
+      const y = window.App.Layout.staffY(position.letter, position.octave, clef, staff) + sharp.baselineLift;
+      const node = make('text', {
         x: startX + index * gap, y: y, 'font-size': sharp.size,
         fill: 'var(--graphite-2b)', class: 'pencil-stroke key-sharp no-pointer'
-      })).textContent = '♯';
+      });
+      node.textContent = '♯';
+      svg.appendChild(node);
     });
   }
 
-  /** A melody note: stem, tilted notehead, and its handwritten label above it. */
-  function renderMelodyNote(note, measure) {
+  /**
+   * A clef at the end of a measure, warning that the next one changes.
+   * A fraction of the usual size, exactly as the reference score draws it.
+   */
+  function appendCueClef(svg, clef, x) {
+    const definition = Config.header.clefs[clef] || Config.header.clefs.bass;
+    const node = make('text', {
+      x: x, y: clefBaseline(clef, 'bottom'), 'font-size': Config.header.cueClef.size,
+      fill: 'var(--graphite-hb)', class: 'pencil-stroke cue-clef no-pointer'
+    });
+    node.textContent = definition.glyph;
+    svg.appendChild(node);
+  }
+
+  /** A time signature drawn on the staves, one number over the other. */
+  function appendTimeSignature(svg, time, staff, x) {
+    const parts = String(time).split('/');
+    const settings = Config.header.timeSignature;
+    const middle = linesFor(staff)[2];
+
+    [{ text: parts[0], dy: settings.numeratorDy }, { text: parts[1], dy: settings.denominatorDy }]
+      .forEach(function (part) {
+        const node = make('text', {
+          x: x, y: middle + part.dy, 'font-size': settings.size,
+          fill: 'var(--graphite-2b)', class: 'pencil-stroke time-signature no-pointer'
+        });
+        node.textContent = part.text;
+        svg.appendChild(node);
+      });
+  }
+
+  /** The dashed 8va line over a measure that sounds an octave above what is written. */
+  function appendOctaveLine(svg, measure) {
+    const settings = Config.layout.octaveLine;
+    const y = linesFor('top')[0] - settings.y;
+    const from = measure.slotStart + 6;
+    const to = measure.slotEnd - 6;
+
+    svg.appendChild(make('line', {
+      x1: from, x2: to, y1: y, y2: y,
+      'stroke-dasharray': settings.dash
+    }, 'octave-line no-pointer'));
+
+    const label = make('text', {
+      x: from + 2, y: y - settings.labelGap, 'font-size': settings.labelSize,
+      fill: 'var(--graphite-hb)', class: 'pencil-stroke octave-mark no-pointer'
+    });
+    label.textContent = '8va';
+    svg.appendChild(label);
+  }
+
+  /**
+   * One beat: its stem, its noteheads, and its handwritten label. A beat may hold a
+   * chord, a rest, or a grace note leaning into the beat it belongs to.
+   */
+  function renderEvent(note, measure, hand) {
     const layout = Config.layout;
     const group = make('g', null, 'note-group');
     group.dataset.measure = measure.m;
@@ -208,40 +298,76 @@ window.App.SheetRender = (function () {
       window.App.onNoteClick(measure.m, note.midi);
     });
 
-    group.appendChild(make('line', {
-      x1: note.stem.x, x2: note.stem.x, y1: note.stem.top, y2: note.stem.bottom
-    }, 'note-stem'));
+    if (note.rest) {
+      group.appendChild(renderRest(note));
+      return group;
+    }
 
-    group.appendChild(make('ellipse', {
-      cx: note.x, cy: note.y, rx: layout.note.rx, ry: layout.note.ry,
-      transform: 'rotate(' + layout.note.tilt + ' ' + note.x + ' ' + note.y + ')'
-    }, 'note-head' + (note.hollow ? ' hollow' : '')));
+    const grace = note.grace;
+    const scale = grace ? layout.grace.scale : 1;
 
-    group.appendChild(makeLabel(note.x, note.y + note.labelDy, 'written-note-rh',
-      note.num, note.let, note.labelSize));
+    // A chord shares one stem, which spans from its highest notehead to a little past
+    // its lowest — the stem test.html draws, made to fit a chord.
+    if (note.hasStem !== false) {
+      group.appendChild(make('line', {
+        x1: note.x - layout.stemOffset * scale, x2: note.x - layout.stemOffset * scale,
+        y1: note.stem.top, y2: note.stem.bottom
+      }, 'note-stem'));
+
+      if (grace) {
+        // The slash that marks a grace note.
+        const slash = layout.grace.slashLength;
+        group.appendChild(make('line', {
+          x1: note.x - layout.stemOffset - slash / 2, x2: note.x - layout.stemOffset + slash / 2,
+          y1: (note.stem.top + note.stem.bottom) / 2 + slash / 2,
+          y2: (note.stem.top + note.stem.bottom) / 2 - slash / 2
+        }, 'grace-slash'));
+      }
+    }
+
+    note.heads.forEach(function (head) {
+      const rx = (head.y === note.y || note.heads.length === 1 ? layout.note.rx : layout.note.rx) * scale;
+      group.appendChild(make('ellipse', {
+        cx: note.x, cy: head.y, rx: rx, ry: layout.note.ry * scale,
+        transform: 'rotate(' + layout.note.tilt + ' ' + note.x + ' ' + head.y + ')'
+      }, 'note-head' + (note.hollow ? ' hollow' : '') + (grace ? ' grace-head' : '')));
+    });
+
+    // The label: above the melody, below the bass. A chord prints its whole stack when
+    // there is room for it and its top note when there is not.
+    const labelText = hand === 'rh' ? note.num : note.num;
+    const labelLet = hand === 'rh' ? note.let : note.let;
+    if (hand === 'rh') {
+      const text = fitsStack(labelText, note) ? labelText : note.topNum;
+      const text2 = fitsStack(labelLet, note) ? labelLet : note.topLet;
+      group.appendChild(makeLabel(note.x, note.y + note.labelDy, 'written-note-rh',
+        text, text2, note.labelSize));
+    } else {
+      group.appendChild(makeLabel(note.x + layout.lhLabel.dx, note.y + layout.lhLabel.dy,
+        'written-note-lh', labelText, labelLet, 0));
+    }
 
     return group;
   }
 
-  /** A bass note: an open or filled oval with its chord written underneath. */
-  function renderBassNote(note, measure) {
-    const layout = Config.layout;
-    const group = make('g', null, 'note-group');
-    group.dataset.measure = measure.m;
-    group.dataset.midi = note.midi;
-    group.addEventListener('click', function () {
-      window.App.onNoteClick(measure.m, note.midi);
-    });
+  /** A chord's full stack of labels only when the measure's writing is big enough. */
+  function fitsStack(text, note) {
+    if (note.heads.length < 2) return true;
+    return note.labelSize >= Config.layout.denseLabel.staggerBelow;
+  }
 
-    group.appendChild(make('ellipse', {
-      cx: note.x, cy: note.y, rx: layout.bassNote.rx, ry: layout.bassNote.ry,
-      transform: 'rotate(' + layout.bassNote.tilt + ' ' + note.x + ' ' + note.y + ')'
-    }, 'note-head' + (note.hollow ? ' hollow' : '')));
-
-    group.appendChild(makeLabel(note.x + layout.lhLabel.dx, note.y + layout.lhLabel.dy,
-      'written-note-lh', note.num, note.let, 0));
-
-    return group;
+  /** A rest, drawn as a pencil squiggle at the middle of its staff. */
+  function renderRest(note) {
+    const rest = Config.layout.rest;
+    const half = rest.width / 2;
+    const top = note.y - rest.height / 2;
+    return make('path', {
+      d: 'M ' + (note.x - half) + ' ' + top +
+        ' L ' + (note.x + half) + ' ' + (top + rest.height * 0.28) +
+        ' L ' + (note.x - half) + ' ' + (top + rest.height * 0.5) +
+        ' L ' + (note.x + half) + ' ' + (top + rest.height * 0.78) +
+        ' L ' + (note.x - half) + ' ' + (top + rest.height)
+    }, 'rest-stroke no-pointer');
   }
 
   /** Switch every label between 123 and ABC without redrawing the sheet. */

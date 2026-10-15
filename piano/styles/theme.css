@@ -111,6 +111,56 @@ body {
   filter: url(#graphite-edge);
 }
 
+/* The marks the full arrangement brought with it. All of them are the same pencil:
+   the same graphite, the same edge filter, drawn with the same strokes. */
+
+/* A second or third beam under a run of sixteenths or thirty-seconds. */
+.beam-secondary {
+  stroke-width: 3.4;
+}
+
+/* The slash through a grace note's stem. */
+.grace-slash {
+  stroke: var(--graphite-2b);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  filter: url(#graphite-edge);
+}
+
+/* A rest, drawn as a pencil squiggle at the middle of its staff. */
+.rest-stroke {
+  fill: none;
+  stroke: var(--graphite-2b);
+  stroke-width: 2.1;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  filter: url(#graphite-edge);
+}
+
+/* The arc that ties one note to the next. */
+.tie-arc {
+  fill: none;
+  stroke: var(--graphite-2b);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  filter: url(#graphite-edge);
+}
+
+/* The dashed 8va line and its label. */
+.octave-line {
+  stroke: var(--graphite-hb);
+  stroke-width: 1.3;
+  stroke-linecap: round;
+}
+
+.octave-mark,
+.time-signature,
+.cue-clef {
+  font-family: 'Caveat', cursive;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
 /* Handwritten Graphite Pencil Note Labels */
 .written-note-rh {
   font-family: 'Caveat', cursive;

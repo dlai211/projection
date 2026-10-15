@@ -198,13 +198,14 @@ function wholePiece(App, Detect, Pitch, check, fftSize) {
 
     // The bass chord sounds from the downbeat and is held throughout.
     const bass = [];
-    measure.lh.forEach(function (chord) { chord.notes.forEach(function (midi) { bass.push(midi); }); });
+    measure.lh.forEach(function (event) { event.notes.forEach(function (note) { bass.push(note.midi); }); });
 
     measure.rh.forEach(function (note) {
       if (passed) return;
       for (let frame = 0; frame < framesPerNote && !passed; frame++) {
-        const midis = note.notes.concat(bass);
-        const levels = midis.map(function (unused, index) { return index < note.notes.length ? 1 : 0.45; });
+        const played = note.notes.map(function (written) { return written.midi; });
+        const midis = played.concat(bass);
+        const levels = midis.map(function (unused, index) { return index < played.length ? 1 : 0.45; });
         const spectrum = synthSpectrum(midis, { levels: levels, fftSize: fftSize });
         const result = Detect.analyse(spectrum.decibels, spectrum.binHz);
         smoothed = Detect.accumulate(smoothed, result.chroma, frameSeconds);

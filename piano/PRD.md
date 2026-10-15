@@ -148,19 +148,46 @@ piano/
 
 ### 5.1 Shape
 
+Two shapes are accepted, so the score can be moved over to the full arrangement a measure
+at a time without ever leaving the page broken.
+
+**The full arrangement** — a beat holds one or more notes and carries its written length:
+
 ```jsonc
-{ "meta": { "title": "꽃날 (Flower Day)", "subtitle": "드라마 '황진이' OST",
-            "timeSignature": "6/8", "tempoDottedQuarter": 50 },
-  "measures": [ { "m": 1, "key": "1#",
-                  "rh": [["7","B4",71], ["7","B4",71], ...],
-                  "lh": ["3/7,", "E3/B2", 52] }, ... ] }
+{ "m": 1, "key": "1#", "lhClef": "treble", "octave": "8va", "time": "3/8",
+  "rh": [
+    { "dur": "8",  "notes": ["5", "7"] },        // a chord: G4 + B4 on one stem
+    { "dur": "16", "notes": ["7"] },
+    { "dur": "4.", "notes": ["3''"], "tie": true },
+    { "dur": "8",  "rest": true },
+    { "dur": "grace", "notes": ["1''"] }
+  ],
+  "lh": [ { "dur": "8", "notes": ["1,", "5,,"] } ] }
 ```
 
-- `rh` entries are always `[numberNotation, letterNotation, MIDI]`.
-- `lh` entries are *almost* always `[numberNotation, letterNotation, MIDI]`; `m4` is the
-  one exception (§5.4).
-- `key` runs `1#` for measures 1–41 and `3#` for 42–64; `time` is `3/8` for measure 32
-  only. Both carry over from the previous measure until changed.
+| Field | Meaning |
+|---|---|
+| `dur` | `1 2 2. 4 4. 8 8. 16 16. 32 64`, or `grace` |
+| `notes` | one token, or several — a slash string like `"1,/5,,"` works too |
+| `rest` | true for a rest (its `dur` is still its length) |
+| `tie` | the note is tied to the next beat of the same hand |
+| `lhClef` | `"treble"` or `"bass"` — carries over until it changes |
+| `octave` | `"8va"` — written as it looks, sounding an octave higher |
+| `time` | carries over until it changes; a change is drawn on the staves |
+
+**The old, simplified entries** — one note with no written length:
+
+```jsonc
+  "rh": [["7","B4",71], ["7.","B4.",71], ...],
+  "lh": ["3/7,", "E3/B2", 52]
+```
+
+Both end up in the same model. A measure whose two hands both carry written lengths is
+placed on the real time axis; a measure still in the old shape keeps the spacing that was
+calibrated against `test.html`, so the two can sit side by side.
+
+`key` runs `1#` for measures 1–41 and `3#` for 42–64; `time` is `3/8` for measure 32
+only. Both carry over from the previous measure until changed.
 
 ### 5.2 Number notation is complete — everything is derived from it
 
@@ -560,3 +587,74 @@ and the listening panel.
 ### Phase 5 — polish (not started)
 
 Tuning on a real piano, performance, and the usage notes in `README.md`.
+
+### The full arrangement — the machinery (2026-10-14)
+
+Built, in `score-loader.js`, `layout.js` and `sheet-render.js`:
+
+1. **A left hand that changes clef.** `lhClef` per measure, carried over until it
+   changes; the bottom staff's clef at the head of every system follows the first measure
+   of that system; key-signature sharps are drawn on the proper lines for whichever clef
+   the staff is in; and a smaller cue clef is drawn at the end of the measure before a
+   change, as the reference score does. The same written pitch now lands on a different
+   line depending on the clef — E4 is the bottom line of a treble bottom staff and sits
+   two ledger lines above a bass one.
+2. **Chords.** A beat holds one or more notes, drawn on their own staff steps sharing a
+   single stem, with the label showing the whole stack where there is room and the top
+   note where there is not.
+3. **Moving left-hand accompaniments.** The left hand is on the same time axis as the
+   melody, so its eighth notes line up under the melody's beats, carry their own stems and
+   are beamed in threes.
+4. **Double and triple beams, grace notes, rests, ties, 8va and mid-score time changes.**
+   A run of sixteenths gets a second stroke under the beam, thirty-seconds a third, and a
+   lone short note gets a stub rather than a full stroke; grace notes are smaller heads
+   with a slash; rests are a pencil squiggle; a tie is one pencil arc; an 8va measure gets
+   its dashed line and label; `3/8` and `6/8` are drawn on the staves where they change.
+
+**Two deliberate changes to how the old measures look**
+
+- **Bass chords are now drawn as real chords.** Where an entry like `3,/1,/6,,` used to
+  be one open oval with a compound label under it, the three noteheads are now stacked on
+  their own steps — which is what the reference score does, and what upgrade 2 asks for.
+  The open-oval style stays for a chord *held* through the bar.
+- **The key signature is now drawn on both staves**, each on the lines its own clef gives
+  it. `test.html` draws it on the treble staff only; the reference score draws it on both.
+
+**Verified** — `tools/check_arrangement.js` (new) checks every one of the above against
+`tools/arrangement-sample.json`, a six-measure fixture written in the new shape, and
+`tools/check_render.js` renders that fixture headless and counts what came out: 64
+noteheads, 49 stems, 20 beams of which 9 are second and third strokes, 1 tie, 1 rest, 1
+grace slash, 1 cue clef, 8 time-signature figures and 1 8va line. The 64 real measures
+still lay out exactly where they did before — `check_layout.js` reports the same
+positions and the same worst difference.
+
+### The transcription is not done, and could not be done honestly
+
+**`flower_day.json` is still the simplified score.** Reading the notes off
+`music-sheet/flower_day.pdf` is the one part of this that was not delivered, and the
+reason is recorded here rather than hidden:
+
+At the resolution a page of that PDF can be read at, the *shape* of the music is legible
+— where the chords are, where the runs are, the clef changes, the 8va, the dynamics — but
+individual pitches are not: which line or space a notehead sits on, its accidental, and
+its exact rhythmic value cannot be read reliably across 65 dense measures. Writing them
+down anyway would produce data that looks authoritative and is partly wrong, and nothing
+in the tooling could tell which parts: the checks compare the number notation, the letter
+name and the MIDI number against *each other*, so a note misread once is written down
+wrongly three times in agreement. The cost of that is not cosmetic — practice mode cannot
+leave a measure it cannot hear, which is exactly what measure 12's D3/C#3 did before the
+window size was changed.
+
+What would settle it, in order of preference:
+
+1. **The source file the PDF was made from** — MusicXML, MIDI or a MuseScore `.mscz`. It
+   carries every pitch, length, tie and clef exactly, and the conversion to this format
+   would be a script, not a reading.
+2. **Higher-resolution images** — the page rendered at 300–600 dpi and *cropped by
+   system*, since a whole page is downscaled again on the way in while a system-sized
+   crop is not.
+3. **Measure-by-measure review** — a best-effort pass that the player checks against the
+   PDF, one system at a time. Slow, and only worth it if the first two are impossible.
+
+The machinery above is already built for whichever of those happens: the new format is
+what a converter would emit, and `tools/arrangement-sample.json` shows the shape.

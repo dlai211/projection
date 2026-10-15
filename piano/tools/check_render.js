@@ -370,6 +370,33 @@ async function main() {
   report('and toggles back to', JSON.stringify(byId['btn-test'].textContent));
 
   sandbox.App.Playback.stop();
+
+  // The machinery the full arrangement needs, drawn: chords, a bass staff that changes
+  // clef, moving eighths, doubled and tripled beams, grace notes, rests, ties, 8va and
+  // a mid-score time change. The model behind this is checked in check_arrangement.js.
+  console.log('');
+  console.log('the full-arrangement sample, drawn');
+  const sample = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools/arrangement-sample.json'), 'utf8'));
+  const sampleScore = sandbox.App.ScoreLoader.load(sample);
+  const sampleLayout = sandbox.App.Layout.build(sampleScore);
+  const sampleCanvas = new Element('div');
+  sandbox.App.SheetRender.renderSheet(sampleCanvas, sampleLayout, { activeMeasure: 1 });
+
+  report('systems', sampleCanvas.children.length);
+  report('noteheads', count(sampleCanvas, 'ellipse'));
+  report('stems', countClass(sampleCanvas, 'note-stem'));
+  report('beams', countClass(sampleCanvas, 'note-beam'));
+  report('…of which second and third strokes', countClass(sampleCanvas, 'beam-secondary'));
+  report('ties', countClass(sampleCanvas, 'tie-arc'));
+  report('rests', countClass(sampleCanvas, 'rest-stroke'));
+  report('grace slashes', countClass(sampleCanvas, 'grace-slash'));
+  report('clefs at the head of a system', countClass(sampleCanvas, 'clef'));
+  report('cue clefs before a change', countClass(sampleCanvas, 'cue-clef'));
+  report('time signatures', countClass(sampleCanvas, 'time-signature'));
+  report('8va lines', countClass(sampleCanvas, 'octave-line'));
+  report('key signatures, both staves', countClass(sampleCanvas, 'key-sharp'));
+  report('leading ledger strokes', countClass(sampleCanvas, 'ledger-line'));
+
   console.log('');
   console.log('smoke test finished without a single error');
 }

@@ -102,8 +102,31 @@ node tools/check_render.js    # the whole page, headless, with the controls driv
 
 ## Changing the score
 
-`music-sheet/flower_day.json` is the score. After editing it, rebuild the file the page
-actually loads:
+`music-sheet/flower_day.json` is the score, and it accepts two shapes at once, so it can
+be moved over to the full arrangement a measure at a time.
+
+**A beat of the full arrangement** — a length, one or more notes, and any marks:
+
+```jsonc
+{ "dur": "8",  "notes": ["5", "7"] }        // G4 and B4 together, on one stem
+{ "dur": "16", "notes": ["7"] }
+{ "dur": "4.", "notes": ["3''"], "tie": true }   // tied into the next beat
+{ "dur": "8",  "rest": true }
+{ "dur": "grace", "notes": ["1''"] }
+```
+
+`dur` is one of `1 2 2. 4 4. 8 8. 16 16. 32 64`, or `grace`. Notes are written in the
+same number notation the sheet prints, so `1` is C, `7` is B, `#4` is F♯, `♮4` is F, and
+`'` / `,` move by octaves. A slash string works too: `"notes": ["1,/5,,"]`.
+
+**The old simplified entries** — `["7","B4",71]` for a melody note and
+`["3/7,", "E3/B2", 52]` for a bass chord — still work, and keep the spacing that was
+matched to `test.html`.
+
+Measured-level fields: `key`, `time`, `lhClef` (`"treble"` or `"bass"`) and
+`octave` (`"8va"`). The first three carry over from the measure before until they change.
+
+After editing, rebuild the file the page actually loads:
 
 ```
 python tools/build_score.py music-sheet/flower_day.json music-sheet/flower-day.js

@@ -21,36 +21,72 @@ window.App.Config = (function () {
     /** How a system is sized on the page (test.html's svg.manuscript-svg rules). */
     render: { maxWidthPx: 1360, maxHeightPx: 235 },
 
+    /**
+     * Note lengths, counted in 64th notes — fine enough that every length in the score
+     * is a whole number, which keeps the time grid exact instead of drifting.
+     */
+    durations: {
+      '1': 64, '2': 32, '2.': 48, '4': 16, '4.': 24, '8': 8, '8.': 12,
+      '16': 4, '16.': 6, '32': 2, '64': 1, grace: 0
+    },
+
+    /** What the old, duration-free entries in the score stand for. */
+    legacyDurations: { plain: '8', dotted: '4.' },
+
     staff: {
       x1: 20,                       // where the staff lines start
       x2: 985,                      // where they end
-      trebleLines: [35, 45, 55, 65, 75],
-      bassLines: [130, 140, 150, 160, 170],
+      topStaffLines: [35, 45, 55, 65, 75],
+      bottomStaffLines: [130, 140, 150, 160, 170],
       /** Barlines: five strokes make four measures, the same four in every system. */
       barlineX: [20, 305, 530, 770, 985],
       /** Drawing units between two staff lines, and between two staff steps. */
       staffSpace: 10,
       step: 5,
-      /** The pitch each clef is anchored to: B4 on the middle line of the treble
-       *  staff, G2 on the bottom line of the bass staff. */
-      trebleAnchor: { step: 6, y: 55 },
-      bassAnchor: { step: -10, y: 170 }
+      /**
+       * The pitch each clef is anchored to. A clef names a pitch for one line of the
+       * staff it is drawn on: B4 sits on the middle line of a treble staff, G2 on the
+       * bottom line of a bass staff. The left hand changes clef through this piece, so
+       * which line that is depends on the staff it is drawn on.
+       */
+      clefs: {
+        treble: { step: 6, lineFromTop: 2 },     // B4, middle line
+        bass: { step: -10, lineFromTop: 4 }      // G2, bottom line
+      }
     },
 
     header: {
-      trebleClef: { x: 27, y: 69, size: 40 },
-      bassClef: { x: 27, y: 160, size: 29 },
+      /** The clefs as they are drawn at the head of a system. */
+      clefs: {
+        treble: { glyph: '𝄞', x: 27, size: 40 },
+        bass: { glyph: '𝄢', x: 27, size: 29 }
+      },
+      /** The warning clef drawn at the end of the measure before a change. */
+      cueClef: { size: 26, backFromBarline: 13 },
       /** Sharps sit a little above the line or space they belong to. */
-      sharp: { x: 56, y: 43, size: 19, gap: 10, baselineLift: 8 },
+      sharp: { x: 56, size: 19, gap: 10, baselineLift: 8 },
       /** Mid-system key changes are drawn tighter, right after the barline. */
-      inlineSharp: { offset: 5, gap: 8 }
+      inlineSharp: { offset: 5, gap: 8 },
+      /** Time-signature changes are drawn on the staves where they happen. */
+      timeSignature: { size: 20, gapFromBarline: 14, numeratorDy: -8, denominatorDy: 10 }
     },
 
-    /** Key signatures, written in the order the sharps are added (circle of fifths). */
+    /**
+     * Key signatures, in the order sharps are added (the circle of fifths) and twice
+     * over: once for a treble staff and once for a bass staff. A clef decides which
+     * line a pitch belongs to, so F# is the top line of a treble staff and the fourth
+     * line of a bass one.
+     */
     keySignatures: {
-      '0': [],
-      '1#': [{ letter: 'F', octave: 5 }],
-      '3#': [{ letter: 'F', octave: 5 }, { letter: 'C', octave: 5 }, { letter: 'G', octave: 5 }]
+      '0': { treble: [], bass: [] },
+      '1#': {
+        treble: [{ letter: 'F', octave: 5 }],
+        bass: [{ letter: 'F', octave: 3 }]
+      },
+      '3#': {
+        treble: [{ letter: 'F', octave: 5 }, { letter: 'C', octave: 5 }, { letter: 'G', octave: 5 }],
+        bass: [{ letter: 'F', octave: 3 }, { letter: 'C', octave: 3 }, { letter: 'G', octave: 3 }]
+      }
     },
 
     layout: {
@@ -85,6 +121,23 @@ window.App.Config = (function () {
       stemLength: 26,
       note: { rx: 6.2, ry: 4.4, tilt: -20 },
       bassNote: { rx: 6.4, ry: 4.6, tilt: -18 },
+
+      /**
+       * Beams. The first stroke runs along the stem ends; a run of sixteenths adds a
+       * second stroke below it, a run of thirty-seconds a third — and a lone short
+       * note gets a stub instead of a full stroke, which is what engraving does.
+       */
+      beam: { width: 4.2, secondaryWidth: 3.4, secondaryGap: 6.5, stubLength: 7 },
+      /** Where beams break: a dotted quarter in 6/8, which is 24 sixty-fourths. */
+      beatUnits: 24,
+      /** A grace note leans into the beat it belongs to, this far to its left. */
+      grace: { scale: 0.62, offset: 15, slashLength: 11 },
+      /** Rests are drawn as a pencil squiggle at the middle of their staff. */
+      rest: { width: 11, height: 19 },
+      /** Ties: one pencil arc from a notehead to the next note of the same hand. */
+      tie: { height: 7, width: 15, strokeWidth: 1.7 },
+      /** The dashed 8va line over a measure that sounds an octave higher. */
+      octaveLine: { y: 12, dash: '7 5', strokeWidth: 1.3, labelSize: 17, labelGap: 6 },
 
       /** Where the handwritten labels sit, and how big they start. */
       rhLabel: { dy: -12, size: 23 },

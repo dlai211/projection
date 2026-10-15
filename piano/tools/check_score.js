@@ -65,10 +65,10 @@ function main() {
   // --- 2. range
   const outOfRange = [];
   score.measures.forEach(function (measure) {
-    measure.rh.concat(measure.lh).forEach(function (note) {
-      note.notes.forEach(function (midi) {
-        if (midi < Config.piano.fullRange.low || midi > Config.piano.fullRange.high) {
-          outOfRange.push('measure ' + measure.m + ': ' + App.Pitch.letterName(midi) + ' (MIDI ' + midi + ')');
+    measure.rh.concat(measure.lh).forEach(function (event) {
+      event.notes.forEach(function (note) {
+        if (note.midi < Config.piano.fullRange.low || note.midi > Config.piano.fullRange.high) {
+          outOfRange.push('measure ' + measure.m + ': ' + note.let + ' (MIDI ' + note.midi + ')');
         }
       });
     });
@@ -93,7 +93,6 @@ function main() {
         topY = Math.min(topY, note.y);
         bottomY = Math.max(bottomY, note.y);
       });
-      const widest = measure.rh.reduce(function (a, note) { return Math.max(a, longer(a, note.num)); }, 0);
       if (measure.rh[0] && measure.rh[0].labelSize < Config.layout.rhLabel.size) {
         dense.push('m' + measure.m + ' (label ' + measure.rh[0].labelSize.toFixed(1) + ')');
       }
@@ -115,7 +114,7 @@ function main() {
       inRange.bass += measure.lh.length;
     });
   });
-  console.log('melody notes drawn: ' + inRange.treble + ', bass notes drawn: ' + inRange.bass);
+  console.log('melody beats drawn: ' + inRange.treble + ', bass beats drawn: ' + inRange.bass);
   console.log('');
 
   if (problems) {

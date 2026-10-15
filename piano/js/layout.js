@@ -1,20 +1,23 @@
 /**
- * The layout engine — the one part test.html does not have.
+ * The layout engine.
  *
- * test.html places its eight measures by hand. This score has sixty-four measures and
- * no coordinates at all, so positions are worked out here instead: same drawing window,
- * same staff geometry, same four measure slots in every system, same margins, same
- * stems and beams. Everything below is written to land where test.html's hand-placed
- * notes land; tools/check_layout.js compares the two and prints the difference.
+ * test.html places its eight measures by hand. This score has sixty-five measures and no
+ * coordinates at all, so positions are worked out here: the same drawing window, the
+ * same staff geometry, the same four measure slots in every system, the same margins,
+ * the same stems and beams. Everything below is written to land where test.html's
+ * hand-placed notes land.
  *
- * The rules, in short:
+ * Three things the full arrangement brought with it:
  *
- *   - a measure's melody is spread across its slot in proportion to note length, so a
- *     long note takes more room than the eighth notes around it;
- *   - consecutive eighth notes are beamed in threes (the 6/8 pulse), with a lone
- *     leftover joining the group before it;
- *   - each left-hand chord sits under the melody note that starts its beat;
- *   - notes outside their staff get ledger strokes.
+ *   - **The left hand changes clef.** A treble clef names B4 for the middle line of
+ *     whichever staff it is drawn on; the bottom staff is treble for the opening
+ *     fifteen measures and bass for most of the rest, so the same pitch sits on a
+ *     different line depending on the measure.
+ *   - **Beats carry more than one note**, so a beat has one position, one stem and as
+ *     many noteheads as it has notes.
+ *   - **Notes have written lengths**, so the horizontal spacing is a real time axis and
+ *     both hands line up on it. The old entries, which have no lengths, keep the
+ *     proportional spacing that was calibrated against test.html.
  */
 window.App = window.App || {};
 
@@ -23,17 +26,26 @@ window.App.Layout = (function () {
 
   const Config = window.App.Config;
   const Pitch = window.App.Pitch;
+  const DURATIONS = Config.durations;
 
-  /** Where a pitch sits vertically, in drawing units. */
-  function staffY(letter, octave, clef) {
-    const step = Pitch.diatonicStep(letter, octave);
-    const anchor = clef === 'treble' ? Config.staff.trebleAnchor : Config.staff.bassAnchor;
-    return anchor.y - Config.staff.step * (step - anchor.step);
+  /** Which set of staff lines a hand is drawn on. */
+  function linesFor(staff) {
+    return staff === 'top' ? Config.staff.topStaffLines : Config.staff.bottomStaffLines;
+  }
+
+  /**
+   * Where a pitch sits vertically, in drawing units. The clef says which line of that
+   * staff holds which pitch, so the same note moves when the clef changes.
+   */
+  function staffY(letter, octave, clef, staff) {
+    const lines = linesFor(staff);
+    const anchor = Config.staff.clefs[clef] || Config.staff.clefs.treble;
+    return lines[anchor.lineFromTop] - Config.staff.step * (Pitch.diatonicStep(letter, octave) - anchor.step);
   }
 
   /** The ledger strokes a note needs, above or below its staff. */
-  function ledgerStrokes(y, clef) {
-    const lines = clef === 'treble' ? Config.staff.trebleLines : Config.staff.bassLines;
+  function ledgerStrokes(y, staff) {
+    const lines = linesFor(staff);
     const top = lines[0];
     const bottom = lines[lines.length - 1];
     const strokes = [];
@@ -46,12 +58,24 @@ window.App.Layout = (function () {
     return strokes;
   }
 
+  /** How long a measure is, from its time signature, in sixty-fourth notes. */
+  function nominalUnits(time) {
+    const parts = String(time || '6/8').split('/');
+    const beats = Number(parts[0]) || 6;
+    const unit = Number(parts[1]) || 8;
+    // a measure is `beats` notes of 1/unit — in sixty-fourths that is beats * 64 / unit
+    return beats * (64 / unit);
+  }
+
   /**
    * x positions for one measure's melody.
    *
-   * Notes are spread by duration so the last one lands on the right edge of the box.
-   * When that would leave a short measure spread thinly, the gap is capped and the
-   * line is centred instead — which is what test.html's two-note measure 7 does.
+   * A measure with written lengths is placed on a real time axis, so a sixteenth takes
+   * half the room of an eighth and both hands line up. A measure from the old entries
+   * has no lengths to go on, so it keeps the calibrated spread: notes pushed to the
+   * right edge of the box, unless that would leave a short measure spread thinly, in
+   * which case the gap is capped and the line centred — which is what test.html's
+   * two-note measure 7 does.
    */
   function distribute(boxLeft, boxRight, weights) {
     if (!weights.length) return [];
@@ -74,55 +98,119 @@ window.App.Layout = (function () {
   }
 
   /**
-   * Beams for one measure: a straight stroke from the first stem end to the last.
-   * Groups of three, and a group of one at the end joins the group before it, so
-   * seven eighths become 3 + 4 — the way test.html beams them.
+   * Positions for one hand of a measure.
+   *
+   * When the measure has written lengths, both hands are placed on the same time axis —
+   * a note four eighths in sits four eighths in, in either hand — and the axis is scaled
+   * so a full measure fills the box.
    */
-  function buildBeams(notes, xs) {
-    const layout = Config.layout;
+  function positions(events, boxLeft, boxRight, timed, measureUnits) {
+    if (!events.length) return [];
+    if (!timed) return distribute(boxLeft, boxRight, events.map(function (e) { return e.spacing; }));
+
+    const boxWidth = boxRight - boxLeft;
+    let scale = boxWidth / measureUnits;
+    let left = boxLeft;
+    if (scale * 8 > Config.layout.maxUnit) {
+      scale = Config.layout.maxUnit / 8;
+      left = boxLeft + (boxWidth - measureUnits * scale) / 2;
+    }
+    return events.map(function (event) { return left + event.start * scale; });
+  }
+
+  /**
+   * Beams for one hand: a straight stroke from the first stem end to the last, broken
+   * where the beat changes, with a group that holds a single note joining the group
+   * before it. A run of sixteenths gets a second stroke, thirty-seconds a third.
+   */
+  function buildBeams(events, xs) {
+    const groups = beamGroups(events);
+
+    const stemEndY = function (event) {
+      const bottom = event.heads.length ? event.heads[0].y : event.y;
+      return bottom + Config.layout.stemLength;
+    };
+
+    const beams = [];
+    groups.forEach(function (group) {
+      const firstAt = group[0];
+      const lastAt = group[group.length - 1];
+      const x1 = xs[firstAt] - Config.layout.stemOffset;
+      const x2 = xs[lastAt] - Config.layout.stemOffset;
+      const y1 = stemEndY(events[firstAt]);
+      const y2 = stemEndY(events[lastAt]);
+
+      beams.push({ x1: x1, y1: y1, x2: x2, y2: y2, level: 1 });
+
+      // A straight line between the two stem ends; every further stroke hangs from it.
+      const yAt = function (x) {
+        if (x2 === x1) return y1;
+        return y1 + (y2 - y1) * ((x - x1) / (x2 - x1));
+      };
+
+      [DURATIONS['16'], DURATIONS['32']].forEach(function (limit, index) {
+        const level = index + 2;
+        let runStart = -1;
+
+        group.forEach(function (at, position) {
+          const qualifies = events[at].units <= limit;
+          if (qualifies && runStart === -1) runStart = position;
+          const last = position === group.length - 1;
+          if (runStart !== -1 && (!qualifies || last)) {
+            const endPosition = qualifies && last ? position : position - 1;
+            const from = group[runStart];
+            const to = group[endPosition];
+            const drop = Config.layout.beam.secondaryGap * (level - 1);
+            const strokeX1 = xs[from] - Config.layout.stemOffset;
+            const strokeX2 = xs[to] - Config.layout.stemOffset +
+              (endPosition === runStart ? Config.layout.beam.stubLength : 0);
+            beams.push({
+              x1: strokeX1, y1: yAt(strokeX1) + drop,
+              x2: strokeX2, y2: yAt(strokeX2) + drop,
+              level: level
+            });
+            runStart = -1;
+          }
+        });
+      });
+    });
+
+    return beams;
+  }
+
+  /** Consecutive notes short enough to be beamed, grouped by the beat they fall on. */
+  function beamGroups(events) {
     const runs = [];
     let run = [];
 
-    notes.forEach(function (note, index) {
-      if (note.units === layout.plainUnits && note.midi !== null) run.push(index);
+    events.forEach(function (event, index) {
+      const beamed = !event.rest && !event.grace && event.units > 0 && event.units <= DURATIONS['8'];
+      if (beamed) run.push(index);
       else if (run.length) { runs.push(run); run = []; }
     });
     if (run.length) runs.push(run);
 
-    const beams = [];
+    const groups = [];
     runs.forEach(function (indices) {
-      const groups = [];
-      for (let left = indices.length; left > 0; left -= 3) groups.push(Math.min(3, left));
-      if (groups.length > 1 && groups[groups.length - 1] === 1) {
-        groups.pop();
-        groups[groups.length - 1] += 1;
+      let group = [indices[0]];
+      for (let i = 1; i < indices.length; i++) {
+        const beat = Math.floor(events[indices[i]].start / Config.layout.beatUnits);
+        const before = Math.floor(events[indices[i - 1]].start / Config.layout.beatUnits);
+        if (beat !== before) { groups.push(group); group = []; }
+        group.push(indices[i]);
       }
-
-      let at = 0;
-      groups.forEach(function (size) {
-        if (size > 1) {
-          const first = indices[at];
-          const last = indices[at + size - 1];
-          beams.push([
-            xs[first] - layout.stemOffset, notes[first].y + layout.stemLength,
-            xs[last] - layout.stemOffset, notes[last].y + layout.stemLength
-          ]);
-        }
-        at += size;
-      });
+      groups.push(group);
     });
-    return beams;
-  }
 
-  /** Index of the melody note that starts beat `beat` (beat 0 is the downbeat). */
-  function beatStartIndex(notes, beat) {
-    const target = beat * Config.layout.beatGroup;
-    let elapsed = 0;
-    for (let i = 0; i < notes.length; i++) {
-      if (elapsed >= target) return i;
-      elapsed += notes[i].units;
-    }
-    return notes.length ? notes.length - 1 : 0;
+    // A beat holding one beamed note on its own joins the beat before it, rather than
+    // being left with a bare stem.
+    const merged = [];
+    groups.forEach(function (group) {
+      if (group.length === 1 && merged.length) merged[merged.length - 1] = merged[merged.length - 1].concat(group);
+      else merged.push(group);
+    });
+
+    return merged.filter(function (group) { return group.length > 1; });
   }
 
   /**
@@ -142,8 +230,15 @@ window.App.Layout = (function () {
     return Math.max(layout.denseLabel.minSize, Math.min(layout.rhLabel.size, fits));
   }
 
+  /** The vertical extent of a beat's noteheads, and where its stem runs. */
+  function stemOf(heads, y) {
+    const top = heads.length ? heads[heads.length - 1].y : y;
+    const bottom = heads.length ? heads[0].y : y;
+    return { top: top, bottom: bottom + Config.layout.stemLength };
+  }
+
   /** Lay out one measure inside its slot of a system. */
-  function layoutMeasure(measure, slotIndex) {
+  function layoutMeasure(measure, slotIndex, context) {
     const layout = Config.layout;
     const staff = Config.staff;
     const barlineX = staff.barlineX;
@@ -154,57 +249,76 @@ window.App.Layout = (function () {
 
     const boxLeft = slotStart + (isFirstSlot ? layout.firstSlotLeftPad : layout.slotLeftPad);
     const boxRight = slotEnd - layout.rightPad;
+    const timed = !!measure.timed;
+    const measureUnits = nominalUnits(measure.time);
 
-    const weights = measure.rh.map(function (note) { return note.spacing; });
-    const xs = distribute(boxLeft, boxRight, weights);
+    const rhXs = positions(measure.rh, boxLeft, boxRight, timed, measureUnits);
+    const lhXs = positions(measure.lh, boxLeft, boxRight, timed, measureUnits);
 
-    const rh = measure.rh.map(function (note, index) {
-      const y = note.midi === null ? staff.trebleLines[0] : staffY(note.letter, note.octave, 'treble');
-      return {
-        num: note.num,
-        let: note.let,
-        midi: note.midi,
-        notes: note.notes,
-        dotted: note.dotted,
-        units: note.units,
-        hollow: note.hollow,
-        x: xs[index],
+    const place = function (event, x, clef, staffName, hand) {
+      // A grace note leans into the beat it belongs to, to the left of it.
+      const drawnX = event.grace ? x - layout.grace.offset : x;
+      // Lowest note first: a chord's stem spans from its top notehead to its bottom.
+      const heads = event.notes.map(function (note) {
+        return {
+          num: note.num,
+          let: note.let,
+          midi: note.midi,
+          letter: note.letter,
+          y: staffY(note.letter, note.octave, clef, staffName)
+        };
+      }).sort(function (a, b) { return b.y - a.y; });
+      const middle = linesFor(staffName);
+      const y = heads.length ? heads[heads.length - 1].y : (middle[2] + 5);
+
+      const placed = {
+        num: event.num,
+        let: event.let,
+        topNum: event.topNum,
+        topLet: event.topLet,
+        midi: event.midi,
+        notes: event.notes,
+        heads: heads,
+        x: drawnX,
+        gridX: x,
         y: y,
-        stem: { x: xs[index] - layout.stemOffset, top: y, bottom: y + layout.stemLength },
-        ledger: ledgerStrokes(y, 'treble'),
-        labelSize: layout.rhLabel.size,
-        labelDy: layout.rhLabel.dy
+        start: event.start,
+        units: event.units,
+        duration: event.duration,
+        dotted: event.dotted,
+        hollow: event.hollow,
+        grace: event.grace,
+        rest: event.rest,
+        tie: event.tie,
+        ledger: heads.reduce(function (all, head) {
+          return all.concat(ledgerStrokes(head.y, staffName).map(function (ly) {
+            return { x: drawnX, y: ly };
+          }));
+        }, [])
       };
+      placed.stem = stemOf(heads, y);
+      placed.labelSize = layout.rhLabel.size;
+      placed.labelDy = layout.rhLabel.dy;
+      // Every melody note carries a stem, as in test.html. A bass note carries one only
+      // when it moves: a chord held through the bar stays a bare open oval.
+      placed.hasStem = !event.rest && (hand === 'rh' || event.units <= DURATIONS['4']);
+      return placed;
+    };
+
+    const rh = measure.rh.map(function (event, index) {
+      return place(event, rhXs[index], 'treble', 'top', 'rh');
+    });
+    const lh = measure.lh.map(function (event, index) {
+      return place(event, lhXs[index], measure.lhClef, 'bottom', 'lh');
     });
 
     // One size for the whole measure, from the longest label it has to print.
-    const size = labelSize(rh.map(function (note) { return longer(note.num, note.let); }), xs);
-    let stagger = false;
+    const size = labelSize(rh.map(function (note) { return longer(note.num, note.let); }), rhXs);
     rh.forEach(function (note, index) {
       note.labelSize = size;
       if (size < layout.denseLabel.staggerBelow && index % 2 === 1) {
         note.labelDy = layout.rhLabel.dy - layout.denseLabel.staggerDy;
-        stagger = true;
       }
-    });
-
-    const lh = measure.lh.map(function (chord, index) {
-      const beatIndex = beatStartIndex(measure.rh, index);
-      const anchor = rh[beatIndex];
-      const x = anchor ? anchor.x : boxLeft;
-      const y = chord.midi === null ? staff.bassLines[0] : staffY(chord.letter, chord.octave, 'bass');
-      return {
-        num: formatBassLabel(chord.num),
-        let: chord.let,
-        midi: chord.midi,
-        notes: chord.notes,
-        hollow: chord.hollow,
-        x: x,
-        y: y,
-        /** Which melody note this chord lines up with — playback starts it there. */
-        beatIndex: beatIndex,
-        ledger: ledgerStrokes(y, 'bass')
-      };
     });
 
     const xStart = isFirstSlot ? slotStart + layout.measureNumberShift : slotStart;
@@ -213,16 +327,25 @@ window.App.Layout = (function () {
       m: measure.m,
       key: measure.key,
       time: measure.time,
+      lhClef: measure.lhClef,
+      timed: timed,
       slotIndex: slotIndex,
       xStart: xStart,
       width: slotEnd - xStart,
       slotStart: slotStart,
       slotEnd: slotEnd,
       isFirstSlot: isFirstSlot,
-      staggered: stagger,
+      measureUnits: measureUnits,
       rh: rh,
       lh: lh,
-      beams: buildBeams(rh, xs)
+      beams: buildBeams(rh, rhXs).concat(buildBeams(lh, lhXs)),
+      ties: tiesOf(rh).concat(tiesOf(lh)),
+      rests: rh.concat(lh).filter(function (event) { return event.rest; }),
+      octaveShift: measure.octaveShift || 0,
+      /** A clef drawn at the barline when the next measure changes it. */
+      cueClef: context && context.nextClef && context.nextClef !== measure.lhClef ? context.nextClef : null,
+      /** A time signature drawn after the barline when this measure changes it. */
+      timeChange: context && context.previousTime && context.previousTime !== measure.time ? measure.time : null
     };
   }
 
@@ -230,21 +353,35 @@ window.App.Layout = (function () {
     return (b && b.length > a.length) ? b : a;
   }
 
-  /** "3/7," prints as "3 / 7," — the spacing test.html's handwriting uses. */
-  function formatBassLabel(text) {
-    return window.App.NotesNumber.formatChord(text);
+  /** The pencil arcs that join a note to the next one of the same hand. */
+  function tiesOf(events) {
+    const ties = [];
+    events.forEach(function (event, index) {
+      const next = events[index + 1];
+      if (!event.tie || !next || event.rest || next.rest) return;
+      const from = event.heads.length ? event.heads[0] : event;
+      const to = next.heads.length ? next.heads[0] : next;
+      ties.push({
+        x1: event.x + Config.layout.note.rx - 1, y1: from.y + 5,
+        x2: next.x - Config.layout.note.rx + 1, y2: to.y + 5
+      });
+    });
+    return ties;
   }
 
   /** How far the drawing window has to grow upward to hold a system's ink. */
-  function extraTopFor(rhNotes) {
+  function extraTopFor(measures) {
     const layout = Config.layout;
     let inkTop = Infinity;
 
-    rhNotes.forEach(function (note) {
-      const labelTop = note.y + layout.rhLabel.dy - note.labelSize * 0.85;
-      const noteTop = note.y - layout.bassNote.ry;
-      const ledgerTop = note.ledger.length ? note.ledger[0] : Infinity;
-      inkTop = Math.min(inkTop, labelTop, noteTop, ledgerTop);
+    measures.forEach(function (measure) {
+      measure.rh.forEach(function (note) {
+        const labelTop = note.y + layout.rhLabel.dy - note.labelSize * 0.85;
+        const noteTop = note.y - layout.bassNote.ry;
+        const ledgerTop = note.ledger.length ? Math.min.apply(null, note.ledger.map(function (l) { return l.y; })) : Infinity;
+        inkTop = Math.min(inkTop, labelTop, noteTop, ledgerTop);
+      });
+      if (measure.octaveShift > 0) inkTop = Math.min(inkTop, linesFor('top')[0] - layout.octaveLine.y - layout.octaveLine.labelSize);
     });
 
     if (!isFinite(inkTop)) return 0;
@@ -252,24 +389,29 @@ window.App.Layout = (function () {
     return needed > 0 ? Math.ceil(needed / 5) * 5 : 0;
   }
 
-  /** The whole score: sixteen systems of four measures, plus a lookup by number. */
+  /** The whole score: systems of four measures, plus a lookup by measure number. */
   function build(score) {
     const perSystem = Config.layout.measuresPerSystem;
     const systems = [];
     const byNumber = {};
+    let previousTime = null;
 
     for (let start = 0; start < score.measures.length; start += perSystem) {
       const slice = score.measures.slice(start, start + perSystem);
       const measures = slice.map(function (measure, slotIndex) {
-        const laidOut = layoutMeasure(measure, slotIndex);
+        const context = {
+          previousTime: slotIndex === 0 ? previousTime : slice[slotIndex - 1].time,
+          nextClef: slotIndex + 1 < slice.length ? slice[slotIndex + 1].lhClef : null
+        };
+        const laidOut = layoutMeasure(measure, slotIndex, context);
         byNumber[laidOut.m] = laidOut;
+        previousTime = measure.time;
         return laidOut;
       });
 
-      const rhNotes = measures.reduce(function (all, measure) { return all.concat(measure.rh); }, []);
       systems.push({
         index: systems.length,
-        extraTop: extraTopFor(rhNotes),
+        extraTop: extraTopFor(measures),
         measures: measures,
         firstMeasure: measures[0].m,
         lastMeasure: measures[measures.length - 1].m
@@ -284,6 +426,7 @@ window.App.Layout = (function () {
     ledgerStrokes: ledgerStrokes,
     distribute: distribute,
     buildBeams: buildBeams,
+    nominalUnits: nominalUnits,
     build: build
   };
 })();

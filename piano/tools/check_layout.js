@@ -99,9 +99,10 @@ function main() {
   console.log('beams vs test.html');
   [1, 2, 4, 8].forEach(function (number) {
     const measure = layout.byNumber[number];
-    const mine = measure.beams.map(function (beam) {
-      return '[' + beam.map(function (value) { return Math.round(value); }).join(',') + ']';
-    }).join(' ');
+    const mine = measure.beams.filter(function (beam) { return beam.level === 1; })
+      .map(function (beam) {
+        return '[' + [beam.x1, beam.y1, beam.x2, beam.y2].map(function (value) { return Math.round(value); }).join(',') + ']';
+      }).join(' ');
     const theirs = REFERENCE_BEAMS[number].map(function (beam) {
       return '[' + beam.join(',') + ']';
     }).join(' ');
