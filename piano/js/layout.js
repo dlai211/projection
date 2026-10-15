@@ -214,20 +214,58 @@ window.App.Layout = (function () {
   }
 
   /**
-   * Labels shrink only where they would otherwise touch: a crowded measure keeps its
-   * own smaller handwriting, and the size is chosen so the longest label fits the
-   * narrowest gap. Nothing else about the measure changes.
+   * How one hand's labels are written across a measure.
+   *
+   * The full arrangement is fast in places — sixteenths and thirty-seconds a few drawing
+   * units apart — and there is no size at which a label fits every gap. So the labels
+   * move rather than shrink: every other one rises (or drops, under the bass), which
+   * doubles the room each has, and only if that is still not enough does the writing get
+   * smaller. That is also what a person does when annotating a crowded bar by hand.
    */
-  function labelSize(texts, xs) {
+  function applyLabels(events, xs, baseSize, baseDy, staggerSign) {
     const layout = Config.layout;
-    if (xs.length < 2) return layout.rhLabel.size;
+    if (!events.length) return;
 
     let narrowest = Infinity;
     for (let i = 1; i < xs.length; i++) narrowest = Math.min(narrowest, xs[i] - xs[i - 1]);
 
-    const longest = texts.reduce(function (a, b) { return Math.max(a, b.length); }, 1);
-    const fits = narrowest / (longest * layout.denseLabel.charWidth);
-    return Math.max(layout.denseLabel.minSize, Math.min(layout.rhLabel.size, fits));
+    /** The size one notation system needs, and whether it has to step between heights. */
+    const planFor = function (longest) {
+      const fit = function (gap) { return gap / (Math.max(1, longest) * layout.denseLabel.charWidth); };
+      if (xs.length < 2 || fit(narrowest) >= baseSize) return { size: baseSize, stagger: false };
+      const staggered = fit(narrowest * 2);
+      return {
+        size: Math.max(layout.denseLabel.minSize, Math.min(baseSize, staggered)),
+        stagger: true
+      };
+    };
+
+    const longestOf = function (key) {
+      return events.reduce(function (longest, event) {
+        return Math.max(longest, String(event[key] || '').length);
+      }, 1);
+    };
+
+    // Each notation system is measured on its own. "7" and "B4" are not the same width,
+    // and sizing the handwriting for the longer one would shrink it for no reason in the
+    // other — so the plan is kept for both and the page picks when the switch is flipped.
+    const plans = { number: planFor(longestOf('num')), letter: planFor(longestOf('let')) };
+
+    events.forEach(function (event, index) {
+      const step = index % 2 === 1 ? staggerSign * layout.denseLabel.staggerDy : 0;
+      event.labelPlans = {
+        number: {
+          size: plans.number.size,
+          y: event.y + baseDy + (plans.number.stagger ? step : 0)
+        },
+        letter: {
+          size: plans.letter.size,
+          y: event.y + baseDy + (plans.letter.stagger ? step : 0)
+        }
+      };
+      event.labelSize = plans.number.size;
+      event.labelDy = event.labelPlans.number.y - event.y;
+    });
   }
 
   /** The vertical extent of a beat's noteheads, and where its stem runs. */
@@ -312,14 +350,10 @@ window.App.Layout = (function () {
       return place(event, lhXs[index], measure.lhClef, 'bottom', 'lh');
     });
 
-    // One size for the whole measure, from the longest label it has to print.
-    const size = labelSize(rh.map(function (note) { return longer(note.num, note.let); }), rhXs);
-    rh.forEach(function (note, index) {
-      note.labelSize = size;
-      if (size < layout.denseLabel.staggerBelow && index % 2 === 1) {
-        note.labelDy = layout.rhLabel.dy - layout.denseLabel.staggerDy;
-      }
-    });
+    // The melody's labels sit above their notes, the bass's below, and each hand gets
+    // the room it actually has.
+    applyLabels(rh, rhXs, layout.rhLabel.size, layout.rhLabel.dy, -1);
+    applyLabels(lh, lhXs, layout.lhLabel.size, layout.lhLabel.dy, 1);
 
     const xStart = isFirstSlot ? slotStart + layout.measureNumberShift : slotStart;
 
@@ -389,6 +423,39 @@ window.App.Layout = (function () {
     return needed > 0 ? Math.ceil(needed / 5) * 5 : 0;
   }
 
+  /**
+   * How far the drawing window has to grow downward.
+   *
+   * The bass staff usually carries nothing below it but its own ledger strokes. When a
+   * measure's left hand is written far below the staff it is drawn on — which happens
+   * when a clef and its notes disagree — the labels would otherwise run into the system
+   * underneath, so the window grows to hold them instead. check_score.js reports the
+   * notes that cause it.
+   */
+  function extraBottomFor(measures) {
+    const layout = Config.layout;
+    let inkBottom = -Infinity;
+
+    measures.forEach(function (measure) {
+      measure.lh.forEach(function (note) {
+        note.heads.forEach(function (head) {
+          inkBottom = Math.max(inkBottom, head.y + layout.bassNote.ry + 2);
+        });
+        // A moving bass note has a stem hanging below its noteheads.
+        if (note.hasStem && note.stem) inkBottom = Math.max(inkBottom, note.stem.bottom + 2);
+        note.ledger.forEach(function (stroke) { inkBottom = Math.max(inkBottom, stroke.y + 2); });
+        if (!note.rest && note.labelPlans) {
+          const plan = note.labelPlans.number;
+          inkBottom = Math.max(inkBottom, plan.y + plan.size * 0.25);
+        }
+      });
+    });
+
+    if (!isFinite(inkBottom)) return 0;
+    const needed = inkBottom - (Config.viewBox.height - 2);
+    return needed > 0 ? Math.ceil(needed / 5) * 5 : 0;
+  }
+
   /** The whole score: systems of four measures, plus a lookup by measure number. */
   function build(score) {
     const perSystem = Config.layout.measuresPerSystem;
@@ -412,6 +479,7 @@ window.App.Layout = (function () {
       systems.push({
         index: systems.length,
         extraTop: extraTopFor(measures),
+        extraBottom: extraBottomFor(measures),
         measures: measures,
         firstMeasure: measures[0].m,
         lastMeasure: measures[measures.length - 1].m

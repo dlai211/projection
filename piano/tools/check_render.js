@@ -280,7 +280,7 @@ async function main() {
   report('measure smudges', count(canvas, 'rect') - countClass(canvas, 'measure-hit'));
   report('click targets', countClass(canvas, 'measure-hit'));
   report('noteheads (melody + bass)', count(canvas, 'ellipse'));
-  report('handwritten labels', canvas.querySelectorAll('[data-num]').length);
+  report('handwritten labels', countClass(canvas, 'written-note-rh') + countClass(canvas, 'written-note-lh'));
 
   console.log('');
   console.log('the keyboard');
@@ -292,9 +292,12 @@ async function main() {
 
   console.log('');
   console.log('the controls');
+  const firstLabel = canvas.querySelectorAll('.written-note-rh')[0];
+  report('a melody label reads', JSON.stringify(firstLabel.textContent) + ' at ' + firstLabel.style.fontSize + 'px');
   byId['btn-let'].dispatch('click');
-  report('after ABC, melody label', JSON.stringify(canvas.querySelectorAll('[data-num]')[0].textContent));
+  report('after ABC it reads', JSON.stringify(firstLabel.textContent) + ' at ' + firstLabel.style.fontSize + 'px');
   byId['btn-num'].dispatch('click');
+  report('and switches back to', JSON.stringify(firstLabel.textContent) + ' at ' + firstLabel.style.fontSize + 'px');
 
   byId['btn-compact'].dispatch('click');
   report('spacing after one press', byId['btn-compact'].dataset.setting + ' -> ' + canvas.style['--system-gap']);

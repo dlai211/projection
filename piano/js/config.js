@@ -150,7 +150,12 @@ window.App.Config = (function () {
       measureNumberShift: 55,
 
       /** Labels shrink only in measures too crowded for the normal size. */
-      denseLabel: { minSize: 12, charWidth: 0.4, staggerBelow: 14, staggerDy: 9 },
+      /**
+       * Handwriting in the crowded measures. Labels move before they shrink: every
+       * other one steps up (or down, under the bass) to double its room. Below
+       * `stackBelow` a chord prints its top note instead of its whole stack.
+       */
+      denseLabel: { minSize: 12, charWidth: 0.4, staggerDy: 9, stackBelow: 16 },
 
       /** Ledger strokes are this wide, centred on the note. */
       ledgerHalfWidth: 9

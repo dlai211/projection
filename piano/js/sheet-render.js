@@ -30,16 +30,44 @@ window.App.SheetRender = (function () {
   }
 
   /**
-   * A handwritten label. Both spellings travel with the node, so switching between
-   * 123 and ABC only swaps the text — the sheet is never rebuilt for it.
+   * A handwritten label.
+   *
+   * Both notations travel with the node, each with the size and the height it needs —
+   * "7" and "B4" are different widths and take different room — so switching between
+   * 123 and ABC swaps text, size and position without redrawing the sheet.
    */
-  function makeLabel(x, y, className, numberText, letterText, size) {
-    const node = make('text', { x: x, y: y }, className);
-    node.dataset.num = numberText;
-    node.dataset.let = letterText;
-    node.textContent = numberText;
-    if (size) node.style.fontSize = size + 'px';
+  function makeLabel(x, variants, mode, className) {
+    const node = make('text', { x: x }, className);
+    node._variants = variants;
+    applyVariant(node, mode);
     return node;
+  }
+
+  /** Put one notation's text, size and height onto a label. */
+  function applyVariant(node, mode) {
+    const variant = node._variants[mode === 'letter' ? 'letter' : 'number'];
+    if (!variant) return;
+    node.textContent = variant.text;
+    node.setAttribute('y', variant.y);
+    if (variant.size) node.style.fontSize = variant.size + 'px';
+  }
+
+  /**
+   * What a beat's label says in each notation. A chord prints its whole stack — "5/7" —
+   * when the writing is still at a readable size, and its top note alone once the
+   * measure has had to shrink it.
+   */
+  function labelVariants(note) {
+    const stackBelow = Config.layout.denseLabel.stackBelow;
+    const variantFor = function (mode, full, top) {
+      const plan = (note.labelPlans && note.labelPlans[mode]) || { size: Config.layout.rhLabel.size, y: note.y };
+      const stacked = note.heads.length < 2 || plan.size >= stackBelow;
+      return { text: stacked ? full : top, size: plan.size, y: plan.y };
+    };
+    return {
+      number: variantFor('number', note.num, note.topNum),
+      letter: variantFor('letter', note.let, note.topLet)
+    };
   }
 
   function linesFor(staff) {
@@ -75,16 +103,18 @@ window.App.SheetRender = (function () {
   function renderSystem(system, state, highlights) {
     const staff = Config.staff;
     const header = Config.header;
-    const viewHeight = Config.viewBox.height + system.extraTop;
+    const extraTop = system.extraTop || 0;
+    const extraBottom = system.extraBottom || 0;
+    const viewHeight = Config.viewBox.height + extraTop + extraBottom;
     const first = system.measures[0];
 
     const svg = make('svg', {
-      viewBox: '0 ' + (-system.extraTop) + ' ' + Config.viewBox.width + ' ' + viewHeight,
+      viewBox: '0 ' + (-extraTop) + ' ' + Config.viewBox.width + ' ' + viewHeight,
       class: 'manuscript-svg'
     });
     // A system whose window grew stays exactly as large as the others: the box gets
     // taller, the music inside does not change size.
-    if (system.extraTop) {
+    if (extraTop || extraBottom) {
       svg.style.maxHeight = (Config.render.maxHeightPx * viewHeight / Config.viewBox.height) + 'px';
     }
 
@@ -172,7 +202,7 @@ window.App.SheetRender = (function () {
     // chooses the measure.
     system.measures.forEach(function (measure) {
       const target = make('rect', {
-        x: measure.slotStart, y: 0,
+        x: measure.slotStart, y: -extraTop,
         width: measure.slotEnd - measure.slotStart,
         height: viewHeight
       }, 'measure-hit');
@@ -183,9 +213,12 @@ window.App.SheetRender = (function () {
     });
 
     system.measures.forEach(function (measure) {
-      svg.appendChild(makeLabel(measure.xStart + Config.layout.measureNumber.dx,
-        Config.layout.measureNumber.dy, 'measure-num no-pointer',
-        String(measure.m), String(measure.m)));
+      const number = make('text', {
+        x: measure.xStart + Config.layout.measureNumber.dx,
+        y: Config.layout.measureNumber.dy
+      }, 'measure-num no-pointer');
+      number.textContent = String(measure.m);
+      svg.appendChild(number);
 
       measure.beams.forEach(function (beam) {
         svg.appendChild(make('line', {
@@ -201,8 +234,8 @@ window.App.SheetRender = (function () {
         }, 'tie-arc no-pointer'));
       });
 
-      measure.rh.forEach(function (note) { svg.appendChild(renderEvent(note, measure, 'rh')); });
-      measure.lh.forEach(function (note) { svg.appendChild(renderEvent(note, measure, 'lh')); });
+      measure.rh.forEach(function (note) { svg.appendChild(renderEvent(note, measure, 'rh', state.mode)); });
+      measure.lh.forEach(function (note) { svg.appendChild(renderEvent(note, measure, 'lh', state.mode)); });
     });
 
     return svg;
@@ -289,7 +322,7 @@ window.App.SheetRender = (function () {
    * One beat: its stem, its noteheads, and its handwritten label. A beat may hold a
    * chord, a rest, or a grace note leaning into the beat it belongs to.
    */
-  function renderEvent(note, measure, hand) {
+  function renderEvent(note, measure, hand, mode) {
     const layout = Config.layout;
     const group = make('g', null, 'note-group');
     group.dataset.measure = measure.m;
@@ -333,27 +366,15 @@ window.App.SheetRender = (function () {
       }, 'note-head' + (note.hollow ? ' hollow' : '') + (grace ? ' grace-head' : '')));
     });
 
-    // The label: above the melody, below the bass. A chord prints its whole stack when
-    // there is room for it and its top note when there is not.
-    const labelText = hand === 'rh' ? note.num : note.num;
-    const labelLet = hand === 'rh' ? note.let : note.let;
+    // The label: above the melody, below the bass.
+    const variants = labelVariants(note);
     if (hand === 'rh') {
-      const text = fitsStack(labelText, note) ? labelText : note.topNum;
-      const text2 = fitsStack(labelLet, note) ? labelLet : note.topLet;
-      group.appendChild(makeLabel(note.x, note.y + note.labelDy, 'written-note-rh',
-        text, text2, note.labelSize));
+      group.appendChild(makeLabel(note.x, variants, mode, 'written-note-rh'));
     } else {
-      group.appendChild(makeLabel(note.x + layout.lhLabel.dx, note.y + layout.lhLabel.dy,
-        'written-note-lh', labelText, labelLet, 0));
+      group.appendChild(makeLabel(note.x + layout.lhLabel.dx, variants, mode, 'written-note-lh'));
     }
 
     return group;
-  }
-
-  /** A chord's full stack of labels only when the measure's writing is big enough. */
-  function fitsStack(text, note) {
-    if (note.heads.length < 2) return true;
-    return note.labelSize >= Config.layout.denseLabel.staggerBelow;
   }
 
   /** A rest, drawn as a pencil squiggle at the middle of its staff. */
@@ -372,9 +393,10 @@ window.App.SheetRender = (function () {
 
   /** Switch every label between 123 and ABC without redrawing the sheet. */
   function applyMode(container, mode) {
-    const labels = container.querySelectorAll('[data-num]');
-    Array.prototype.forEach.call(labels, function (label) {
-      label.textContent = mode === 'number' ? label.dataset.num : label.dataset.let;
+    ['.written-note-rh', '.written-note-lh', '.measure-num'].forEach(function (selector) {
+      Array.prototype.forEach.call(container.querySelectorAll(selector), function (label) {
+        if (label._variants) applyVariant(label, mode);
+      });
     });
   }
 

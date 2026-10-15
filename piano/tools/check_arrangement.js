@@ -133,21 +133,38 @@ function main() {
   check('and six-eight is six', App.Layout.nominalUnits('6/8') === 48);
 
   console.log('');
-  console.log('the old entries still lay out as before');
+  console.log('the score itself');
   const real = App.ScoreLoader.load(JSON.parse(
     fs.readFileSync(path.join(ROOT, 'music-sheet/flower_day.json'), 'utf8')));
   const realLayout = App.Layout.build(real);
-  check('the real score still builds 16 systems', realLayout.systems.length === 16);
-  check('and its measures are not on the time axis',
-    realLayout.byNumber[1].timed === false);
-  check('but the sample is', m(1).timed === true);
+  const realMeasures = realLayout.systems.reduce(function (all, system) { return all.concat(system.measures); }, []);
+
+  check('the real score builds 16 systems', realLayout.systems.length === 16);
+  check('every measure is on the time axis', realMeasures.every(function (measure) { return measure.timed; }));
+  const treble = realMeasures.filter(function (measure) { return measure.lhClef === 'treble'; }).length;
+  check('the left hand really does change clef', treble > 0 && treble < realMeasures.length,
+    treble + ' measures in treble, ' + (realMeasures.length - treble) + ' in bass');
+  check('the clef changes are warned at the barline',
+    realMeasures.filter(function (measure) { return measure.cueClef; }).length > 0,
+    realMeasures.filter(function (measure) { return measure.cueClef; }).length + ' cue clefs');
+  check('and a clef changed on every page of the piece',
+    new Set(realMeasures.filter(function (measure) { return measure.cueClef; })
+      .map(function (measure) { return Math.floor(measure.m / 16); })).size >= 3);
+
+  // The old shape still loads, for anything not yet moved over.
+  const legacy = App.ScoreLoader.load({ meta: {}, measures: [
+    { m: 1, key: '1#', rh: [['7', 'B4', 71], ['7', 'B4', 71]], lh: ['3/7,', 'E3/B2', 52] }
+  ] });
+  const legacyLayout = App.Layout.build(legacy);
+  check('an old-style measure still loads and stays off the time axis',
+    legacyLayout.byNumber[1].timed === false);
   // test.html's own rule, which the old entries must keep: a bass chord held through
   // the bar is open, a bass that moves is filled.
-  check('a held bass chord is still drawn open', realLayout.byNumber[1].lh[0].hollow === true);
-  check('a moving bass is still drawn filled', realLayout.byNumber[4].lh[0].hollow === false);
-  check('and every bass note of a packed chord is drawn',
-    realLayout.byNumber[3].lh[0].heads.length === 3,
-    realLayout.byNumber[3].lh[0].heads.length + ' noteheads for ' + realLayout.byNumber[3].lh[0].num);
+  check('a held bass chord of the old shape is drawn open',
+    legacyLayout.byNumber[1].lh[0].hollow === true);
+  check('and every note of its packed chord is drawn',
+    legacyLayout.byNumber[1].lh[0].heads.length === 2,
+    legacyLayout.byNumber[1].lh[0].heads.length + ' noteheads for ' + legacyLayout.byNumber[1].lh[0].num);
 
   console.log('');
   if (failures) {

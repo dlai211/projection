@@ -628,7 +628,45 @@ grace slash, 1 cue clef, 8 time-signature figures and 1 8va line. The 64 real me
 still lay out exactly where they did before — `check_layout.js` reports the same
 positions and the same worst difference.
 
-### The transcription is not done, and could not be done honestly
+### The full transcription arrives (2026-10-14)
+
+`music-sheet/flower_day.json` is now the full arrangement: **64 measures, 985 notes**,
+with the left hand changing clef exactly where the reference score does (23 measures in
+treble, 41 in bass, six cue clefs) — all three spellings of every note agree, every note
+is inside the piano, and **all 64 measures are heard complete** by the detector.
+
+Three things had to change to draw it, all found by looking at what the new density did:
+
+1. **Labels step between heights rather than shrink.** The first run shrank the writing
+   to its 12-unit floor in 57 of 64 measures. Every other label now rises (or drops,
+   under the bass) instead, which doubles the room each has; only if that is still not
+   enough does the writing get smaller. That left 33 measures shrinking and 54 stepping.
+2. **The handwriting is measured per notation system.** "7" and "B4" are not the same
+   width, and sizing for the longer one shrank the sheet for no reason in the other. Each
+   measure now keeps both plans, and the switch swaps text, size and height together — so
+   in a tight bar the 123 label can read `5/7` while the ABC label reads `B4`.
+3. **A system's window grows downward as well as up.** A bass note written far below its
+   staff takes its stem and its label with it; the window grows to hold them rather than
+   letting them run into the system underneath.
+
+**What the transcription still needs, from the player rather than from code.** Two
+reports in `check_score.js` point at places to check against the printed score — both are
+for a human to decide, and neither has been changed here:
+
+- **24 measures whose melody is one eighth short of the bar** (measure 1 and its
+  relatives, and the 3/8 bar). The bass fills every one of them. A pickup does not fill
+  its bar, so this may be right — but the same one-eighth gap in twenty-four bars is more
+  likely the last note of each of them.
+- **18 left-hand notes written more than four staff steps from their staff**, in measures
+  12, 14, 30, 33, 34, 35, 36, 58, 59, 60, 61 and 63. The clearest are measure 36's `6,,`
+  (A2, eleven steps below a treble staff) and measure 63's `7,,` (B2, ten steps below) —
+  both are bass-register notes in bars whose clef is treble. Three or four ledger lines is
+  ordinary for this arrangement; five or more usually means a clef or an octave was
+  written against the wrong bar.
+- The reference score is described as having **65 bars**, with the last system running
+  from measure 60 to 65; the file has **64**. Worth a look at the final page.
+
+### The transcription was not done here, and could not be honestly
 
 **`flower_day.json` is still the simplified score.** Reading the notes off
 `music-sheet/flower_day.pdf` is the one part of this that was not delivered, and the
