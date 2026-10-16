@@ -1,0 +1,10 @@
+{
+  "name": "shop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A rainy-night Japanese convenience-store corner, in miniature. Static site, no build step, no dependencies.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/"
+  }
+}

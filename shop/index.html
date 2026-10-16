@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>雨夜のコンビニ — a rainy-night corner, in miniature</title>
+  <link rel="stylesheet" href="styles/style.css">
+
+  <!--
+    three.js is vendored into vendor/ rather than pulled from a CDN, so this page
+    works with no network at all. The addons import the bare specifier 'three',
+    so both mappings are load-bearing; the trailing slash on the second one is a
+    prefix mapping. Paths are relative and must stay that way — this is published
+    as a GitHub project site under /projection/, where an absolute /vendor/...
+    would 404.
+
+    This block must come before the first <script type="module">.
+  -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./vendor/three/three.module.js",
+      "three/addons/": "./vendor/three/addons/"
+    }
+  }
+  </script>
+</head>
+<body>
+
+  <canvas id="scene"></canvas>
+  <div id="veil"></div>
+
+  <!--
+    The only interface on the page. It sits almost invisible until the pointer
+    is over it, and every event it receives is stopped from reaching the canvas
+    so that dragging the slider never orbits the model.
+  -->
+  <div id="audio" role="group" aria-label="Rain volume">
+    <button id="audio-toggle" type="button" aria-label="Mute the rain" title="Mute (M)">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 9h3.2L12 5.2v13.6L7.2 15H4z" />
+        <path class="wave" d="M15.4 8.6a4.6 4.6 0 0 1 0 6.8" />
+        <path class="wave" d="M17.9 6.1a8 8 0 0 1 0 11.8" />
+        <path class="slash" d="M15.5 9.5l5 5M20.5 9.5l-5 5" />
+      </svg>
+    </button>
+    <input id="audio-level" type="range" min="0" max="100" step="1" value="62"
+           aria-label="Rain volume">
+  </div>
+
+  <!--
+    The only text this page can ever show, and only when it has failed: browsers
+    refuse to load ES modules over file://, so double-clicking index.html gives a
+    blank screen and one console error. Saying so is kinder than saying nothing.
+  -->
+  <div id="fallback" hidden>
+    <h1 id="fallback-title">This page needs to be served, not opened</h1>
+    <div id="fallback-body">
+      <p>
+        Browsers refuse to load JavaScript modules from <code>file://</code>. From this
+        folder, run
+      </p>
+      <pre>python -m http.server 8080</pre>
+      <p>and open <a href="http://localhost:8080/">http://localhost:8080/</a>.</p>
+    </div>
+    <pre id="fallback-detail" hidden></pre>
+  </div>
+
+  <script>
+    // A blank screen tells you nothing, so anything that goes wrong on the way up
+    // is said out loud instead. This runs before the module below, so it catches
+    // the module failing to load as well as it failing to run.
+    window.__shopBooted = false;
+
+    function bail(title, detail) {
+      var fallback = document.getElementById('fallback');
+      if (!fallback || !fallback.hidden) return;
+      document.getElementById('fallback-title').textContent = title;
+      if (detail) {
+        document.getElementById('fallback-body').innerHTML =
+          '<p>Something threw while the scene was being built. The details are below.</p>';
+        var note = document.getElementById('fallback-detail');
+        note.textContent = detail;
+        note.hidden = false;
+      }
+      fallback.hidden = false;
+    }
+
+    window.addEventListener('error', function (event) {
+      if (window.__shopBooted) return;
+      bail('The scene stopped before it started', String(event.message || event.error || event));
+    });
+
+    window.addEventListener('unhandledrejection', function (event) {
+      if (window.__shopBooted) return;
+      bail(
+        'The scene stopped before it started',
+        String((event.reason && event.reason.stack) || event.reason)
+      );
+    });
+
+    setTimeout(function () {
+      if (!window.__shopBooted) bail('This page needs to be served, not opened', null);
+    }, 3000);
+  </script>
+
+  <script type="module" src="js/main.js"></script>
+
+</body>
+</html>

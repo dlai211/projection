@@ -1,0 +1,246 @@
+/*
+  style.css — the whole stylesheet. There is no interface on this page: the
+  canvas fills the window and nothing is ever drawn over it. The only two rules
+  with any real work to do are the fade-in from black and the failure notice.
+*/
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #05070d;
+}
+
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+canvas#scene {
+  position: fixed;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/*
+  The scene arrives out of the dark.
+
+  This is a layer ABOVE the canvas rather than an opacity animation on the canvas
+  itself, which matters more than it looks: hiding the canvas behind a transition
+  means that if the compositor never finishes that transition, the page is simply
+  black with no way to tell why. With a veil on top, the worst case is a dark
+  picture rather than an empty one, and `main.js` removes the element outright
+  once it has faded rather than trusting the transition to have run.
+*/
+#veil {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  background: #05070d;
+  pointer-events: none;
+  transition: opacity 1.4s ease-out;
+}
+
+body.ready #veil {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #veil {
+    transition: none;
+  }
+}
+
+/*
+  Failure notice. Hidden unless the module never booted — which in practice
+  means the page was opened by double-clicking it instead of being served.
+*/
+#fallback {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 2rem;
+  text-align: center;
+  color: #c8d2e6;
+  background: #05070d;
+}
+
+#fallback[hidden] {
+  display: none;
+}
+
+#fallback h1 {
+  margin: 0 0 1rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #eef3fb;
+}
+
+#fallback p {
+  margin: 0.35rem 0;
+  max-width: 34rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: #93a0ba;
+}
+
+#fallback code {
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+  background: #131a2a;
+  color: #d7e2f5;
+  font-size: 0.85em;
+}
+
+#fallback pre {
+  margin: 0.9rem 0;
+  padding: 0.7rem 1.1rem;
+  border: 1px solid #1d2740;
+  border-radius: 5px;
+  background: #0d1322;
+  color: #d7e2f5;
+  font-size: 0.85rem;
+  user-select: all;
+}
+
+#fallback a {
+  color: #6fb3e8;
+}
+
+/*
+  The rain control. The only interface on this page, and it behaves like it is
+  apologising for being there: nearly transparent until the pointer arrives.
+*/
+#audio {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.7rem 0.4rem 0.45rem;
+  border: 1px solid rgba(150, 175, 215, 0.16);
+  border-radius: 999px;
+  background: rgba(12, 17, 29, 0.5);
+  backdrop-filter: blur(6px);
+  opacity: 0.34;
+  transition: opacity 0.35s ease, border-color 0.35s ease;
+}
+
+#audio:hover,
+#audio:focus-within {
+  opacity: 1;
+  border-color: rgba(150, 175, 215, 0.34);
+}
+
+#audio button {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #b9cae4;
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+#audio button:hover {
+  background: rgba(150, 175, 215, 0.14);
+  color: #eaf1fb;
+}
+
+#audio svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  fill-rule: nonzero;
+}
+
+#audio svg .wave,
+#audio svg .slash {
+  fill: none;
+}
+
+/* The mute glyph: waves and slash swap over. */
+#audio svg .slash {
+  opacity: 0;
+}
+#audio.muted svg .wave {
+  opacity: 0;
+}
+#audio.muted svg .slash {
+  opacity: 1;
+}
+#audio.muted button {
+  color: #7d8aa2;
+}
+
+#audio input[type="range"] {
+  width: 5rem;
+  height: 1rem;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+#audio input[type="range"]::-webkit-slider-runnable-track {
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(160, 185, 220, 0.3);
+}
+
+#audio input[type="range"]::-moz-range-track {
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(160, 185, 220, 0.3);
+}
+
+#audio input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 0.62rem;
+  height: 0.62rem;
+  margin-top: -0.28rem;
+  border: 0;
+  border-radius: 50%;
+  background: #cfe0f5;
+}
+
+#audio input[type="range"]::-moz-range-thumb {
+  width: 0.62rem;
+  height: 0.62rem;
+  border: 0;
+  border-radius: 50%;
+  background: #cfe0f5;
+}
+
+@media (max-width: 480px) {
+  #audio {
+    right: 0.75rem;
+    bottom: 0.75rem;
+  }
+  #audio input[type="range"] {
+    width: 3.5rem;
+  }
+}
