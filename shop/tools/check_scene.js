@@ -26,7 +26,7 @@
  */
 
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
-import { join, dirname, resolve } from 'node:path';
+import { join, dirname, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -52,6 +52,9 @@ function section(title) {
 function read(path) {
   return readFileSync(path, 'utf8');
 }
+
+/** How a multi-line failure detail is indented, so it lines up under its label. */
+const SEP = '\n        ';
 
 /* ------------------------------------------------------------ the files -- */
 
@@ -115,6 +118,115 @@ const vendor = [
 ];
 const missingVendor = vendor.filter((path) => !existsSync(join(ROOT, path)));
 check(`vendored three.js is complete (${vendor.length} files)`, missingVendor.length === 0, missingVendor.join('\n        '));
+
+/* ------------------------------------------------------ exact-case paths -- */
+
+section('Paths as the server will see them');
+
+/**
+ * Windows is case-insensitive. GitHub Pages is not.
+ *
+ * This is the one fault that cannot appear locally however long you look at it:
+ * `import './Signage.js'` resolves happily on this machine and 404s on the
+ * server, and a module that 404s gives a blank canvas and one console line —
+ * the same silent failure as the NaN camera, arriving only after a push.
+ *
+ * `existsSync` is no use here because it is the thing being lied to, so every
+ * path is resolved segment by segment against the real directory listing, which
+ * is the only place the true capitalisation lives.
+ */
+function resolveExact(fromDir, spec) {
+  let dir = fromDir;
+  for (const part of spec.split('?')[0].split('#')[0].replace(/\\/g, '/').split('/')) {
+    if (part === '' || part === '.') continue;
+    if (part === '..') { dir = resolve(dir, '..'); continue; }
+
+    let entries;
+    try {
+      entries = readdirSync(dir);
+    } catch {
+      return `no such directory: ${dir}`;
+    }
+    if (entries.includes(part)) { dir = join(dir, part); continue; }
+
+    const folded = entries.find((e) => e.toLowerCase() === part.toLowerCase());
+    return folded
+      ? `"${part}" is "${folded}" on disk — works here, 404s on Pages`
+      : `"${part}" does not exist`;
+  }
+  return null;
+}
+
+const importMap = (() => {
+  const block = html.match(/<script type="importmap">([\s\S]*?)<\/script>/);
+  if (!block) return null;
+  try {
+    return JSON.parse(block[1]).imports;
+  } catch {
+    return null;
+  }
+})();
+
+const caseFaults = [];
+const checkPath = (base, spec, where) => {
+  if (/^(https?:)?\/\//.test(spec) || spec.startsWith('#')) return;
+  const fault = resolveExact(base, spec);
+  if (fault) caseFaults.push(`${where} -> ${spec}: ${fault}`);
+};
+
+for (const match of html.matchAll(/(?:src|href)="([^"]+)"/g)) checkPath(ROOT, match[1], 'index.html');
+
+if (!importMap) {
+  caseFaults.push('index.html has no importmap (or it does not parse)');
+} else {
+  for (const [key, target] of Object.entries(importMap)) {
+    if (!target.startsWith('.')) caseFaults.push(`importmap "${key}" is not a relative path: ${target}`);
+    else checkPath(ROOT, target, `importmap "${key}"`);
+  }
+}
+
+/**
+ * And every bare specifier in js/ has to resolve through that importmap, the
+ * way the browser resolves it: the longest matching key wins, and a key ending
+ * in a slash is a prefix map. This is what catches an addon that was imported
+ * but never vendored.
+ */
+const bareSpecifier = (spec) => Object.keys(importMap ?? {})
+  .filter((key) => spec === key || (key.endsWith('/') && spec.startsWith(key)))
+  .sort((a, b) => b.length - a.length)[0];
+
+for (const [name, source] of sources) {
+  for (const match of source.matchAll(/from\s+['"]([^'"]+)['"]/g)) {
+    if (match[1].startsWith('.')) {
+      checkPath(JS_DIR, match[1], `js/${name}`);
+      continue;
+    }
+    const key = bareSpecifier(match[1]);
+    if (!key) caseFaults.push(`js/${name} imports "${match[1]}", which the importmap does not map`);
+    else checkPath(ROOT, importMap[key] + match[1].slice(key.length), `js/${name} -> ${match[1]}`);
+  }
+}
+
+// The vendored addons import each other too, and those paths are the ones
+// nobody ever looks at.
+const vendorStack = [join(ROOT, 'vendor')];
+while (vendorStack.length) {
+  const dir = vendorStack.pop();
+  for (const item of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, item.name);
+    if (item.isDirectory()) { vendorStack.push(full); continue; }
+    if (!item.name.endsWith('.js')) continue;
+    for (const match of read(join(dir, item.name)).matchAll(/from\s+'(\.[^']+)'/g)) {
+      checkPath(dir, match[1], relative(ROOT, full).replace(/\\/g, '/'));
+    }
+  }
+}
+
+check(
+  'every path matches the case of the file on disk',
+  caseFaults.length === 0,
+  caseFaults.join('\n        '),
+);
 
 // three.module.js re-exports from three.core.js since r168. Ship one without
 // the other and you get a 404 and a blank page.
@@ -264,6 +376,120 @@ for (let i = 0; i < config.FIXTURES.length; i++) {
 }
 check('no two fixtures occupy the same floor', overlaps.length === 0, overlaps.join('\n        '));
 
+/* ------------------------------------------------------------- furniture -- */
+
+section('Street furniture');
+
+/**
+ * Nothing may stand in a carriageway or on a crossing.
+ *
+ * Two of the road signs were: the one-way plate was planted in the middle of
+ * the side street, and on the crossing itself. Poles in the road are the kind
+ * of thing that is obvious in a render and invisible in the code that places
+ * them, so it is checked here instead.
+ */
+const inRect = (x, z, r) => x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1;
+
+const crossings = [];
+for (const road of config.PLAN.roads) {
+  const c = config.STREET.crosswalk;
+  const cs = config.STREET.crosswalkSide;
+  if (road.id === 'road-main') {
+    crossings.push({ id: 'crosswalk', x0: c.x0, x1: c.x1, z0: road.z0, z1: road.z1 });
+  } else {
+    crossings.push({ id: 'crosswalkSide', x0: road.x0, x1: road.x1, z0: cs.z0, z1: cs.z1 });
+  }
+}
+
+const inRoad = [];
+for (const item of config.FURNITURE) {
+  for (const road of config.PLAN.roads) {
+    if (inRect(item.x, item.z, road)) inRoad.push(`${item.id} stands in ${road.id}`);
+  }
+  for (const cross of crossings) {
+    if (inRect(item.x, item.z, cross)) inRoad.push(`${item.id} stands on ${cross.id}`);
+  }
+}
+check(
+  `all ${config.FURNITURE.length} poles and signs are clear of the road`,
+  inRoad.length === 0,
+  inRoad.join(SEP),
+);
+
+/**
+ * ...but only because props.js now reads this table.
+ *
+ * It did not, once. The two utility poles carried their own coordinates —
+ * z = 10.2, in the middle of the main carriageway — while FURNITURE said 12.2.
+ * The check above passed for as long as nobody looked at a picture, which is
+ * the whole lesson of this project. A table that the scene does not consult is
+ * worse than no table, because it looks like evidence.
+ */
+const propsSource = read(join(JS_DIR, 'props.js'));
+const unread = config.FURNITURE
+  .filter((f) => !propsSource.includes(`'${f.id}'`))
+  .map((f) => f.id);
+check(
+  'props.js places every one of them from FURNITURE',
+  unread.length === 0,
+  `placed from a private number instead: ${unread.join(', ')}`,
+);
+
+/**
+ * The signal arms, which are the only street furniture that reaches out over
+ * the scene rather than standing on it.
+ *
+ * The side-street mast carried its arm EAST from x = -6.7, so its head landed
+ * at x = -4.5: half a metre inside the shop, above the ceiling, and laid across
+ * the frontage from every angle the model is ever seen from. The mast was on
+ * the pavement, and the mast was in the table, so every coordinate check passed
+ * while the render had a signal head inside the building.
+ */
+const armFaults = [];
+for (const item of config.FURNITURE.filter((f) => f.arm)) {
+  const headX = item.x + item.arm * Math.cos(item.yaw);
+  const headZ = item.z - item.arm * Math.sin(item.yaw);
+
+  if (!config.PLAN.roads.some((r) => inRect(headX, headZ, r))) {
+    armFaults.push(
+      `${item.id}'s head hangs at (${headX.toFixed(1)}, ${headZ.toFixed(1)}) — over no carriageway`,
+    );
+  }
+
+  for (let i = 0; i <= 20; i++) {
+    const t = i / 20;
+    const x = item.x + (headX - item.x) * t;
+    const z = item.z + (headZ - item.z) * t;
+    if (inRect(x, z, config.STORE)) {
+      armFaults.push(`${item.id}'s arm enters the shop at (${x.toFixed(1)}, ${z.toFixed(1)})`);
+      break;
+    }
+  }
+}
+check('no signal arm reaches into the shop', armFaults.length === 0, armFaults.join(SEP));
+
+/**
+ * Guidance strips belong on the pavement.
+ *
+ * The shopfront one ran west from `kerbCut.x0`, and west of that point on this
+ * z there is no pavement at all — it is the side street's carriageway, and the
+ * side crossing is painted on it. So a tactile strip was laid across the zebra
+ * bars, which is visible in the plan view and in no number anywhere.
+ */
+const strayTactile = [];
+for (const run of config.STREET.tactile) {
+  for (const road of config.PLAN.roads) {
+    const overlaps = run.x1 > road.x0 && run.x0 < road.x1
+      && run.z + 0.08 > road.z0 && run.z - 0.08 < road.z1;
+    if (overlaps) strayTactile.push(`${run.id} lies in ${road.id}`);
+  }
+}
+check(
+  `all ${config.STREET.tactile.length} guidance strips are on the pavement`,
+  strayTactile.length === 0,
+  strayTactile.join(SEP),
+);
+
 /* ----------------------------------------------------------------- yard -- */
 
 section('Yard');
@@ -296,6 +522,34 @@ for (let i = 0; i < config.YARD.length; i++) {
   }
 }
 check('nothing in the yard intersects anything else', yardHits.length === 0, yardHits.join('\n        '));
+
+/**
+ * And the truck has to be able to leave.
+ *
+ * "Does not intersect" passed comfortably while the bicycle shelter stood
+ * 0.4 m off the cab — which is not an intersection, and is also not a yard
+ * anyone can get a truck out of. The only exit onto the side street is west
+ * across x = -7, so the corridor is checked directly rather than inferred from
+ * a blanket spacing rule that would also forbid the hand truck from standing
+ * behind the tailgate, where it belongs.
+ */
+const truck = config.YARD.find((y) => y.id === 'truck');
+const corridor = {
+  x0: config.PLAN.roads[1].x1, // the side-street kerb
+  x1: truck.x - truck.w / 2,
+  z0: truck.z - truck.d / 2 - 0.6,
+  z1: truck.z + truck.d / 2 + 0.6,
+};
+const blocked = [];
+for (const item of config.YARD) {
+  if (item.id === 'truck') continue;
+  const hits = item.x + item.w / 2 > corridor.x0
+    && item.x - item.w / 2 < corridor.x1
+    && item.z + item.d / 2 > corridor.z0
+    && item.z - item.d / 2 < corridor.z1;
+  if (hits) blocked.push(`${item.id} stands in the truck's way out`);
+}
+check('the truck has a clear run out of the yard', blocked.length === 0, blocked.join(SEP));
 
 /* ------------------------------------------------------------ the scene -- */
 

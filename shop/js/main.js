@@ -71,6 +71,82 @@ controls.enablePan = true;
 controls.zoomSpeed = 0.8;
 controls.rotateSpeed = 0.65;
 
+/* ----------------------------------------------------------------- views -- */
+
+/**
+ * Named camera setups, reachable as `?view=<name>`.
+ *
+ * These exist because "the pole is in the way" is not a fact about a coordinate,
+ * it is a fact about a picture, and there was no way to look at a picture. Each
+ * preset is a position and a target in metres; `fov` is optional and overrides
+ * the default lens.
+ *
+ * A preset is NOT an orbit. The controls are switched off rather than clamped,
+ * because `controls.minPolarAngle` refuses to point straight down and would
+ * quietly tilt the top-down view — which is the one view where a tilt would
+ * hide exactly the alignment errors it exists to find.
+ */
+const VIEWS = {
+  /** The three-quarter view the page opens on. */
+  default: {
+    position: CAMERA.start,
+    target: CAMERA.target,
+  },
+  /** Straight down on the whole 26 m base: the plan view. */
+  topdown: {
+    position: { x: 0, y: 32, z: 0.01 },
+    target: { x: 0, y: 0, z: 0 },
+    fov: 50, // 2 * atan(13/32) is 44.2 deg; 50 leaves a margin round the plinth
+  },
+  /** The delivery yard, from the back-left corner, close in. */
+  backyard: {
+    position: { x: -12, y: 8, z: -14 },
+    target: { x: 0, y: 1.5, z: -8 },
+  },
+  /** The junction: both crossings, the kerbs and every pole. */
+  intersection: {
+    position: { x: -12, y: 6, z: 12 },
+    target: { x: -5, y: 1, z: 4 },
+  },
+  /**
+   * Straight down over the junction, close.
+   *
+   * The plan view above covers the whole 26 m base, which puts a 45 cm crossing
+   * bar at fifteen pixels — enough to see that there IS a crossing, not enough
+   * to see which way its bars run. This is the same information at 100 px/m.
+   * Markings are painted on the ground, so there is no perspective smear here
+   * and every line is at its true plan position.
+   */
+  junction: {
+    position: { x: -6.5, y: 19, z: 6.0 },
+    target: { x: -6.5, y: 0, z: 5.99 },
+    fov: 36, // 12.3 m of ground, centred so the side street's stop line is in shot
+  },
+  /**
+   * Up the chamfer's own outward normal, standing on the pavement at eye
+   * height — the view a customer has. Close in, because the things that go
+   * wrong at an entrance (the threshold, the mat, the sill, what the ground
+   * does where the light stops) are all within a couple of metres of the door.
+   */
+  entrance: {
+    position: { x: -5.6, y: 1.62, z: 4.3 },
+    target: { x: -3.6, y: 0.55, z: 1.6 },
+  },
+};
+
+const params = new URLSearchParams(location.search);
+const view = VIEWS[params.get('view')] ?? null;
+const viewFov = view?.fov ?? null;
+
+/**
+ * `?still=1` freezes the clock at one moment. Two captures of the same view
+ * then differ only where the model actually changed, instead of being two
+ * different instants of rain — which is what makes a screenshot worth comparing
+ * against the previous round's.
+ */
+const STILL = params.get('still') === '1';
+const STILL_TIME = 6.4;
+
 const rig = buildLights(scene);
 
 /* ------------------------------------------------- Phase 1 test strip ---- */
@@ -167,12 +243,21 @@ const introFrom = startTarget
   .add(startPosition.clone().sub(startTarget).multiplyScalar(MOTION.intro.from))
   .add(new THREE.Vector3(0, 3.2, 0));
 
-camera.position.copy(introFrom);
-controls.target.copy(startTarget);
-controls.update();
-
 let introElapsed = 0;
-let introRunning = true;
+let introRunning = !view && !STILL;
+
+if (view) {
+  // A fixed camera. `lookAt` rather than `controls.update`, so the preset lands
+  // exactly where it says it does.
+  camera.position.set(view.position.x, view.position.y, view.position.z);
+  controls.target.set(view.target.x, view.target.y, view.target.z);
+  camera.lookAt(controls.target);
+  controls.enabled = false;
+} else {
+  camera.position.copy(STILL ? startPosition : introFrom);
+  controls.target.copy(startTarget);
+  controls.update();
+}
 
 function endIntro() {
   if (!introRunning) return;
@@ -199,10 +284,11 @@ function resize() {
   // A tall, narrow window (a snapped half-screen laptop) would crop the sides
   // off the model with a fixed vertical fov, so open it up until the horizontal
   // fov is wide enough to hold the whole base.
-  const horizontal = 2 * Math.atan(Math.tan(CAMERA.fov * DEG * 0.5) * aspect) / DEG;
+  const base = viewFov ?? CAMERA.fov;
+  const horizontal = 2 * Math.atan(Math.tan(base * DEG * 0.5) * aspect) / DEG;
   camera.fov = horizontal < CAMERA.minHorizontalFov
     ? Math.min(70, 2 * Math.atan(Math.tan(CAMERA.minHorizontalFov * DEG * 0.5) / aspect) / DEG)
-    : CAMERA.fov;
+    : base;
 
   camera.updateProjectionMatrix();
 }
@@ -291,10 +377,18 @@ const clock = new THREE.Clock();
 const showCounters = DEBUG;
 let frames = 0;
 
-function frame() {
-  const dt = Math.min(clock.getDelta(), 0.1);
-  const elapsed = clock.elapsedTime;
-
+/**
+ * One frame's worth of updating, with no drawing in it.
+ *
+ * Split out from the loop because the same work has to happen ONCE,
+ * synchronously, before the first paint. That is not only for the opening
+ * frame: under `--virtual-time-budget` a headless capture can finish without
+ * the compositor ever ticking a requestAnimationFrame, so anything left to the
+ * loop is simply absent from the screenshot. The rain was — there was no
+ * weather in any still capture, which is why every still capture looked a
+ * little wrong in a way that was hard to name.
+ */
+function step(dt, elapsed) {
   if (introRunning) {
     introElapsed += dt;
     const t = Math.min(introElapsed / MOTION.intro.duration, 1);
@@ -303,13 +397,15 @@ function frame() {
     if (t >= 1) endIntro();
   }
 
-  // The look-at point is free to be dragged, but it is penned into a small box
-  // around the model so the diorama can never be pushed off-screen and lost.
-  controls.target.x = THREE.MathUtils.clamp(controls.target.x, startTarget.x - CAMERA.panLimit, startTarget.x + CAMERA.panLimit);
-  controls.target.y = THREE.MathUtils.clamp(controls.target.y, 0, startTarget.y + CAMERA.panLimit);
-  controls.target.z = THREE.MathUtils.clamp(controls.target.z, startTarget.z - CAMERA.panLimit, startTarget.z + CAMERA.panLimit);
+  if (!view) {
+    // The look-at point is free to be dragged, but it is penned into a small box
+    // around the model so the diorama can never be pushed off-screen and lost.
+    controls.target.x = THREE.MathUtils.clamp(controls.target.x, startTarget.x - CAMERA.panLimit, startTarget.x + CAMERA.panLimit);
+    controls.target.y = THREE.MathUtils.clamp(controls.target.y, 0, startTarget.y + CAMERA.panLimit);
+    controls.target.z = THREE.MathUtils.clamp(controls.target.z, startTarget.z - CAMERA.panLimit, startTarget.z + CAMERA.panLimit);
 
-  controls.update();
+    controls.update();
+  }
 
   // The mirror is rendered by hand, before the composer, and never from inside a
   // pass: toggling visibility while the composer holds a buffer bound is a
@@ -325,10 +421,17 @@ function frame() {
   for (const lamp of service.hazards) {
     lamp.material.emissiveIntensity = hazardOn ? 2.6 : 0.1;
   }
+}
 
+function frame() {
+  const dt = STILL ? 0 : Math.min(clock.getDelta(), 0.1);
+  const elapsed = STILL ? STILL_TIME : clock.elapsedTime;
+  frames++;
+
+  step(dt, elapsed);
   postfx.composer.render(dt);
 
-  if (showCounters && ++frames % 60 === 0) report();
+  if (showCounters && frames % 60 === 0) report();
 }
 
 /** `?debug=1` only. The scene itself never shows a number to anyone. */
@@ -340,14 +443,68 @@ function report() {
   );
 }
 
-// Draw one frame before handing over to the animation loop, so the model is
-// never caught half-built behind the veil — and so a headless capture has
+/**
+ * `?hide=name,name` — removes named subtrees before the first frame.
+ *
+ * A debugging affordance with one real job: it is how "what is that dark shape
+ * lying on the pavement" gets answered by measurement instead of by staring.
+ * Guessing at it from three screenshots is how the last four rounds of this
+ * project went wrong. Nothing in the scene reads this, and with no parameter
+ * the scene is untouched.
+ */
+const hideList = (params.get('hide') ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+for (const name of hideList) {
+  const found = world.getObjectByName(name);
+  if (found) found.visible = false;
+  else console.warn(`[shop] ?hide=${name} matched nothing in the scene`);
+}
+
+// Draw one complete frame before handing over to the animation loop, so the
+// model is never caught half-built behind the veil and a headless capture has
 // something real in the buffer even if the compositor never ticks.
-reflection.update(camera);
+step(0, STILL ? STILL_TIME : 0);
 postfx.composer.render(0);
 if (showCounters) report();
 
 renderer.setAnimationLoop(frame);
+
+/* ------------------------------------------------------------- the hooks -- */
+
+/**
+ * The scene hands out its own parts, for the offline visual check and for
+ * anyone who wants to drive the camera from the console. Nothing in the page
+ * reads any of this, and `tools/check_scene.js` fails if the scene ever starts
+ * to depend on it — the model has to be correct on its own.
+ */
+window.__shop = {
+  THREE, scene, world, camera, controls, renderer, postfx, reflection,
+  bounds: { startPosition, startTarget },
+  views: Object.keys(VIEWS),
+  /** Jump to a named view. `window.__shop.view('topdown')` */
+  view(name) {
+    const next = VIEWS[name];
+    if (!next) return Object.keys(VIEWS);
+    camera.position.set(next.position.x, next.position.y, next.position.z);
+    controls.target.set(next.target.x, next.target.y, next.target.z);
+    camera.lookAt(controls.target);
+    controls.enabled = false;
+    return name;
+  },
+  /** Where the camera actually ended up, in metres. */
+  where() {
+    return {
+      position: camera.position.toArray().map((n) => +n.toFixed(2)),
+      target: controls.target.toArray().map((n) => +n.toFixed(2)),
+      fov: +camera.fov.toFixed(1),
+      distance: +camera.position.distanceTo(controls.target).toFixed(2),
+    };
+  },
+  /** Redraw immediately, without waiting for the loop. */
+  draw() {
+    step(0, STILL ? STILL_TIME : clock.elapsedTime);
+    postfx.composer.render(0);
+  },
+};
 
 /* ---------------------------------------------------------------- ready -- */
 

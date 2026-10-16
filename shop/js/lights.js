@@ -154,7 +154,23 @@ export function buildLights(scene) {
   vending.position.set(LIGHTS.vending.position.x, LIGHTS.vending.position.y, LIGHTS.vending.position.z);
   scene.add(vending);
 
-  return { ambient, key, interiorSpill, doorway, streetLamp, vending };
+  // The delivery yard's bulkhead lamp. It was an emissive box and nothing more,
+  // so it glowed and lit nothing: the whole back lot — truck, shelter, bins,
+  // the neighbour's wall — rendered as a black rectangle.
+  const bulkhead = new THREE.PointLight(
+    LIGHTS.bulkhead.color,
+    LIGHTS.bulkhead.intensity,
+    LIGHTS.bulkhead.distance,
+    2,
+  );
+  bulkhead.position.set(
+    LIGHTS.bulkhead.position.x,
+    LIGHTS.bulkhead.position.y,
+    LIGHTS.bulkhead.position.z,
+  );
+  scene.add(bulkhead);
+
+  return { ambient, key, interiorSpill, doorway, streetLamp, vending, bulkhead };
 }
 
 /**

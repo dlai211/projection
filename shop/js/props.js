@@ -15,7 +15,7 @@
  */
 
 import * as THREE from 'three';
-import { STORE, PALETTE, STREET, OUTLINE, LAYERS, MOTION, LEVELS } from './config.js';
+import { STORE, PALETTE, STREET, OUTLINE, LAYERS, MOTION, LEVELS, FURNITURE } from './config.js';
 import { toon, roundedBox, addOutline } from './toon.js';
 import { concrete, paving } from './textures.js';
 import { poster, roadSign } from './signage.js';
@@ -38,6 +38,22 @@ export function buildProps() {
     return mesh;
   };
 
+  /**
+   * Every pole, mast and sign on this corner is placed from `FURNITURE` rather
+   * than from a number written here.
+   *
+   * That is not tidiness. The two utility poles used to carry their own
+   * coordinates — z = 10.2, in the middle of the carriageway — while the table
+   * in config.js said 12.2, so `tools/check_scene.js` was cheerfully reporting
+   * that no street furniture stood in the road. It was checking a table the
+   * scene did not read. One source of truth, or the check is theatre.
+   */
+  const F = (id) => {
+    const item = FURNITURE.find((f) => f.id === id);
+    if (!item) throw new Error(`props.js wants a FURNITURE entry called "${id}"`);
+    return item;
+  };
+
   /* ----------------------------------------------------- neighbouring block */
 
   // Closes the street frontage to the east, so the shop is a corner rather than
@@ -50,17 +66,103 @@ export function buildProps() {
   neighbour.position.set((n.x0 + n.x1) / 2, n.wall / 2, (n.z0 + n.z1) / 2);
   put(neighbour, 'neighbourBlock', true, OUTLINE.hero);
 
-  // A few dim windows, so it does not read as a car park wall.
+  // A few dim windows, so it does not read as a car park wall. The columns are
+  // derived from the building's own width rather than stepped off its corner:
+  // they used to run at 1.6 m intervals from x0 + 1.2, and the fourth column
+  // landed at x = 13 — exactly the east face — so two windows hung in the air
+  // off the side of the building, which is how they appear in the default view.
+  const dimWin = toon({ color: 0x2a3040, emissive: 0x6a5a3a, emissiveIntensity: 0.22 });
+  const cols = 4;
+  const columnX = (i) => n.x0 + 0.5 + ((n.x1 - n.x0 - 1.0) * (i + 0.5)) / cols;
+
   for (let floor = 0; floor < 3; floor++) {
-    for (let i = 0; i < 4; i++) {
-      if ((floor * 4 + i) % 3 === 0) continue;
-      const win = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.7, 0.9),
-        toon({ color: 0x2a3040, emissive: 0x6a5a3a, emissiveIntensity: 0.22 }),
-      );
-      win.position.set(n.x0 + 1.2 + i * 1.6, 1.5 + floor * 1.9, n.z1 + 0.011);
+    for (let i = 0; i < cols; i++) {
+      if ((floor * cols + i) % 3 === 0) continue;
+      const win = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.9), dimWin);
+      win.position.set(columnX(i), 1.5 + floor * 1.9, n.z1 + 0.011);
       win.userData.noOutline = true;
       group.add(win);
+    }
+  }
+
+  /**
+   * The other two faces.
+   *
+   * Only the street frontage was ever detailed, so the wall the delivery yard
+   * and the alley actually look at was six metres of nothing — and since
+   * nothing back there was lit either, the whole back lot came out black. A
+   * building that has stopped being drawn the moment you walk round it is the
+   * single most common way a diorama gives itself away.
+   */
+  const backZ = n.z0 - 0.011; // faces the yard
+  const sideX = n.x0 - 0.011; // faces the alley
+  const litWin = toon({ color: 0x2a3040, emissive: 0xffcf8a, emissiveIntensity: 0.55 });
+  const darkWin = toon({ color: 0x252b3a, emissive: 0x6a5a3a, emissiveIntensity: 0.18 });
+
+  // A corridor run: one window in four lit. A wall where every window is lit
+  // is a rendering; a wall where none are is a wall.
+  const backCols = 3;
+  const backX = (i) => n.x0 + 1.0 + ((n.x1 - n.x0 - 2.0) * i) / (backCols - 1);
+  for (let floor = 0; floor < 3; floor++) {
+    for (let i = 0; i < backCols; i++) {
+      const win = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.62, 0.8),
+        (floor * backCols + i) % 4 === 1 ? litWin : darkWin,
+      );
+      win.position.set(backX(i), 1.9 + floor * 1.8, backZ);
+      win.rotation.y = Math.PI; // the plane faces +z by default
+      win.userData.noOutline = true;
+      group.add(win);
+    }
+  }
+  for (let floor = 0; floor < 3; floor++) {
+    const win = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.8), floor === 1 ? litWin : darkWin);
+    win.position.set(sideX, 1.9 + floor * 1.8, -5.4);
+    win.rotation.y = -Math.PI / 2;
+    win.userData.noOutline = true;
+    group.add(win);
+  }
+
+  // Downpipes. Two on the back wall, one down the alley side, each with the
+  // shoe at the bottom that kicks the water clear of the wall.
+  const pipeMat = toon({ color: 0x6d7583 });
+  const downpipe = (x, z, outX, outZ) => {
+    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 5.9, 8), pipeMat);
+    pipe.position.set(x, 2.95, z);
+    // No contour: a 7.5 cm tube with a hull offset self-intersects into a smear.
+    pipe.userData.noOutline = true;
+    group.add(pipe);
+
+    const shoe = new THREE.Mesh(roundedBox(0.15, 0.15, 0.36, 0.04), pipeMat);
+    shoe.position.set(x + outX * 0.17, 0.13, z + outZ * 0.17);
+    if (!outZ) shoe.rotation.y = Math.PI / 2;
+    shoe.userData.noOutline = true;
+    group.add(shoe);
+  };
+  downpipe(7.4, backZ - 0.1, 0, -1);
+  downpipe(12.6, backZ - 0.1, 0, -1);
+  downpipe(sideX - 0.1, 2.5, -1, 0);
+
+  // Two condensers on wall brackets — the thing that hangs off the back of
+  // every building in the country, and what gives this wall a middle distance
+  // for the bulkhead lamp to pick out.
+  for (const [cx, cy] of [[9.5, 2.8], [11.4, 4.5]]) {
+    const body = new THREE.Mesh(roundedBox(0.86, 0.62, 0.36, 0.03), toon({ color: 0xa4acba }));
+    body.position.set(cx, cy, n.z0 - 0.24);
+    addOutline(body, { thickness: OUTLINE.detail, color: 0x1a1c29 });
+    group.add(body);
+
+    const grille = new THREE.Mesh(new THREE.CircleGeometry(0.21, 16), toon({ color: 0x3a4152 }));
+    grille.position.set(cx, cy, n.z0 - 0.43);
+    grille.rotation.y = Math.PI;
+    grille.userData.noOutline = true;
+    group.add(grille);
+
+    for (const dx of [-0.3, 0.3]) {
+      const leg = new THREE.Mesh(roundedBox(0.06, 0.06, 0.42, 0.02), darkMetal);
+      leg.position.set(cx + dx, cy - 0.34, n.z0 - 0.2);
+      leg.userData.noOutline = true;
+      group.add(leg);
     }
   }
 
@@ -118,8 +220,9 @@ export function buildProps() {
 
   // The pole and head; the light itself lives in lights.js so anim.js can drive
   // it without reaching into geometry.
-  const lampZ = STREET.main.z0 - 1.0;
-  const lampX = 1.5;
+  const lamp = F('streetLamp');
+  const lampZ = lamp.z;
+  const lampX = lamp.x;
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.1, 4.4, 10), metal);
   pole.position.set(lampX, 2.2, lampZ);
   put(pole, 'lampPost', true, OUTLINE.hero);
@@ -147,14 +250,15 @@ export function buildProps() {
   // On the far side of the main street. It used to stand on the corner
   // pavement, which put a pole with a transformer box on it directly between
   // the default camera and the shop's glazing.
-  const poleX = -9.2;
-  const poleZ = STREET.main.z1 - 0.8;
+  const poleA = F('utilityPoleA');
+  const poleX = poleA.x;
+  const poleZ = poleA.z;
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.19, 9.2, 12), concreteMat);
   trunk.position.set(poleX, 4.6, poleZ);
   put(trunk, 'utilityPole', true, OUTLINE.hero);
 
   // A second pole along the same side, so every span has somewhere to arrive.
-  const pole2X = 3.5;
+  const pole2X = F('utilityPoleB').x;
   const pole2 = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.17, 8.6, 12), concreteMat);
   pole2.position.set(pole2X, 4.3, poleZ);
   put(pole2, 'utilityPole2', true, OUTLINE.hero);
@@ -203,15 +307,17 @@ export function buildProps() {
   bracket.position.set(bracketX, 6.1, n.z1 + 0.06);
   put(bracket, 'wallBracket');
 
-  const edgeBracket = new THREE.Mesh(roundedBox(0.1, 0.44, 0.1, 0.02), darkMetal);
-  edgeBracket.position.set(-12.8, 6.6, poleZ);
-  put(edgeBracket, 'edgeBracket');
-
+  /**
+   * Three spans, and every one of them lands on something real: the two poles
+   * and the neighbour's wall. There used to be a fourth, running west from the
+   * pole to a bracket bolted to nothing at the plinth's edge — a wire
+   * terminating in mid air over the junction, which is the exact tell the
+   * brackets were added to avoid.
+   */
   const spans = [
     { from: new THREE.Vector3(poleX, 8.5, poleZ), to: new THREE.Vector3(pole2X, 7.9, poleZ), sag: 0.34 },
     { from: new THREE.Vector3(poleX, 8.05, poleZ), to: new THREE.Vector3(pole2X, 7.45, poleZ), sag: 0.28 },
     { from: new THREE.Vector3(pole2X, 7.6, poleZ), to: new THREE.Vector3(bracketX, 6.1, n.z1 + 0.06), sag: 0.22 },
-    { from: new THREE.Vector3(poleX, 7.2, poleZ), to: new THREE.Vector3(-12.8, 6.6, poleZ), sag: 0.3 },
   ];
   for (const span of spans) {
     const wire = new THREE.Mesh(new THREE.TubeGeometry(wireCurve(span.from, span.to, span.sag), 20, 0.028, 5, false), wireMaterial);
@@ -377,19 +483,45 @@ export function buildProps() {
    * one faces back down the side street, one faces back down the one-way. Each
    * hangs over the lane it governs.
    */
-  const junction = { x: -6.6, z: 4.6 };
   const signal = new THREE.Group();
   signal.name = 'trafficSignals';
-  signal.position.set(junction.x, 0, junction.z);
 
-  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.09, 4.4, 10), metal);
-  mast.position.y = 2.2;
-  addOutline(mast, { thickness: OUTLINE.hero, color: 0x1a1c29 });
-  signal.add(mast);
+  /**
+   * A mast, with its head carried out over the lane on an arm. Moving the
+   * signal OFF the corner and onto the far side of each approach is both what
+   * Japanese junctions actually do and what clears the shop's entrance, which
+   * the previous corner mast stood directly in front of.
+   */
+  const mastAt = (x, z, height) => {
+    const base = new THREE.Group();
+    base.position.set(x, 0, z);
+    const column = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.085, height, 10), metal);
+    column.position.y = height / 2;
+    addOutline(column, { thickness: OUTLINE.hero, color: 0x1a1c29 });
+    base.add(column);
+    signal.add(base);
+    return base;
+  };
 
-  /** Builds one three-lamp head, hung under an arm and facing `yaw`. */
-  const signalHead = (armLength, yaw, height) => {
+  const mastMain = F('signalMain');
+  const mastSide = F('signalSide');
+  mastAt(mastMain.x, mastMain.z, mastMain.post);
+  mastAt(mastSide.x, mastSide.z, mastSide.post);
+
+  /**
+   * Builds one three-lamp head, hung under an arm and facing `yaw`.
+   *
+   * `flip` puts the lamps on the other side of the housing. The arm and the
+   * head are built perpendicular to each other, and the handedness of that
+   * pair is fixed — so at a junction where the arm has to reach one way and
+   * the head has to face the other, the head needs turning round on its own
+   * arm. Without it, the main-street head faced east: away from the one-way
+   * traffic it exists to stop, and towards the shop.
+   */
+  const signalHead = (armLength, yaw, height, originX, originZ, flip = false) => {
+    const face = flip ? -1 : 1;
     const rig = new THREE.Group();
+    rig.position.set(originX, 0, originZ);
     rig.rotation.y = yaw;
 
     const armBar = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, armLength, 8), metal);
@@ -409,7 +541,7 @@ export function buildProps() {
         new THREE.CircleGeometry(0.105, 16),
         toon({ color: colour, emissive: colour, emissiveIntensity: 0.08 }),
       );
-      lamp.position.set(armLength - 0.3 + i * 0.3, height - 0.12, 0.105);
+      lamp.position.set(armLength - 0.3 + i * 0.3, height - 0.12, face * 0.105);
       lamp.userData.noOutline = true;
       rig.add(lamp);
       lamps[key] = lamp;
@@ -426,7 +558,7 @@ export function buildProps() {
         new THREE.PlaneGeometry(0.15, 0.15),
         toon({ color: colour, emissive: colour, emissiveIntensity: 0.1 }),
       );
-      lamp.position.set(armLength * 0.25, height - 1.38 + i * 0.2, 0.085);
+      lamp.position.set(armLength * 0.25, height - 1.38 + i * 0.2, face * 0.085);
       lamp.userData.noOutline = true;
       rig.add(lamp);
       pedLamps[key] = lamp;
@@ -436,10 +568,16 @@ export function buildProps() {
     return { lamps, pedLamps };
   };
 
-  // Facing back down the side street (traffic arrives heading +z), and facing
-  // back down the one-way (traffic arrives heading +x).
-  const headSideStreet = signalHead(1.5, Math.PI, 4.1);
-  const headMainStreet = signalHead(1.7, -Math.PI / 2, 3.5);
+  // Arm SOUTH over the one-way from the far strip, head turned to face WEST —
+  // towards the traffic that is actually coming (the one-way runs west to east).
+  const headMainStreet = signalHead(
+    mastMain.arm, mastMain.yaw, mastMain.armY, mastMain.x, mastMain.z, mastMain.flip,
+  );
+  // Arm NORTH over the main street on the far side, head turned to face back up
+  // the side street at the traffic arriving at the junction.
+  const headSideStreet = signalHead(
+    mastSide.arm, mastSide.yaw, mastSide.armY, mastSide.x, mastSide.z, mastSide.flip,
+  );
 
   group.add(signal);
 
@@ -475,12 +613,23 @@ export function buildProps() {
     return rig;
   };
 
-  // 一方通行 — at the mouth of the one-way street, facing oncoming traffic.
-  signPlate(-11.4, 4.2, 2.5, -Math.PI / 2, 'oneway');
-  // P — beside the parallel bays on the shop's frontage.
-  signPlate(3.4, 4.2, 2.4, Math.PI, 'parking', 0.56);
-  // 止まれ — at the stop line, where the side street meets the junction.
-  signPlate(-8.4, 1.4, 2.4, Math.PI, 'stop', 0.62, Math.PI);
+  // All three stand on the PAVEMENT, none in a carriageway and none on a
+  // crossing. Two of them used to be: the one-way plate was planted in the
+  // middle of the side street, and on the crossing at that.
+  //
+  // 一方通行 — on the shop's pavement, facing WEST down the one-way, which is
+  // the direction its traffic arrives from.
+  const signOne = F('signOneway');
+  signPlate(signOne.x, signOne.z, signOne.post, signOne.yaw, 'oneway');
+  // P — beside the parallel bays. It faced north, into the block, so a driver
+  // on the one-way saw it edge-on; it now faces west like the one-way plate.
+  const signPark = F('signParking');
+  signPlate(signPark.x, signPark.z, signPark.post, signPark.yaw, 'parking', 0.56);
+  // 止まれ — at the yard mouth, turned to face back into the yard at the
+  // driver about to pull out onto the side street. `plateRotation` keeps the
+  // triangle point-down: it is a Japanese stop sign, not a warning triangle.
+  const signHalt = F('signStop');
+  signPlate(signHalt.x, signHalt.z, signHalt.post, signHalt.yaw, 'stop', 0.62, Math.PI);
 
   /* ------------------------------------------------------- alley interior */
 

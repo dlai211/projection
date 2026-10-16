@@ -20,7 +20,7 @@
  */
 
 import * as THREE from 'three';
-import { PALETTE, LEVELS, OUTLINE } from './config.js';
+import { PALETTE, LEVELS, OUTLINE, YARD } from './config.js';
 import { toon, roundedBox, addOutline } from './toon.js';
 import { concrete, paving } from './textures.js';
 import { liverySide } from './signage.js';
@@ -46,6 +46,14 @@ export function buildService({ z0 }) {
   const YARD_X = 3;
   const YARD_Z = -10;
 
+  /**
+   * The service door's centreline, and the anchor for the whole unloading
+   * layout: the truck reverses until its tailgate is here, the hand truck
+   * stands here, and the painted loading mark is centred here. Declared at the
+   * top because all three of those are built before the door itself is.
+   */
+  const doorX = 1.1;
+
   const yardSlab = new THREE.Mesh(
     roundedBox(YARD_W, 0.12, YARD_D, 0.02),
     toon({ color: 0x4a4f5c, map: concrete() }),
@@ -70,9 +78,12 @@ export function buildService({ z0 }) {
 
   // Yellow hatching in front of the service door: the loading mark.
   const hatchMaterial = toon({ color: 0xd8b23c, emissive: 0xd8b23c, emissiveIntensity: 0.16 });
+  // Centred on the door, not stepped off x = 0.9. The mark was a metre east of
+  // the doorway it marks, which the plan view shows immediately and nothing
+  // else does.
   for (let i = 0; i < 7; i++) {
     const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.008, 1.7), hatchMaterial);
-    stripe.position.set(0.9 + i * 0.42, LEVELS.yard + 0.004, z0 - 0.95);
+    stripe.position.set(doorX - 1.26 + i * 0.42, LEVELS.yard + 0.004, z0 - 0.95);
     stripe.rotation.y = 0.6;
     stripe.userData.noOutline = true;
     group.add(stripe);
@@ -230,8 +241,8 @@ export function buildService({ z0 }) {
   // the delivery stacked on it.
   // Behind the tailgate, on the path from the truck to the service door. It
   // used to sit in front of the cab, which is where nothing is ever unloaded.
-  const cartX = 1.9;
-  const cartZ = z0 - 2.8;
+  const cartX = 1.1;
+  const cartZ = z0 - 1.9;
   const cart = new THREE.Group();
   cart.position.set(cartX, 0, cartZ);
   cart.name = 'handTruck';
@@ -284,7 +295,6 @@ export function buildService({ z0 }) {
   // this whole yard.
   const doorW = 0.98;
   const doorH = 2.05;
-  const doorX = 2.2;
   const door = new THREE.Mesh(roundedBox(doorW, doorH, 0.09, 0.02), toon({ color: 0x4a505e }));
   door.position.set(doorX, doorH / 2, z0 + 0.06);
   addOutline(door, { thickness: OUTLINE.hero, color: 0x1a1c29 });
@@ -340,7 +350,9 @@ export function buildService({ z0 }) {
   // Flattened cardboard, tied in a bundle.
   for (let i = 0; i < 3; i++) {
     const bundle = new THREE.Mesh(roundedBox(0.9, 0.34, 0.6, 0.02), toon({ color: 0xa9834f }));
-    bundle.position.set(-3.9, LEVELS.yard + 0.18 + i * 0.35, z0 - 0.9 + i * 0.1);
+    // Out of the truck's way: these used to be stacked in front of its cab,
+    // which is the one piece of ground a truck needs clear.
+    bundle.position.set(4.4, LEVELS.yard + 0.18 + i * 0.35, z0 - 2.4 + i * 0.1);
     bundle.rotation.y = (i - 1) * 0.14;
     addOutline(bundle, OUT);
     group.add(bundle);
@@ -360,16 +372,32 @@ export function buildService({ z0 }) {
 
   // A little corrugated shelter over two bicycles, which is what every back
   // entrance in the country has.
-  // Back-left of the yard, against the side-street boundary. It used to stand
-  // outside the shop's west glazing, where it blocked the window, and the truck
-  // reversed into it.
-  const shelterX = -5.3;
-  const shelterZ = z0 - 4.6;
-  const roof = new THREE.Mesh(roundedBox(2.6, 0.05, 1.9, 0.02), toon({ color: 0x9aa6b8 }));
+  //
+  // Its position comes from `YARD`, because it has been in the wrong place
+  // twice. It began outside the shop's west glazing, where it blocked the
+  // window. It was then moved to the yard's west side — which is the truck's
+  // only way out to the side street, and left 0.4 m between its corner and the
+  // cab. It now stands at the far end, against the neighbour building's rear
+  // line, well clear of everything that moves.
+  const shelter = YARD.find((y) => y.id === 'bikeShelter');
+  const shelterX = shelter.x;
+  const shelterZ = shelter.z;
+  // 9 cm, not 5: at 5 the shelter read as a garden table with legs.
+  const roof = new THREE.Mesh(roundedBox(2.6, 0.09, 1.9, 0.02), toon({ color: 0x9aa6b8 }));
   roof.position.set(shelterX, LEVELS.yard + 2.05, shelterZ);
   roof.rotation.z = 0.07;
   addOutline(roof, OUT);
   group.add(roof);
+
+  // Four shallow ribs across it. Without them a flat pale slab on four thin
+  // legs is a table, which is exactly what this read as.
+  for (let i = 0; i < 4; i++) {
+    const rib = new THREE.Mesh(roundedBox(2.5, 0.05, 0.11, 0.02), toon({ color: 0xb3bdcc }));
+    rib.position.set(shelterX, LEVELS.yard + 2.13, shelterZ - 0.66 + i * 0.44);
+    rib.rotation.z = 0.07;
+    rib.userData.noOutline = true;
+    group.add(rib);
+  }
   for (const [dx, dz] of [[-1.2, -0.85], [1.2, -0.85], [-1.2, 0.85], [1.2, 0.85]]) {
     const post = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 2.0, 8), metal);
     post.position.set(shelterX + dx, LEVELS.yard + 1.0, shelterZ + dz);

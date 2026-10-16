@@ -30,7 +30,7 @@ import { parkingSign, roadArrow } from './signage.js';
 export const ROAD_Y = STREET.y;
 
 /** The pavement is cut away here for the crossing, with a ramp down to the road. */
-const KERB_CUT = { x0: -7, x1: STREET.crosswalk.x1 + 0.35 };
+const KERB_CUT = STREET.kerbCut;
 
 function rectMesh(rect, y, thickness, material, name) {
   const width = rect.x1 - rect.x0;
@@ -182,13 +182,14 @@ export function buildGround() {
     group.add(bar);
   };
 
-  // A short approach along the shopfront to each ramp, and the warning pad on
+  // A short approach along the pavement to each ramp, and the warning pad on
   // the ramp itself. Nothing longer: at this scale a 20 m strip of it stops
   // reading as guidance and starts reading as a painted lane.
-  strip(KERB_CUT.x0 - 3.2, KERB_CUT.x0, 3.7);
-  strip(KERB_CUT.x1, KERB_CUT.x1 + 3.2, 3.7);
-  strip(KERB_CUT.x0 - 2.6, KERB_CUT.x0, 11.3);
-  strip(KERB_CUT.x1, KERB_CUT.x1 + 2.6, 11.3);
+  //
+  // There were four strips and there is no pavement west of the kerb cut on
+  // the shop's side — that is the side street — so the fourth one lay across
+  // the carriageway and printed a yellow band over the side crossing.
+  for (const run of STREET.tactile) strip(run.x0, run.x1, run.z);
 
   for (const z of [3.62, 11.38]) {
     const pad = new THREE.Mesh(new THREE.BoxGeometry(rampRun - 0.5, 0.014, 0.4), tactile);
@@ -240,6 +241,32 @@ export function buildGround() {
   const cx1 = STREET.crosswalk.x1;
   const STOP_BACK = 1.8;
 
+  /* -- crossings ---------------------------------------------------------- */
+
+  /**
+   * Japanese crosswalk bars run WITH the traffic, not across it: a pedestrian
+   * steps over them one at a time, like the rungs of a ladder laid along the
+   * road. Both crossings here had it exactly 90 degrees out — the bars ran
+   * across the traffic on one and along it on the other, so neither read as a
+   * crossing from a car.
+   */
+  const bar = STREET.crosswalk.bar;
+  const pitch = bar + STREET.crosswalk.gap;
+  const runLength = 2.8;
+
+  const crossingAcrossX = (centreX, centreZ, count) => {
+    for (let i = 0; i < count; i++) {
+      const z = centreZ + (i - (count - 1) / 2) * pitch;
+      group.add(marking(runLength, bar, centreX, z));
+    }
+  };
+  const crossingAcrossZ = (centreX, centreZ, count) => {
+    for (let i = 0; i < count; i++) {
+      const x = centreX + (i - (count - 1) / 2) * pitch;
+      group.add(marking(bar, runLength, x, centreZ));
+    }
+  };
+
   /* -- front street: one way, west to east ------------------------------- */
 
   /**
@@ -277,25 +304,30 @@ export function buildGround() {
   // One arrow on the whole one-way street, in the middle of the shop frontage.
   arrow(1.6, laneZ, -Math.PI / 2);
 
-  // Edge lines, interrupted across the junction.
-  const edgeRuns = [[-13, cx0 - STOP_BACK - 0.4], [cx1 + STOP_BACK + 0.4, 13]];
-  for (const [a, b] of edgeRuns) {
-    if (b <= a) continue;
-    group.add(marking(b - a, 0.1, (a + b) / 2, STREET.main.z0 + 0.5));
-    group.add(marking(b - a, 0.1, (a + b) / 2, STREET.main.z1 - 0.5));
+  /**
+   * Edge lines: the outer boundary of the running lane, on each side of the
+   * main street, broken across the crossing.
+   *
+   * They are NOT the same on both sides. The far kerb runs the main street's
+   * whole length, so its line does too. The near kerb does not exist west of
+   * the side street's mouth — there the carriageway simply continues north —
+   * so an edge line drawn there ran straight across the opening of the junction
+   * the line is supposed to be marking the edge of.
+   */
+  const edgeRuns = {
+    near: [[STREET.side.x1, cx0 - STOP_BACK - 0.4], [cx1 + STOP_BACK + 0.4, 13]],
+    far: [[-13, cx0 - STOP_BACK - 0.4], [cx1 + STOP_BACK + 0.4, 13]],
+  };
+  for (const [side, runs] of Object.entries(edgeRuns)) {
+    const z = side === 'near' ? STREET.main.z0 + 0.5 : STREET.main.z1 - 0.5;
+    for (const [a, b] of runs) {
+      if (b <= a) continue;
+      group.add(marking(b - a, 0.1, (a + b) / 2, z));
+    }
   }
 
-  // One stop line, on the approach side only — which is the whole point of a
-  // one-way street.
-  group.add(marking(0.18, 3.4, cx0 - STOP_BACK, STREET.main.z0 + 1.9));
-
-  // The crossing itself.
-  const stripes = STREET.crosswalk.stripes;
-  const span = (cx1 - cx0) / (stripes * 2 - 1);
-  for (let i = 0; i < stripes; i++) {
-    const x = cx0 + span / 2 + i * span * 2;
-    group.add(marking(span, STREET.main.z1 - STREET.main.z0 - 0.6, x, 8));
-  }
+  // The crossing across the one-way: bars run along X, follow the traffic.
+  crossingAcrossX((cx0 + cx1) / 2, 8, STREET.crosswalk.stripes);
 
   /* -- front street: kerbside parking on the shop's side ------------------ */
 
@@ -313,12 +345,8 @@ export function buildGround() {
     group.add(marking(0.1, bay.d, x1, zc));
     group.add(marking(bay.w, 0.1, mid, bay.z0));
 
-    // The wheel stop lies across the END of a parallel bay, not along the kerb:
-    // a car parked parallel to the kerb never reaches a kerbside stop.
-    const stop = new THREE.Mesh(roundedBox(0.18, 0.13, bay.d - 0.5, 0.03), toon({ color: 0x8d94a6 }));
-    stop.position.set(x0 + 0.36, LEVELS.road + 0.075, zc);
-    stop.userData.noOutline = true;
-    group.add(stop);
+    // No wheel stop. A car drives straight in and straight out of a parallel
+    // bay; a concrete bar across the end of one makes it unusable.
 
     // The P, flat, with its top away from the lane so a driver reads it the
     // right way round on the way past.
@@ -354,16 +382,14 @@ export function buildGround() {
   arrow(nearLane, -4.2, Math.PI); // towards the junction
   arrow(farLane, -6.2, 0); // away from it
 
-  // Stop line for the lane arriving at the junction, set back from the crossing.
-  group.add(marking(2.9, 0.18, nearLane, STREET.crosswalkSide.z0 - STOP_BACK));
+  // One stop line, in the lane arriving at the junction, 1.6 m short of the
+  // crossing. There were two before, and both sat in the middle of the
+  // junction box between the two crossings, where nothing stops.
+  group.add(marking(2.9, 0.18, nearLane, STREET.crosswalkSide.z0 - 1.6));
 
-  // The side street's own crossing, running along the shop's pavement line.
-  const sideStripes = STREET.crosswalkSide.stripes;
-  const sideSpan = (STREET.crosswalkSide.z1 - STREET.crosswalkSide.z0) / (sideStripes * 2 - 1);
-  for (let i = 0; i < sideStripes; i++) {
-    const z = STREET.crosswalkSide.z0 + sideSpan / 2 + i * sideSpan * 2;
-    group.add(marking(5.4, sideSpan, -10, z));
-  }
+  // The side street's crossing: bars run along Z, following ITS traffic.
+  crossingAcrossZ(-10, (STREET.crosswalkSide.z0 + STREET.crosswalkSide.z1) / 2,
+    STREET.crosswalkSide.stripes);
 
   // Kerb ramp where that crossing meets the corner.
   const sideRamp = new THREE.Mesh(

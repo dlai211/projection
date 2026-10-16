@@ -484,10 +484,12 @@ export function buildInterior(bounds) {
 
   /* ----------------------------------------------------- magazine & more -- */
 
-  const magazine = INTERIOR.magazine;
+  // Lowered and set back from the west glazing, which it was pressed flat
+  // against with a 1.35 m tall black carcass.
+  const magazine = { ...INTERIOR.magazine, h: 1.02 };
   const magX = at('magazine').x;
   const magZ = at('magazine').z;
-  const magBody = new THREE.Mesh(roundedBox(0.5, magazine.h, magazine.w, 0.02), toon({ color: PALETTE.shelf }));
+  const magBody = new THREE.Mesh(roundedBox(0.46, magazine.h, magazine.w, 0.02), toon({ color: 0xb9b3a6 }));
   magBody.position.set(magX, magazine.h / 2, magZ);
   magBody.name = 'magazineRack';
   addOutline(magBody, { thickness: OUTLINE.detail, color: 0x0d0f18 });

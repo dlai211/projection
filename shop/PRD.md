@@ -230,11 +230,20 @@ Scene
   15 modules, 4494 lines of JavaScript
 ```
 
+**`node tools/visual_check.js` — six captures, opened and read.** See section 10.
+`check_scene.js` is now at 19/19 on 16 modules and 47 required elements.
+
 **In the browser** — served over `python -m http.server`, captured with headless
-Chrome (`--headless=new`, `--virtual-time-budget`) at the default view and close
-on the shopfront. Renaming the canvas to visible at every step: several early
-captures were blank because the camera was `NaN`, not because the page had failed.
-Console is clean apart from one three.js deprecation notice for `THREE.Clock`.
+Chrome (`--headless=new`, `--virtual-time-budget`). Console is clean apart from
+one three.js deprecation notice for `THREE.Clock`.
+
+One thing about that capture method is worth writing down, because it silently
+falsified several early rounds of review: under `--virtual-time-budget` the
+compositor can finish without ever ticking a `requestAnimationFrame`, so only
+what was drawn synchronously before `setAnimationLoop` reaches the screenshot.
+The rain is ticked inside the loop, so **there was no rain in any still capture
+this project has ever taken** — the model simply stopped being drawn after the
+first frame. `main.js` now runs one complete update-and-draw before handing over.
 
 **Not verified.** No frame-rate measurement was taken, so the 60 fps target in
 `QUALITY` is a design intention rather than a measurement. Drag feel, touch input
@@ -266,6 +275,7 @@ were checked by eye in still frames only — nobody has watched them move.
 |---|---|
 | 2026-10-16 | PRD created; v1.0 built — all eight phases, checks passing |
 | 2026-10-16 | v1.1 — visual repair pass, on review of the first render |
+| 2026-10-16 | v1.2 — `tools/visual_check.js`; eight faults found by looking at the render, none of them visible to `check_scene.js` |
 
 ---
 
@@ -343,3 +353,93 @@ than as a guidance strip. Cut to 16 cm, dulled to ochre, and shortened to a
 short approach at each ramp.
 
 Still passing afterwards: `node tools/check_scene.js`, 9/9.
+
+---
+
+## 10. Phase 10 — learning to look
+
+Phase 9 was done by editing coordinates and reasoning about the result. It fixed
+real things, but it also produced a round that was worse than the one before it,
+and then a round that missed a signal head standing inside the building. The
+problem was not any individual mistake. It was that there was no instrument in
+this project that could see a picture, so every visual claim made here was an
+inference dressed up as an observation.
+
+`tools/visual_check.js` is that instrument. It drives headless Chrome to six
+fixed camera positions and writes PNGs, and then a person opens them. What
+follows is what the first four passes with it found.
+
+**The utility poles stood in the middle of the road.** Both of them: at z = 10.2,
+inside the main carriageway. `FURNITURE` in `config.js` said 12.2, and
+`check_scene.js` had a check that no street furniture stands in a carriageway,
+and that check passed — because `props.js` kept its own copy of the coordinates
+and never read the table. The check was validating a fiction and reporting `ok`.
+This is the worst failure mode in the file, because it does not look like a
+failure. Every pole, mast and sign is now placed from `FURNITURE`, and there is a
+check that `props.js` still reads every entry.
+
+**A signal head hung half a metre inside the shop.** The side-street mast carried
+its arm east from x = -6.7, so the head landed at x = -4.5, above the ceiling and
+across the frontage. The mast was on the pavement and the mast was in the table,
+so nothing objected. There is now a check that samples twenty points along every
+signal arm and fails if any of them is inside the building.
+
+**A triangle of shop floor lay on the pavement.** The floor was a plane one wall
+thickness smaller than the building on each side — a rectangle. The building's
+corner is cut off at 45 degrees, so a triangle 1.8 m across passed through the
+chamfer and sat in front of the automatic doors as a blown-out white apron with a
+hard straight edge. It had been in every render this project ever produced. The
+floor is now a `Shape` with the chamfer in it. No coordinate check could have
+found this; every number was right.
+
+**The entrance mat was a black hole.** `0x3b4250` under a dark multiplier map, in
+a spot none of the scene's real lights reach, came out at very nearly black — and
+I misread it as a shadow through two rounds of review, including one where I
+"fixed" something else and called it dealt with. Two stops lighter, no map, and
+a whisper of emissive.
+
+**A guidance strip was painted across a zebra crossing.** The tactile strips were
+written inline in `ground.js`, and one of them ran 3.2 m west from the kerb cut —
+which is the side street, so it lay on the carriageway and printed yellow over
+the crossing's bars. The strips are now a table in `config.js` with a check that
+none of them is in a road.
+
+**An edge line ran across the mouth of a junction.** The main street's near edge
+line was drawn from the plinth edge, and west of x = -7 there is no near kerb at
+all — the carriageway simply continues north. The two sides of the street need
+different runs and now have them.
+
+**Two windows hung in the air off the side of the neighbouring building.** The
+row stepped off at 1.6 m intervals from `x0 + 1.2`, and the fourth landed at
+x = 13 — exactly the east face. The columns are now derived from the building's
+own width.
+
+**The delivery yard was unlit and the neighbour's back wall was blank.** The
+bulkhead lamp over the service door was an emissive box and nothing else: it
+glowed and lit nothing, so the whole back lot — truck, shelter, bins, wall —
+rendered as a black rectangle. It is now a real point light, and the neighbour
+has a corridor of small windows on its back and side, two downpipes and two
+condenser units on brackets.
+
+**And several things that turned out to be fine**, which is worth recording
+because the point of an instrument is that it can also say no:
+
+- Both crossings were already correct. Their bars run with their own traffic:
+  the side-street crossing's bars run along Z and the main street's along X, so
+  the two are perpendicular. In the whole-base plan view each bar is 15 px and I
+  twice read them the wrong way round; the close junction view settles it, and
+  the two crossings measure 170x95 px and 100x188 px — transposed, as they must
+  be.
+- The stop line is in the lane arriving at the junction. Left-hand traffic:
+  southbound traffic keeps its left, which is the +x half, which is the side
+  nearest the shop. The arrows on the ground already said so.
+- The truck's tailgate and the service door are 20 mm apart in x. The loading
+  hatch was a metre east of the door, and that is now fixed.
+
+The scene also gained a fifth and sixth camera because four were not enough: the
+whole-base plan view puts a 45 cm crossing bar at fifteen pixels, which is enough
+to see that there is a crossing and not enough to see which way its bars run.
+
+**Still not verified.** Everything in section 6 that was true is still true: no
+frame-rate measurement, no human has dragged or pinched the model, and nobody has
+watched the rain move. The visual check reads stills.

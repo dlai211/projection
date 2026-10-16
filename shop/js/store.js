@@ -391,9 +391,21 @@ export function buildStore() {
 
   /* -------------------------------------------------------- entrance mat -- */
 
+  /**
+   * The mat is a rubber mat, not a hole.
+   *
+   * At 0x3b4250 under a dark-blue multiplier map it came out at almost exactly
+   * black, so the first thing in front of the shop's door was a flat black
+   * wedge on the pavement — which I misread as a shadow for two rounds. Two
+   * stops lighter, and barely, so it still reads as dark rubber.
+   */
   const mat = new THREE.Mesh(
     roundedBox(STORE.mat.w, 0.03, STORE.mat.d, 0.012),
-    toon({ color: 0x3b4250, map: concrete() }),
+    // No concrete map: it is a rubber mat, and multiplying a dark blue-grey by
+    // a dark grey multiplier is how it got to black in the first place. A
+    // whisper of emissive, because the entrance is under the eaves where none
+    // of the scene's real lights reach.
+    toon({ color: 0x8b94a6, emissive: 0x272d3a, emissiveIntensity: 0.6 }),
   );
   mat.position.set(CHAMFER_A.x + CHAMFER / 2 - 0.7, LEVELS.mat - 0.015, CHAMFER_A.z + CHAMFER / 2 + 1.0);
   mat.rotation.y = -Math.PI / 4;
@@ -403,17 +415,49 @@ export function buildStore() {
 
   /* --------------------------------------------------------------- floor -- */
 
-  // The shop floor, just above the pavement, so the interior has something to
-  // stand on and the light has something to bounce off.
+  /**
+   * The shop floor, cut to the shape of the building.
+   *
+   * It used to be a plane one wall-thickness smaller than the building on every
+   * side — a RECTANGLE. The building's corner is cut off at 45 degrees, so a
+   * triangle of floor 1.8 m across passed straight through the chamfer and lay
+   * on the pavement in front of the automatic doors, reading as a blown-out
+   * white apron with a hard straight edge. It has been in every render this
+   * project has ever produced, including the ones already reviewed, and no
+   * coordinate check could have found it: every number in this file was right.
+   */
+  const innerX0 = STORE.x0 + T;
+  const innerX1 = STORE.x1 - T;
+  const innerZ0 = STORE.z0 + T;
+  const innerZ1 = STORE.z1 - T;
+
+  // The chamfer line is z = x + c. Pushing it in by one wall thickness measured
+  // perpendicular to itself moves c by T * sqrt(2).
+  const chamferC = CHAMFER_A.z - CHAMFER_A.x - T * Math.SQRT2;
+  const chamferOnWest = innerX0 + chamferC; // where it crosses the inner west wall
+  const chamferOnSouth = innerZ1 - chamferC; // where it crosses the inner south wall
+
+  const floorShape = new THREE.Shape();
+  // Shape space is (x, -z): the geometry is laid flat by rotating -90 degrees
+  // about x, which sends the shape's +y to world -z.
+  floorShape.moveTo(innerX0, -innerZ0);
+  floorShape.lineTo(innerX1, -innerZ0);
+  floorShape.lineTo(innerX1, -innerZ1);
+  floorShape.lineTo(chamferOnSouth, -innerZ1);
+  floorShape.lineTo(innerX0, -chamferOnWest);
+  floorShape.closePath();
+
+  const floorGeometry = new THREE.ShapeGeometry(floorShape);
+  floorGeometry.rotateX(-Math.PI / 2);
+
   const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(width - T * 2, depth - T * 2),
+    floorGeometry,
     // A touch of self-illumination: the shop floor is what actually carries the
     // interior's light back out through the glass, and without it the room reads
     // as lit but not as bright.
     toon({ color: 0xd8cfc0, emissive: PALETTE.interiorLight, emissiveIntensity: 0.3 }),
   );
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.set(midX, 0.02, midZ);
+  floor.position.y = 0.02;
   floor.name = 'shopFloor';
   floor.userData.noOutline = true;
   group.add(floor);
@@ -430,7 +474,9 @@ export function buildStore() {
     // the sign blow out to a featureless blob and take its own lettering with it.
     emissive: PALETTE.signGlow,
     emissiveMap: fasciaMap,
-    emissiveIntensity: 1.05,
+    // Was 1.05, which pushed the whole sign past the bloom threshold and made
+    // the lettering dissolve into its own halo.
+    emissiveIntensity: 0.78,
   });
 
   const fasciaSouth = new THREE.Mesh(new THREE.BoxGeometry(width, fasciaHeight, 0.22), signMaterial);
@@ -469,7 +515,7 @@ export function buildStore() {
     map: pylonMap,
     emissive: PALETTE.signGlow,
     emissiveMap: pylonMap,
-    emissiveIntensity: 1.05,
+    emissiveIntensity: 0.82,
   });
   const pylonPanel = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.0, 2.0), pylonMaterial);
   pylonPanel.position.set(pylonX, 4.7, pylonZ);

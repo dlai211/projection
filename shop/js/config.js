@@ -60,9 +60,29 @@ export const STREET = {
   grateEvery: 8.5,
   grateSize: 0.6,
   /** Across the one-way street, in front of the shop. */
-  crosswalk: { x0: -6.4, x1: -1.8, stripes: 6 },
+  crosswalk: { x0: -5.5, x1: -2.7, stripes: 6, bar: 0.45, gap: 0.45 },
   /** Across the two-way side street, along the shop's pavement line. */
-  crosswalkSide: { z0: 3.3, z1: 4.9, stripes: 5 },
+  crosswalkSide: { z0: 2.2, z1: 5.0, stripes: 6, bar: 0.45, gap: 0.45 },
+  /**
+   * Where the kerb is cut away for the crossing, and the ramp that fills it.
+   * x0 is the side street's kerb, so nothing on the pavement may be placed west
+   * of it at this z — that is carriageway.
+   */
+  kerbCut: { x0: -7, x1: -2.35 },
+  /**
+   * The yellow guidance strips.
+   *
+   * Listed here rather than written inline in ground.js so that they can be
+   * checked. The shopfront one ran 3.2 m WEST from the kerb cut, which put a
+   * tactile strip across the side street's carriageway and over the side
+   * crossing's bars — a guidance strip doing the one thing a guidance strip
+   * must never do.
+   */
+  tactile: [
+    { id: 'tactileShopfront', x0: -2.35, x1: 0.85, z: 3.7 },
+    { id: 'tactileFarWest', x0: -9.6, x1: -7, z: 11.3 },
+    { id: 'tactileFarEast', x0: -2.35, x1: 0.25, z: 11.3 },
+  ],
   /** Traffic on the one-way street runs this way. */
   oneWay: { axis: 'x', direction: 1, arrowEvery: 5.2 },
   /** The two-way street's centre line, and which half each direction keeps. */
@@ -103,7 +123,11 @@ export const STORE = {
   doorWidth: 2.4,
   doorHeight: 2.35,
   awning: { depth: 2.1, drop: 0.34, thickness: 0.14 },
-  mat: { w: 3.2, d: 1.1 },
+  /**
+   * The entrance mat. 2.6 m across a 2.4 m doorway, not 3.2: at 3.2 it spread
+   * wider than the opening it serves and read as a slab rather than a mat.
+   */
+  mat: { w: 2.4, d: 1.0 },
   /** The neighbouring building, which closes the street frontage to the east. */
   neighbour: { x0: 7, x1: 13, z0: -7, z1: 3, wall: 6.2, floors: 2 },
   /** The gap between the two buildings: the alley entrance off the main street. */
@@ -215,7 +239,7 @@ export const FIXTURES = [
   { id: 'cooler', x: -1.6, z: -6.3, w: 4.2, d: 0.75 },
   { id: 'counter', x: 1.4, z: 1.25, w: 3.0, d: 0.72 },
   { id: 'oden', x: 3.6, z: 1.25, w: 1.1, d: 0.62 },
-  { id: 'magazine', x: -4.2, z: -1.2, w: 0.5, d: 1.5 },
+  { id: 'magazine', x: -3.8, z: -1.2, w: 0.46, d: 1.5 },
   { id: 'lockers', x: -4.2, z: -5.75, w: 0.5, d: 0.9 },
   { id: 'bento', x: 0.4, z: 2.25, w: 1.6, d: 0.62 },
   { id: 'onigiri', x: -1.8, z: 2.13, w: 1.15, d: 0.5 },
@@ -230,12 +254,83 @@ export const FIXTURES = [
  * wrong when the truck reversed into the bicycle shelter.
  */
 export const YARD = [
+  // The tailgate sits at x = 1.1, and everything on the unloading route lines
+  // up with it: the service door on the wall, the hand truck on the ground.
   { id: 'truck', x: -2.0, z: -9.6, w: 4.9, d: 2.0 },
-  { id: 'handTruck', x: 1.9, z: -9.8, w: 0.8, d: 1.1 },
-  { id: 'empties', x: 3.5, z: -10.2, w: 0.6, d: 0.8 },
+  { id: 'handTruck', x: 1.1, z: -8.9, w: 0.8, d: 1.1 },
+  { id: 'empties', x: 3.1, z: -9.3, w: 0.6, d: 0.8 },
+  { id: 'cardboard', x: 4.4, z: -9.4, w: 0.9, d: 0.7 },
   { id: 'dumpster', x: -1.6, z: -7.9, w: 1.6, d: 1.0 },
-  { id: 'bikeShelter', x: -5.3, z: -11.6, w: 2.7, d: 2.0 },
+  /**
+   * The staff shelter, moved to the far end of the yard.
+   *
+   * It was at (-5.2, -11.7), which left 0.4 m between its corner and the
+   * truck's cab — and the truck's way out to the side street runs straight
+   * through x = -4. It now stands against the neighbour building's rear line,
+   * 5.9 m clear of the truck and out of the exit lane.
+   */
+  { id: 'bikeShelter', x: 8.4, z: -11.5, w: 2.7, d: 1.9 },
 ];
+
+/**
+ * Street furniture. None of it may stand in a carriageway or on a crossing —
+ * which two of the road signs were doing, one of them planted in the middle of
+ * the side street and the other on the crossing itself.
+ */
+export const FURNITURE = [
+  /**
+   * The two signal masts.
+   *
+   * `yaw` turns the arm (built along local +X) and the head (facing local +Z)
+   * together; `flip` moves the head to the other side of its own arm, for the
+   * case where the head has to face the opposite way from the arm's reach.
+   *
+   * Both of these were wrong in a way that no coordinate check could see. The
+   * single corner mast carried its arm EAST from x = -6.7, so the head ended up
+   * at x = -4.5 — half a metre inside the shop. And both poles stood at
+   * z = 10.2, in the middle of the carriageway, while this table claimed 12.2,
+   * so the "furniture is not in the road" check was passing on a fiction.
+   */
+  { id: 'signalMain', x: 2.2, z: 11.7, post: 4.6, arm: 2.4, armY: 4.3, yaw: Math.PI / 2, flip: true },
+  /**
+   * The side-street head is on the FAR pavement too, and that is not a
+   * compromise — it is the far-side rule, which is where Japanese signals are
+   * mounted so that an approaching driver sees one beyond the junction rather
+   * than a pole in their own windscreen.
+   *
+   * It has been in two wrong places on the shop's side. At (-6.7, 1.4) its arm
+   * pointed east, into the building. Moved to (-6.6, 4.2) the arm pointed the
+   * right way, but the mast then stood 4.1 m directly in front of the automatic
+   * doors, on the exact line a customer walks in along. There is no third spot:
+   * an arm can only reach west over the side street from just east of the kerb,
+   * and everything just east of that kerb is either the shop, the yard, or the
+   * pavement in front of the door.
+   *
+   * x sits at the east end of the side street's own width so that the head
+   * hangs over the ARRIVING lane — left-hand traffic, so southbound traffic
+   * keeps x -10..-7 — and so that the mast is not two metres from either
+   * standard camera, which it was, filling a third of one of them.
+   */
+  { id: 'signalSide', x: -7.4, z: 11.9, post: 4.5, arm: 2.4, armY: 4.2, yaw: Math.PI / 2, flip: true },
+  { id: 'signOneway', x: -1.0, z: 4.5, post: 2.5, yaw: -Math.PI / 2 },
+  { id: 'signParking', x: 5.4, z: 4.5, post: 2.4, yaw: -Math.PI / 2 },
+  /**
+   * 止まれ, at the yard mouth rather than beside the signal mast. A signalled
+   * junction does not carry a stop sign, and the one that was there stood
+   * 0.73 m from the mast with both plates at the same height. This one faces
+   * back into the yard, at the driver about to pull out onto the side street,
+   * which is the one place on this corner where traffic really does have to
+   * stop and look.
+   */
+  { id: 'signStop', x: -6.72, z: -11.9, post: 2.4, yaw: Math.PI / 2 },
+  /** On the far pavement. Moving A here takes it out of the road and out of
+   *  the middle of the default view, which it was bisecting. */
+  { id: 'utilityPoleA', x: -11.8, z: 12.2 },
+  { id: 'utilityPoleB', x: 3.5, z: 12.2 },
+  { id: 'streetLamp', x: 1.5, z: 4.0 },
+];
+
+/* --------------------------------------------------------------- weather -- */
 
 /* --------------------------------------------------------------- weather -- */
 
@@ -306,7 +401,15 @@ export const LIGHTS = {
   key: { color: 0x9ab4e0, intensity: 1.75, position: { x: -16, y: 24, z: 13 } },
   interiorSpill: { color: 0xffdfb0, intensity: 46, distance: 16, position: { x: 0, y: 2.3, z: -0.5 } },
   doorway: { color: 0xffe0b0, intensity: 0, distance: 9, position: { x: -3.6, y: 1.4, z: 2.2 } },
-  streetLamp: { color: 0xffd9a0, intensity: 16, distance: 15, position: { x: -0.4, y: 4.6, z: 4.0 } },
+  // Above the lamp post, which is at (1.5, 4.0). It was at x = -0.4 — the
+  // light and the post that casts it were 1.9 m apart.
+  streetLamp: { color: 0xffd9a0, intensity: 16, distance: 15, position: { x: 1.5, y: 4.6, z: 4.0 } },
+  /**
+   * The yard's bulkhead lamp, which until now was an emissive box and nothing
+   * else: it glowed and lit none of the ground under it, so the whole delivery
+   * yard came out black. A back lot at night is dim, not unlit.
+   */
+  bulkhead: { color: 0xffd2a0, intensity: 11, distance: 9, position: { x: 1.1, y: 2.35, z: -7.6 } },
   vending: { color: 0xbfe6ff, intensity: 5, distance: 7, position: { x: 8.6, y: 1.1, z: 3.4 } },
   exposure: 1.14,
   /**
@@ -348,9 +451,16 @@ export const QUALITY = {
      * composer's buffer skips tone mapping, so an emissive panel at sRGB
      * #ff5a3c sits at linear ~0.22 — a 0.85 threshold would bloom nothing.
      */
-    strength: 0.28,
+    strength: 0.26,
     radius: 0.22,
-    threshold: 0.88,
+    /**
+     * Raised from 0.88. At 0.88 the threshold sat BELOW the sign faces' own
+     * emissive value, so the fascia and the pylon sign were fully inside the
+     * bloom and got haloed into flat cream — the lettering on both was being
+     * erased by the pass that was supposed to make them glow. Bloom should pick
+     * up what is brighter than white, not everything that is white.
+     */
+    threshold: 1.12,
     resolution: 0.5, // the whole mip chain lives at a quarter of screen pixels
   },
   grade: { vignette: 0.18, aberration: 0.10, lift: 0.008, contrast: 1.02 },

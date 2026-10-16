@@ -69,6 +69,19 @@ file the browser does.
 | Glow | `QUALITY.bloom` | These are **linear** numbers, not screen colours. See the note in `postfx.js` — this catches everybody. |
 | Light levels | `LIGHTS` | The colours here are much lighter than they look. See the note in `config.js`. |
 | Camera | `CAMERA` | `start` and `target` frame the default view. |
+| Street furniture | `FURNITURE` | Every pole, mast and sign on the corner. `props.js` places them from this table and there is a check that it still does — an earlier version kept its own coordinates, so the table said 12.2 while the poles stood at 10.2, in the middle of the road. |
+| The delivery yard | `YARD` | Likewise. The truck's exit corridor is checked, not just whether things overlap. |
+
+### Camera presets
+
+`?view=<name>` puts the camera anywhere in `VIEWS`, at the top of `js/main.js`:
+`default`, `topdown`, `backyard`, `intersection`, `entrance`, `junction`.
+`?still=1` freezes the clock, so two captures of the same view differ only where
+the model changed. Handy:
+<http://localhost:8080/?view=topdown&still=1>.
+
+`window.__shop` is exposed for poking at it from the console —
+`__shop.view('entrance')`, `__shop.where()`, `__shop.draw()`.
 
 ---
 
@@ -92,6 +105,40 @@ no clue at all as to why.
 
 It cannot see the render, so it says nothing about how the scene looks. What it
 also does not check is written down in `PRD.md` rather than left implied.
+
+### Then look at it
+
+```
+node tools/visual_check.js
+```
+
+```
+  shot_1_default       the view the page opens on
+  shot_2_topdown       straight down on the whole base
+  shot_3_backyard      the delivery yard
+  shot_4_intersection  the junction
+  shot_5_entrance      the doorway, at eye height
+  shot_6_junction      the junction from close overhead
+```
+
+Writes six PNGs to `.screenshots/`. Drives a real Chrome — no Playwright, no
+Puppeteer, no `node_modules` — using the page's own URL parameters
+(`?view=topdown&still=1`, see `js/main.js`).
+
+**The script does not look at the pictures, and neither does anything else. A
+person does.** That division is the point. Every fault the checks above could not
+see has been found by opening these files: a signal head half a metre inside the
+building, a triangle of shop floor lying on the pavement in front of the doors,
+two windows hanging in the air off a neighbouring wall, a guidance strip painted
+across a zebra crossing. Every one of those was "correct" by coordinate.
+
+Useful flags:
+
+| Flag | What it does |
+|---|---|
+| `--only <view>` | Capture just one, by view name or file name |
+| `--hide <name>` | Pass a `?hide=` through to the page, to take one object out — this is how you find out what an unexplained shape in a picture actually is |
+| `--url <base>` | Point at a server on a different port |
 
 ---
 
@@ -119,7 +166,8 @@ js/
   anim.js       doors, flicker, signals
   main.js       bootstrap and the render loop
 tools/
-  check_scene.js
+  check_scene.js    the offline structural gate
+  visual_check.js   six camera positions, screenshotted, for a person to open
 ```
 
 Imports run one way only. The system modules — `toon`, `lights`, `textures`,
