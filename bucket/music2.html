@@ -39,33 +39,42 @@
       user-select: none;
     }
 
-    /* ---------- the photograph, edge to edge ---------- */
+    /* ---------- the stage: the photograph, or the video's frames ---------- */
 
-    #bg {
+    /* One canvas rather than an <img>, because the page now has two possible
+       sources — the photo and the video — and the cut shards have to show
+       whichever one is on screen. A canvas can be drawn from either. */
+    #stage {
       position: fixed;
       inset: 0;
       width: 100%;
       height: 100%;
-      object-fit: cover;                        /* fill the window, crop the overflow */
-      object-position: 50% 50%;                 /* must stay centred: the smoke
-                                                   anchor in the JS assumes it */
       z-index: 0;
       pointer-events: none;
-      -webkit-user-drag: none;
       /* the cut effect drains the colour out of this layer … */
       transition: filter 0.7s ease;
     }
 
-    /* … while these two slabs keep it. Each is a full-window copy of the same
-       photo, clipped to a triangle and slid along the light's normal, so the
-       colour corners lift off the black-and-white print underneath. */
-    /* drained, and pushed a little darker and harder than a plain greyscale —
-       the colour slabs need something to sit against */
-    body.bw #bg { filter: grayscale(1) brightness(0.86) contrast(1.14); }
+    /* the video itself is never seen: its frames are drawn into #stage (and
+       into the cut shards). Muted, because the page's own track is the sound. */
+    #vid {
+      position: fixed;
+      top: 0;
+      left: -4px;
+      width: 2px;
+      height: 2px;
+      opacity: 0;
+      pointer-events: none;
+    }
 
-    /* Hidden at rest: the slabs then sit pixel-on-pixel over the photo, and
-       hiding them is what guarantees a sub-pixel difference between an <img>
-       and a background-image can never show up as a seam along the cut. */
+    /* drained, and pushed a little darker and harder than a plain greyscale —
+       the colour slabs need something to sit against. The shards below are
+       separate layers, so they keep their colour while this one loses it. */
+    body.bw #stage { filter: grayscale(1) brightness(0.86) contrast(1.14); }
+
+    /* Hidden at rest: the slabs then sit pixel-on-pixel over the stage, and
+       hiding them is what guarantees a sub-pixel difference between the two
+       drawings can never show up as a seam along the cut. */
     #cutLayer {
       position: fixed;
       inset: 0;
@@ -84,12 +93,17 @@
     .shard-fill {
       position: absolute;
       inset: 0;
-      background-repeat: no-repeat;
+      width: 100%;
+      height: 100%;
+      display: block;
     }
 
     .shard { filter: drop-shadow(0 10px 26px rgba(0, 0, 0, 0.75)); }
 
-    /* the cigar smoke — a transparent canvas laid over the photo, nothing else */
+    /* the cigar smoke — a transparent canvas laid over the stage, nothing else.
+       It also carries the two cut-edge highlights. The plume itself belongs to
+       the photograph: while the video is on screen it simply is not emitted,
+       because the video carries its own smoke. */
     #smoke {
       position: fixed;
       inset: 0;
@@ -451,15 +465,21 @@
 </head>
 <body>
 
-  <!-- the photograph. object-fit: cover, centred — the JS smoke anchor below
-       repeats that exact same maths, so the two can never drift apart. -->
-  <img id="bg" src="model/mob_hunter.png" alt="Mr. Sad Sick in a red fedora, smoking a cigar">
+  <!-- The video is the stage from the moment the page opens until it finishes;
+       after that the photograph takes over. Muted: the page's track is the
+       sound. No autoplay — it stays paused until a song is clicked. -->
+  <video id="vid" src="model/hunter_video.mp4" muted playsinline preload="auto" aria-hidden="true"></video>
+
+  <!-- the stage: whichever of the two sources is on screen, drawn cover-fit.
+       One canvas, because the cut shards below draw from the same source. -->
+  <canvas id="stage" role="img"
+          aria-label="Mr. Sad Sick in a red fedora, smoking a cigar"></canvas>
 
   <!-- the two cut slabs: one triangle off the top-left corner, one off the
        bottom-right, with the diagonal band between them left in black and white -->
   <div id="cutLayer">
-    <div class="shard" id="shardA"><div class="shard-fill"></div></div>
-    <div class="shard" id="shardB"><div class="shard-fill"></div></div>
+    <div class="shard" id="shardA"><canvas class="shard-fill" id="shardCanvasA"></canvas></div>
+    <div class="shard" id="shardB"><canvas class="shard-fill" id="shardCanvasB"></canvas></div>
   </div>
 
   <!-- cigar smoke, drawn on top of the photo -->
@@ -787,12 +807,12 @@
      gain is nearly doubled, and MAX_BAR is over 1 so a hard hit can push a bar
      past the top of the strip and clip — which is where the aggression lives. */
   const BARS     = 448;    // how many mirrored bars
-  const LINE_W   = 3;      // bar thickness (a ceiling: bars thin out if slots get tight)
+  const LINE_W   = 2;      // bar thickness (a ceiling: bars thin out if slots get tight)
   const BAR_FILL = 0.82;   // share of a slot a bar may occupy
-  const BAR_GAIN = 0.16;   // amplitude multiplier — the dial for "how tall"
-  const MAX_BAR  = 1.05;   // hard ceiling, as a fraction of the canvas half-height
+  const BAR_GAIN = 0.10;   // amplitude multiplier — the dial for "how tall"
+  const MAX_BAR  = 2;   // hard ceiling, as a fraction of the canvas half-height
   const CUTOFF   = 0.12;   // a bin draws only if it beats this fraction of the loudest bin
-  const GLOW     = 4;      // px of dark halo behind each bar, for legibility
+  const GLOW     = 6;      // px of dark halo behind each bar, for legibility
 
   /* The strip's own kick: on a bass hit the baseline drops and every bar
      stretches a little, then both spring back. Drawn into the canvas rather
@@ -955,6 +975,25 @@
   const smokeCanvas = document.getElementById("smoke");
   const sctx = smokeCanvas.getContext("2d");
 
+  const vid         = document.getElementById("vid");
+  const stageCanvas = document.getElementById("stage");
+  const stageCtx    = stageCanvas.getContext("2d");
+  const shardCanvases = [
+    document.getElementById("shardCanvasA"),
+    document.getElementById("shardCanvasB")
+  ];
+  const shardCtxs = shardCanvases.map(c => c.getContext("2d"));
+
+  const bgImg = new Image();
+  bgImg.src = "model/mob_hunter.png";
+
+  /* Which source owns the stage. The video holds it from reload until it
+     finishes; after that the photograph does, and every later cut effect is
+     taken from the photograph — exactly the page that existed before. */
+  let videoActive = true;
+  let stageDirty  = true;                   // the stage canvases need repainting
+  let smokeOn     = false;                  // the plume is the photograph's
+
   let coverScale = 1, anchorX = 0, anchorY = 0;
   let baseAnchorX = 0, baseAnchorY = 0;     // before the slab the cigar sits on lifts
 
@@ -988,14 +1027,100 @@
     baseAnchorX = ox + TIP_X * drawW;
     baseAnchorY = oy + TIP_Y * drawH;
 
-    layoutCut(vw, vh, drawW, drawH, ox, oy);
+    layoutCut(vw, vh);
 
     // The smoke is soft-edged, so 1.5x is plenty and saves a lot of fill
-    // rate on a 4K screen.
+    // rate on a 4K screen. The stage and the shards get the same treatment.
     const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     smokeCanvas.width  = Math.round(vw * dpr);
     smokeCanvas.height = Math.round(vh * dpr);
     sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    [stageCanvas, ...shardCanvases].forEach(cv => {
+      cv.width  = Math.round(vw * dpr);
+      cv.height = Math.round(vh * dpr);
+      cv.getContext("2d").setTransform(dpr, 0, 0, dpr, 0, 0);
+    });
+
+    stageDirty = true;               // resizing a canvas wipes it
+  }
+
+  /* ================================================================
+     PAINTING THE STAGE
+     The photograph and the video are drawn with exactly the same cover-fit
+     maths, into whichever canvas asks for it — the stage itself, or either
+     of the two cut shards. That shared function is what lets the shards
+     carry the video during the intro and the photograph afterwards, with no
+     second implementation to drift out of step.
+     ================================================================ */
+  function drawCover(ctx, cv, src, sw, sh) {
+    if (!sw || !sh) return;
+    const vw = cv.clientWidth, vh = cv.clientHeight;
+    const scale = Math.max(vw / sw, vh / sh);
+    const dw = sw * scale, dh = sh * scale;
+    ctx.drawImage(src, (vw - dw) / 2, (vh - dh) / 2, dw, dh);
+  }
+
+  function paintInto(ctx, cv) {
+    if (videoActive) {
+      if (vid.readyState >= 2 && vid.videoWidth) {
+        drawCover(ctx, cv, vid, vid.videoWidth, vid.videoHeight);
+      }
+    } else if (bgImg.complete && bgImg.naturalWidth) {
+      drawCover(ctx, cv, bgImg, bgImg.naturalWidth, bgImg.naturalHeight);
+    }
+  }
+
+  function paintStage() {
+    paintInto(stageCtx, stageCanvas);
+    // the shards only need content while the cut is actually showing
+    if (cutT >= 0) {
+      paintInto(shardCtxs[0], shardCanvases[0]);
+      paintInto(shardCtxs[1], shardCanvases[1]);
+    }
+  }
+
+  /* ---- the video's side of the bargain ---- */
+  let loadCutFired = false;
+
+  function firstStageFrame() {
+    if (loadCutFired) return;
+    loadCutFired = true;
+    triggerCut();            // the page opens on the cut, taken from the video
+  }
+
+  vid.addEventListener("loadeddata", () => { stageDirty = true; firstStageFrame(); });
+  vid.addEventListener("seeked",     () => { stageDirty = true; });
+
+  vid.addEventListener("ended", () => {
+    /* The video is done. The photograph takes the stage from here on and the
+       plume comes back with it. Hard cut, as asked — the two shots differ, so
+       there is no pretending it is a dissolve. */
+    videoActive = false;
+    stageDirty = true;
+    setSmokeOn(true);
+  });
+
+  vid.addEventListener("error", () => {
+    // no video? fall back to the photograph and run the page as it was
+    videoActive = false;
+    stageDirty = true;
+    setSmokeOn(true);
+    firstStageFrame();
+  });
+
+  bgImg.addEventListener("load", () => {
+    stageDirty = true;
+    if (!videoActive) firstStageFrame();
+  });
+
+  // the plume belongs to the photograph only
+  function setSmokeOn(on) {
+    smokeOn = on;
+    if (!on) {
+      particles.length = 0;
+      sctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    }
   }
 
   /* ================================================================
@@ -1022,7 +1147,7 @@
   let cutSegs = [[], []];      // the two cut edges, for the highlight drawn on the canvas
   let tipShard = -1;           // which slab the cigar tip sits on, if either
 
-  function layoutCut(vw, vh, drawW, drawH, ox, oy) {
+  function layoutCut(vw, vh) {
     const tan = CUT_SIN / CUT_COS;
 
     let leg = CUT_LEG * vh;                 // down the left / right edge
@@ -1035,11 +1160,7 @@
     ];
 
     shardEls.forEach((shard, i) => {
-      const fill = shard.firstElementChild;
-      fill.style.backgroundImage = 'url("model/mob_hunter.png")';
-      fill.style.backgroundSize = `${drawW}px ${drawH}px`;
-      fill.style.backgroundPosition = `${ox}px ${oy}px`;
-      fill.style.clipPath =
+      shard.firstElementChild.style.clipPath =
         "polygon(" + polys[i].map(p => `${p[0]}px ${p[1]}px`).join(",") + ")";
     });
 
@@ -1083,6 +1204,7 @@
   function triggerCut() {
     cutT = 0;
     cutLayer.classList.add("active");
+    stageDirty = true;          // the shards need the current source painted in
   }
 
   function stepCut(dt) {
@@ -1148,10 +1270,14 @@
     anchorX = baseAnchorX + cutLiftX;
     anchorY = baseAnchorY + cutLiftY;
 
+    sctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+    // while the video owns the stage, nothing is emitted — it carries its own
+    // smoke. The cut edges below still draw, because they are not smoke.
+    if (!smokeOn) { drawCutEdges(); return; }
+
     spawnAcc += dt * SPAWN_PER_SEC;
     while (spawnAcc >= 1) { spawnAcc -= 1; puff(1); }
-
-    sctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
 
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
@@ -1224,6 +1350,14 @@
     const dt = Math.min(Math.max((now - lastFrame) / 1000, 0), 0.1);
     lastFrame = now;
 
+    /* The stage repaints continuously only while the video is running; the
+       rest of the time it repaints once, when something has changed — a
+       resize, the video handing over to the photograph, or a cut opening. */
+    if (stageDirty || (videoActive && !vid.paused && !vid.ended)) {
+      paintStage();
+      stageDirty = false;
+    }
+
     if (analyser) {
       analyser.getByteFrequencyData(dataArray);
       bassAnalyser.getByteFrequencyData(bassData);
@@ -1294,7 +1428,12 @@
     try {
       await audio.play();
       setPlayIcon(true);
-      triggerCut();          // every start of playback cuts the photo open
+
+      /* The video waits for exactly this moment: it has sat paused since the
+         page loaded, and now it runs once and hands the stage to the photo. */
+      if (videoActive && vid.paused) vid.play().catch(() => {});
+
+      triggerCut();          // every start of playback cuts the stage open
     } catch (err) {
       console.warn("Playback was blocked:", err);
       setPlayIcon(false);
@@ -1303,6 +1442,7 @@
 
   function pauseAudio() {
     audio.pause();
+    if (videoActive && !vid.paused) vid.pause();   // the intro pauses with the music
     setPlayIcon(false);
   }
 
