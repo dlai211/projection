@@ -469,9 +469,8 @@
        stays paused until a song is played. -->
   <video id="vid" src="model/hunter_video.mp4" muted playsinline preload="auto" aria-hidden="true"></video>
 
-  <!-- the photograph, waiting its turn: hidden until the first song change -->
-  <img id="still" src="model/mob_hunter.png"
-       alt="Mr. Sad Sick in a red fedora, smoking a cigar">
+  <!-- The photograph is NOT in the page at this point — it is created by the
+       script on the first song change, so the page opens on the video alone. -->
 
   <!-- the two cut slabs: one triangle off the top-left corner, one off the
        bottom-right, with the diagonal band between them left in black and white -->
@@ -974,7 +973,14 @@
   const sctx = smokeCanvas.getContext("2d");
 
   const vid      = document.getElementById("vid");
-  const stillEl  = document.getElementById("still");
+
+  /* The photograph is not in the document until the first song change — the
+     page opens on the video alone. It is still fetched now, off-page, so that
+     the moment it is needed it appears instantly instead of loading. */
+  let stillEl = null;
+  const stillPreload = new Image();
+  stillPreload.src = "model/mob_hunter.png";
+
   const shardCanvases = [
     document.getElementById("shardCanvasA"),
     document.getElementById("shardCanvasB")
@@ -1061,7 +1067,7 @@
       if (vid.readyState >= 2 && vid.videoWidth) {
         drawCover(ctx, cv, vid, vid.videoWidth, vid.videoHeight);
       }
-    } else if (stillEl.complete && stillEl.naturalWidth) {
+    } else if (stillEl && stillEl.complete && stillEl.naturalWidth) {
       drawCover(ctx, cv, stillEl, stillEl.naturalWidth, stillEl.naturalHeight);
     }
   }
@@ -1071,9 +1077,20 @@
     paintInto(shardCtxs[1], shardCanvases[1]);
   }
 
-  /* the photograph takes the stage — used by the first song change and by the
-     fallback if the video cannot play at all */
+  /* The photograph takes the stage — used by the first song change and by the
+     fallback if the video cannot play at all. This is where the <img> is
+     created: it does not exist in the page before this call, so there is no
+     image in the reload state at all. */
   function showPhotograph() {
+    if (!stillEl) {
+      stillEl = document.createElement("img");
+      stillEl.id = "still";
+      stillEl.alt = "Mr. Sad Sick in a red fedora, smoking a cigar";
+      // the image may still be finishing its fetch; repaint when it lands
+      stillEl.addEventListener("load", () => { stageDirty = true; });
+      stillEl.src = "model/mob_hunter.png";
+      document.body.insertBefore(stillEl, document.getElementById("cutLayer"));
+    }
     videoActive = false;
     stageDirty = true;
     document.body.classList.add("photo");
@@ -1106,7 +1123,9 @@
     firstStageFrame();
   });
 
-  stillEl.addEventListener("load", () => {
+  // the off-page preload is what guarantees the still is ready the instant it
+  // is needed; it is also the fallback trigger if the video never plays
+  stillPreload.addEventListener("load", () => {
     stageDirty = true;
     if (!videoActive) firstStageFrame();
   });
