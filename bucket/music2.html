@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dr. Sigma · Music</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet">
+
+  <style>
+    /* ============================================================
+       THEME
+       The whole UI is one colour: white. It sits on a photograph, so
+       every piece of white carries a soft dark shadow — that is what
+       keeps the wheel and the transport readable whether they land on
+       the dark suit or on the pale concrete.
+       ============================================================ */
+    :root {
+      --white: #ffffff;
+      --soft: rgba(255, 255, 255, 0.7);         /* idle controls / far wheel items */
+      --track: rgba(255, 255, 255, 0.26);       /* progress + volume track */
+      --shadow: 0 1px 4px rgba(0, 0, 0, 0.85), 0 0 20px rgba(0, 0, 0, 0.6);
+
+      /* bass flash — one warm white wash over the scene. 0.12 is the
+         ceiling; JS never takes it past this (see FLASH_PEAK in the JS). */
+      --flash-peak: 0.12;
+    }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      height: 100vh;
+      background: #0a0a0a;                      /* shows for the instant before the photo paints */
+      font-family: 'Patrick Hand', cursive;
+
+      /* nothing here is meant to be copied — dragging the wheel or the
+         progress bar should never start a text selection */
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    /* ---------- the photograph, edge to edge ---------- */
+
+    #bg {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;                        /* fill the window, crop the overflow */
+      object-position: 50% 50%;                 /* must stay centred: the smoke
+                                                   anchor in the JS assumes it */
+      z-index: 0;
+      pointer-events: none;
+      -webkit-user-drag: none;
+    }
+
+    /* the cigar smoke — a transparent canvas laid over the photo, nothing else */
+    #smoke {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    /* the bass wash. Sits above the photo and the smoke, below every control,
+       so the buttons stay crisp while the scene flashes behind them. */
+    #flash {
+      position: fixed;
+      inset: 0;
+      z-index: 6;
+      pointer-events: none;
+      opacity: 0;                               /* JS drives this every frame */
+      will-change: opacity;
+      background: radial-gradient(125% 95% at 50% 42%,
+                    rgba(255, 252, 246, 1) 0%,
+                    rgba(255, 246, 234, 1) 58%,
+                    rgba(255, 238, 220, 1) 100%);
+    }
+
+    /* ============================================================
+       SONG WHEEL  (left edge, vertically centred)
+       Arc math from music.html / ../music/wheel.js — radius 100,
+       30px item pitch, the active slot sitting at 3 o'clock.
+       ============================================================ */
+
+    #wheel-container {
+      position: fixed;
+      left: 24px;
+      top: 50%;
+      transform: translateY(-50%);
+      transition: transform 0.2s ease-in-out;
+      /* 400px tall = the arc's exact diameter (±radius 100 around the centre),
+         so overflow:hidden fades the tail items at the top and bottom. */
+      width: 340px;
+      height: 400px;
+      overflow: hidden;
+      cursor: grab;
+      touch-action: none;
+      z-index: 12;
+    }
+
+    #wheel-container:active { cursor: grabbing; }
+    #wheel-container:hover  { transform: translateY(-50%) scale(1.08); }
+
+    .wheel-item {
+      position: absolute;
+      left: 24px;
+      transform-origin: left center;
+      font-size: 1.05em;
+      font-family: 'Patrick Hand', sans-serif;
+      color: var(--soft);
+      white-space: nowrap;
+      text-shadow: var(--shadow);
+      transition: transform 0.2s, opacity 0.2s, font-size 0.2s, color 0.2s;
+      user-select: none;
+    }
+
+    .wheel-item.active {
+      font-size: 1.3em;
+      color: var(--white);
+      font-weight: bold;
+      text-shadow: 0 1px 5px rgba(0, 0, 0, 0.9), 0 0 24px rgba(0, 0, 0, 0.7);
+    }
+
+    /* ============================================================
+       CENTRE CLUSTER — title, artist, transport, mirrored visualizer
+       Sits low and narrow so it clears the photo's own corner
+       captions (bottom-left "DR. SIGMA", bottom-right "QUANTUM HITMAN").
+       ============================================================ */
+
+    .player {
+      position: fixed;
+      left: 50%;
+      top: 76%;
+      transform: translate(-50%, -50%);
+      width: min(880px, 76vw);
+      text-align: center;
+      z-index: 20;
+    }
+
+    .now-playing { letter-spacing: 0.3em; }
+
+    .now-playing h1 {
+      margin: 0;
+      font-size: clamp(1.4rem, 2.4vw, 2.2rem);
+      font-weight: normal;
+      color: var(--white);
+      line-height: 1.15;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.85), 0 4px 22px rgba(0, 0, 0, 0.65);
+    }
+
+    .now-playing p {
+      margin: 6px 0 0;
+      font-size: clamp(0.85rem, 1.05vw, 1.05rem);
+      color: rgba(255, 255, 255, 0.8);
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+    }
+
+    /* bouncy letters (from music.html, itself from ../music/script.js) */
+    .bouncy-text span {
+      display: inline-block;
+      animation: bounce 3s ease-in-out infinite;
+      animation-delay: calc(var(--i) * 0.1s);
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-4px); }
+    }
+
+    /* ---------- transport row: shuffle · prev · play · next · repeat ---------- */
+
+    .controls {
+      position: relative;                 /* anchor for .volume */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(14px, 2.6vw, 34px);
+      margin: 14px 0 6px;
+    }
+
+    .ctrl {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      border: none;
+      background: none;
+      color: var(--soft);
+      cursor: pointer;
+      transition: transform 0.15s ease, color 0.2s ease;
+      filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.7));
+    }
+
+    .ctrl:hover  { transform: scale(1.12); color: var(--white); }
+    .ctrl:active { transform: scale(0.96); }
+
+    .ctrl svg {
+      width: 22px;
+      height: 22px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* toggled-on: full white plus the little dot under the glyph */
+    .ctrl.active { color: var(--white); }
+    .ctrl.active::after {
+      content: '';
+      position: absolute;
+      bottom: -3px;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--white);
+    }
+
+    /* play: a hollow white ring — same mask trick as music.html, white paint */
+    .play-btn {
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      background: none;
+      color: var(--white);
+      filter: drop-shadow(0 2px 9px rgba(0, 0, 0, 0.75));
+    }
+
+    .play-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      padding: 3px;                       /* ring thickness */
+      background: var(--white);
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      mask-composite: exclude;
+    }
+
+    .play-btn:hover { transform: scale(1.06); }
+    .play-btn svg { width: 26px; height: 26px; fill: currentColor; stroke: none; }
+    .play-btn svg.pause-icon { display: none; }
+    .play-btn.playing svg.play-icon  { display: none; }
+    .play-btn.playing svg.pause-icon { display: block; }
+
+    /* loop button: two icons, one shown per mode */
+    #loopBtn svg.loop-one-icon { display: none; }
+    #loopBtn.one svg.loop-all-icon { display: none; }
+    #loopBtn.one svg.loop-one-icon { display: block; }
+
+    /* ---------- volume: right edge of the transport row ---------- */
+
+    .volume {
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--white);
+      filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.7));
+    }
+
+    .volume svg {
+      width: 20px;
+      height: 20px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.7;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    #volume {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 112px;
+      height: 18px;                       /* generous hit area */
+      background: transparent;
+      cursor: pointer;
+      --vol: 70%;                         /* JS re-writes this from the value */
+    }
+
+    #volume::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 5px;
+      background: linear-gradient(to right,
+                    var(--white) 0%,
+                    var(--white) var(--vol),
+                    var(--track) var(--vol));
+    }
+
+    #volume::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 13px;
+      height: 13px;
+      margin-top: -3.5px;                 /* (6 - 13) / 2 */
+      border-radius: 50%;
+      background: var(--white);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+    }
+
+    #volume::-moz-range-track {
+      height: 6px;
+      border-radius: 5px;
+      background: var(--track);
+    }
+
+    #volume::-moz-range-progress {
+      height: 6px;
+      border-radius: 5px;
+      background: var(--white);
+    }
+
+    #volume::-moz-range-thumb {
+      width: 13px;
+      height: 13px;
+      border: none;
+      border-radius: 50%;
+      background: var(--white);
+    }
+
+    #volume:focus-visible { outline: 2px solid var(--white); outline-offset: 4px; }
+
+    /* ---------- mirrored visualizer ---------- */
+
+    #visualizer {
+      display: block;
+      width: 100%;
+      height: clamp(52px, 8vh, 92px);
+      margin: 6px auto 0;
+      background: transparent;
+    }
+
+    /* ============================================================
+       PROGRESS BAR — very bottom, full width
+       ============================================================ */
+
+    .progress-container {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 30px 16px;
+      box-sizing: border-box;
+      z-index: 20;
+    }
+
+    .progress-container span {
+      font-family: 'Patrick Hand', sans-serif;
+      font-size: 1.05rem;
+      font-weight: bold;
+      color: var(--white);
+      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .progress-bar {
+      flex: 1;
+      height: 18px;                       /* tall hit area … */
+      padding: 6px 0;                     /* … 6px visible track … */
+      box-sizing: border-box;
+      background-clip: content-box;
+      background-color: var(--track);
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .progress-fill {
+      position: relative;
+      width: 0%;
+      height: 100%;
+      border-radius: 5px;
+      background: var(--white);
+      transition: width 0.1s linear;
+      pointer-events: none;
+    }
+
+    .progress-bar:hover .progress-fill::after {
+      content: '';
+      position: absolute;
+      right: -5px;
+      top: 50%;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--white);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+      transform: translateY(-50%);
+    }
+
+    audio { display: none; }
+
+    /* ---------- narrow windows ---------- */
+
+    @media (max-width: 900px) {
+      #wheel-container { left: 4px; width: 230px; height: 300px; }
+      .wheel-item { left: 14px; font-size: 0.85em; }
+      .player { width: 92vw; top: 72%; }
+      .volume { display: none; }          /* no room beside the transport */
+    }
+  </style>
+</head>
+<body>
+
+  <!-- the photograph. object-fit: cover, centred — the JS smoke anchor below
+       repeats that exact same maths, so the two can never drift apart. -->
+  <img id="bg" src="model/mob_hunter.png" alt="Mr. Sad Sick in a red fedora, smoking a cigar">
+
+  <!-- cigar smoke, drawn on top of the photo -->
+  <canvas id="smoke"></canvas>
+
+  <!-- bass wash -->
+  <div id="flash"></div>
+
+  <!-- left edge: scrollable song wheel -->
+  <div id="wheel-container"></div>
+
+  <!-- centre: now playing + transport + mirrored visualizer -->
+  <div class="player">
+    <div class="now-playing">
+      <h1 id="song-name" class="bouncy-text"></h1>
+      <p id="artist-name" class="bouncy-text"></p>
+    </div>
+
+    <div class="controls">
+      <button class="ctrl" id="shuffleBtn" aria-label="Shuffle" title="Shuffle">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <polyline points="16 3 21 3 21 8"/>
+          <line x1="4" y1="20" x2="21" y2="3"/>
+          <polyline points="21 16 21 21 16 21"/>
+          <line x1="15" y1="15" x2="21" y2="21"/>
+          <line x1="4" y1="4" x2="9" y2="9"/>
+        </svg>
+      </button>
+
+      <button class="ctrl" id="prevBtn" aria-label="Previous song" title="Previous">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <polygon points="19 20 9 12 19 4 19 20"/>
+          <line x1="5" y1="19" x2="5" y2="5"/>
+        </svg>
+      </button>
+
+      <button class="ctrl play-btn" id="playBtn" aria-label="Play" title="Play / Pause">
+        <svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <polygon points="6 3 20 12 6 21 6 3"/>
+        </svg>
+        <svg class="pause-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="6" y="4" width="4" height="16" rx="1"/>
+          <rect x="14" y="4" width="4" height="16" rx="1"/>
+        </svg>
+      </button>
+
+      <button class="ctrl" id="nextBtn" aria-label="Next song" title="Next">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <polygon points="5 4 15 12 5 20 5 4"/>
+          <line x1="19" y1="5" x2="19" y2="19"/>
+        </svg>
+      </button>
+
+      <button class="ctrl active" id="loopBtn" aria-label="Repeat" title="Repeat: all / one / off" data-loop="all">
+        <svg class="loop-all-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <polyline points="17 1 21 5 17 9"/>
+          <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+          <polyline points="7 23 3 19 7 15"/>
+          <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+        </svg>
+        <svg class="loop-one-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <polyline points="17 1 21 5 17 9"/>
+          <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+          <polyline points="7 23 3 19 7 15"/>
+          <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+          <path d="M13.6 15.4V8.6h-1.3l-2.5 1.3v1.4h1.8v4.1z" fill="currentColor" stroke="none"/>
+        </svg>
+      </button>
+
+      <div class="volume">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M11 5 6.5 8.8H3.5v6.4h3L11 19z"/>
+          <path d="M14.8 9.4a4 4 0 0 1 0 5.2"/>
+          <path d="M17.5 6.8a7.6 7.6 0 0 1 0 10.4"/>
+        </svg>
+        <input id="volume" type="range" min="0" max="1" step="0.01" value="0.7"
+               aria-label="Volume" title="Volume">
+      </div>
+    </div>
+
+    <canvas id="visualizer"></canvas>
+  </div>
+
+  <!-- very bottom: full-width progress bar -->
+  <div class="progress-container">
+    <span id="current-time">0:00</span>
+    <div class="progress-bar">
+      <div class="progress-fill"></div>
+    </div>
+    <span id="total-time">0:00</span>
+  </div>
+
+  <audio id="audio"></audio>
+
+  <script>
+  /* ================================================================
+     SONGS — the files in bucket/music2/
+     Track 1 is the default: it loads into the player and into the
+     wheel's active slot the moment the page opens.
+     ================================================================ */
+  const songs = [
+    { name: "Fuck The Girls",     artist: "Doja Cat", file: "Doja Cat - Fuck The Girls (FTG).mp3" },
+    { name: "Paint The Town Red", artist: "Doja Cat", file: "Doja Cat - Paint The Town Red.mp3" },
+    { name: "Vegas",              artist: "Doja Cat", file: "Doja Cat - Vegas.mp3" }
+  ];
+
+  const songURL = song => "music2/" + encodeURIComponent(song.file);
+
+  const audio      = document.getElementById("audio");
+  const playBtn    = document.getElementById("playBtn");
+  const prevBtn    = document.getElementById("prevBtn");
+  const nextBtn    = document.getElementById("nextBtn");
+  const shuffleBtn = document.getElementById("shuffleBtn");
+  const loopBtn    = document.getElementById("loopBtn");
+  const nameEl     = document.getElementById("song-name");
+  const artistEl   = document.getElementById("artist-name");
+  const volumeEl   = document.getElementById("volume");
+  const flashEl    = document.getElementById("flash");
+
+  let currentIndex = 0;
+  let shuffleOn    = false;
+  let loopMode     = "all";     // all → one → off
+
+  /* ================================================================
+     BOUNCY TEXT (from music.html)
+     ================================================================ */
+  function animateLetters(el, text) {
+    el.innerHTML = [...text].map((char, i) => {
+      const content = char === " " ? "&nbsp;" : char;
+      return `<span style="--i:${i}">${content}</span>`;
+    }).join("");
+  }
+
+  /* ================================================================
+     WHEEL (arc math from music.html)
+     radius 100, 30px pitch; the "active" slot sits at angle PI/2,
+     which is the horizontally-aligned position on the arc.
+     ================================================================ */
+  const wheel     = document.getElementById("wheel-container");
+  const RADIUS    = 100;
+  const ITEM_H    = 30;
+  const SLOT      = (Math.PI / 2) * RADIUS;   // angleOffset that puts index 0 in the slot
+
+  let position = 0;              // float while dragging, integer once settled
+  let dragY = null, dragStartPos = 0, dragStartY = 0, pressedIndex = -1;
+
+  songs.forEach((song, i) => {
+    const el = document.createElement("div");
+    el.className = "wheel-item";
+    el.textContent = song.name;
+    el.dataset.index = i;
+    el.addEventListener("mousedown", e => e.preventDefault());  // no text selection
+    wheel.appendChild(el);
+  });
+  const wheelItems = wheel.querySelectorAll(".wheel-item");
+
+  function updateWheel() {
+    const angleOffset = SLOT - position * ITEM_H;
+    const centerY = wheel.offsetHeight / 2;   // read live: the height changes on narrow windows
+
+    wheelItems.forEach((el, i) => {
+      const angle = (i * ITEM_H + angleOffset) / RADIUS;
+      const x = Math.sin(angle) * RADIUS;
+      const y = centerY - Math.cos(angle) * RADIUS;
+      const deg = angle * (180 / Math.PI) - 90;
+
+      el.style.transform = `translate(${x}px, ${y}px) rotate(${deg}deg)`;
+      el.style.opacity = Math.abs(deg) < 60 ? 1 : 0.2;
+      el.classList.toggle("active", Math.abs(i - position) < 0.5);
+    });
+  }
+
+  /* The one place the wheel moves from A to B: snap after a drag, a wheel
+     notch, and the player pushing the wheel when the track changes — so the
+     wheel is never out of step with the audio. */
+  let tweenFrame = null;
+  function tweenTo(target, onArrive) {
+    if (tweenFrame) cancelAnimationFrame(tweenFrame);
+
+    const from = position;
+    if (Math.abs(target - from) < 0.001) {
+      position = target; updateWheel();
+      if (onArrive) onArrive();
+      return;
+    }
+
+    const t0 = performance.now();
+    const DUR = 260;
+
+    (function step(now) {
+      const t = Math.min((now - t0) / DUR, 1);
+      const ease = 1 - Math.pow(1 - t, 3);
+      position = from + (target - from) * ease;
+      updateWheel();
+      if (t < 1) {
+        tweenFrame = requestAnimationFrame(step);
+      } else {
+        position = target; tweenFrame = null; updateWheel();
+        if (onArrive) onArrive();
+      }
+    })(t0);
+  }
+
+  function snapWheel() {
+    const target = Math.round(position);
+    tweenTo(target, () => selectSong(target));
+  }
+
+  function setPosition(next) {
+    position = Math.min(Math.max(next, 0), songs.length - 1);   // clamp to the ends
+    updateWheel();
+    snapWheel();
+  }
+
+  function selectSong(index) {
+    if (index === currentIndex) return;
+    loadSong(index, true);
+  }
+
+  /* ---- drag ---- */
+  wheel.addEventListener("mousedown", e => {
+    dragY = e.clientY;
+    dragStartY = e.clientY;
+    dragStartPos = position;
+    const item = e.target.closest(".wheel-item");
+    pressedIndex = item ? Number(item.dataset.index) : -1;
+  });
+
+  document.addEventListener("mousemove", e => {
+    if (dragY === null) return;
+    dragY = e.clientY;
+    position = Math.min(Math.max(dragStartPos - (e.clientY - dragStartY) / ITEM_H, 0), songs.length - 1);
+    updateWheel();
+  });
+
+  document.addEventListener("mouseup", e => {
+    if (dragY === null) return;
+    const wasTap = Math.abs(e.clientY - dragStartY) < 5 && pressedIndex >= 0;
+    dragY = null;
+    if (wasTap) setPosition(pressedIndex);
+    else snapWheel();
+    pressedIndex = -1;
+  });
+
+  /* ---- mouse wheel: one song per notch (trackpads accumulated) ---- */
+  let wheelAccum = 0;
+  wheel.addEventListener("wheel", e => {
+    e.preventDefault();
+    wheelAccum += e.deltaY;
+    if (Math.abs(wheelAccum) < 40) return;
+    const dir = Math.sign(wheelAccum);
+    wheelAccum = 0;
+    setPosition(Math.round(position) + dir);
+  }, { passive: false });
+
+  /* ---- touch ---- */
+  wheel.addEventListener("touchstart", e => {
+    dragStartY = e.touches[0].clientY;
+    dragStartPos = position;
+    pressedIndex = -1;
+  }, { passive: true });
+
+  wheel.addEventListener("touchmove", e => {
+    const y = e.touches[0].clientY;
+    position = Math.min(Math.max(dragStartPos - (y - dragStartY) / ITEM_H, 0), songs.length - 1);
+    updateWheel();
+  }, { passive: true });
+
+  wheel.addEventListener("touchend", () => snapWheel());
+
+  /* ================================================================
+     AUDIO GRAPH (from music.html)
+     Built on the first play click so the context is never left suspended.
+     8192 is plenty for both jobs below and a good deal lighter than the
+     32768 music.html ran.
+     ================================================================ */
+  const FFT_SIZE  = 8192;    // the visualizer's spectrum
+  const BASS_FFT  = 4096;    // the flash's — smaller, and deliberately unsmoothed
+
+  let audioCtx = null, analyser = null, dataArray = null;
+  let bassAnalyser = null, bassData = null;
+  let bassLo = 3, bassHi = 20;          // overwritten once the sample rate is known
+
+  function initAudioGraph() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioCtx.createMediaElementSource(audio);
+
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = FFT_SIZE;
+    analyser.smoothingTimeConstant = 0.8;   // 0 = twitchy, 1 = frozen
+    source.connect(analyser);
+    analyser.connect(audioCtx.destination);
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+    buildBinMap(dataArray.length);
+
+    /* A second analyser for the flash, and the reason is worth knowing:
+       the visualizer wants heavy smoothing so the bars glide, but smoothing
+       is exactly what eats a kick drum — a 100ms thump gets averaged into the
+       bassline around it and stops standing out. So the flash listens to its
+       own unsmoothed analyser, where a hit is still a hit. One extra FFT a
+       frame, and neither job compromises the other. */
+    bassAnalyser = audioCtx.createAnalyser();
+    bassAnalyser.fftSize = BASS_FFT;
+    bassAnalyser.smoothingTimeConstant = 0;
+    source.connect(bassAnalyser);
+    bassData = new Uint8Array(bassAnalyser.frequencyBinCount);
+
+    // Which bins are "bass". Derived from the real sample rate instead of
+    // hard-coded, so the flash lands on the kick at 44.1k and 48k alike.
+    const hzPerBin = audioCtx.sampleRate / BASS_FFT;
+    bassLo = Math.max(1, Math.round(28 / hzPerBin));
+    bassHi = Math.max(bassLo + 2, Math.round(120 / hzPerBin));
+  }
+
+  /* ================================================================
+     MIRRORED VISUALIZER (from music.html)
+     One mirrored bar per bin, drawn as a line through the centre
+     baseline so it grows up and down at once.
+     ================================================================ */
+  const canvas = document.getElementById("visualizer");
+  const ctx = canvas.getContext("2d");
+
+  const BARS     = 384;    // how many mirrored bars
+  const LINE_W   = 2;      // bar thickness (a ceiling: bars thin out if slots get tight)
+  const BAR_FILL = 0.7;    // share of a slot a bar may occupy
+  const BAR_GAIN = 0.1;    // amplitude multiplier — the dial for "how tall"
+  const MAX_BAR  = 1.0;    // hard ceiling, as a fraction of the canvas half-height
+  const CUTOFF   = 0.25;   // a bin draws only if it beats this fraction of the loudest bin
+  const GLOW     = 3;      // px of dark halo behind each bar, for legibility
+
+  let step = 0, lineW = LINE_W, cssW = 0, cssH = 0;
+
+  // Music is bass-heavy: stepping through the bins linearly would bunch every
+  // line into the left edge. Log spacing gives each bar a fair share of the
+  // spectrum, so the lines span the whole canvas.
+  let binMap = null;
+  function buildBinMap(binCount) {
+    binMap = new Uint16Array(BARS);
+    for (let i = 0; i < BARS; i++) {
+      binMap[i] = Math.min(binCount - 1, Math.round(Math.pow(binCount / 2, i / (BARS - 1))));
+    }
+  }
+
+  function resizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    cssW = canvas.clientWidth;
+    cssH = canvas.clientHeight;
+    if (!cssW || !cssH) return;
+    canvas.width  = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    step = cssW / BARS;
+
+    // A bar wants to be LINE_W wide, but it may never eat more than BAR_FILL
+    // of its slot — that is what keeps a high BARS count from merging into a
+    // solid block on a narrow window. Whichever is smaller wins.
+    lineW = Math.min(LINE_W, step * BAR_FILL);
+  }
+
+  function drawVisualizer() {
+    if (!cssW) resizeCanvas();
+    ctx.clearRect(0, 0, cssW, cssH);
+    if (!analyser) return;
+
+    const mid = cssH / 2;
+
+    // the centre baseline is always there — the axis the bars grow from
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(0, mid);
+    ctx.lineTo(cssW, mid);
+    ctx.stroke();
+
+    const loudest = Math.max(...dataArray);
+    if (loudest <= 0) return;                          // silence: axis only
+
+    const cutoff = CUTOFF * loudest;
+    const maxH = mid * MAX_BAR;
+
+    ctx.lineWidth = lineW;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#ffffff";
+    ctx.shadowColor = "rgba(0, 0, 0, 0.65)";
+    ctx.shadowBlur = GLOW;
+
+    for (let i = 0; i < BARS; i++) {
+      const value = dataArray[binMap[i]];
+      if (value <= cutoff) continue;
+
+      let h = (value - cutoff) * BAR_GAIN;
+      if (h > maxH) h = maxH;
+
+      const x = i * step + step / 2;
+      ctx.beginPath();
+      ctx.moveTo(x, mid - h);      // mirrored: up …
+      ctx.lineTo(x, mid + h);      // … and down from the same baseline
+      ctx.stroke();
+    }
+
+    ctx.shadowBlur = 0;
+  }
+
+  /* ================================================================
+     BASS FLASH
+     The page brightens when the low end hits — and only then. A hit is
+     judged against a slow running average of the bass, not a fixed
+     number, so it works on a quiet track and a loud one alike, and it
+     fires once per hit instead of once per frame.
+
+     The flash is deliberately gentle: PEAK is the brightest the wash
+     ever gets, and it is a warm white rather than pure #fff, so it reads
+     as a light going on in the room rather than a camera flash.
+     ================================================================ */
+  const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const BASS_RISE  = 1.45;     // must beat the running average by this much …
+  const BASS_FLOOR = 14;       // … and clear this level, so quiet passages never flash
+  const BASS_ATTACK  = 0.02;   // how fast the average climbs — slow, ≈0.8s to catch up
+  const BASS_RELEASE = 0.006;  // and how fast it lets go — slower still
+  const COOLDOWN = 190;        // ms between flashes: one flash per hit, never a strobe
+  const PEAK = REDUCED ? 0.05 : 0.12;   // the ceiling from --flash-peak
+
+  let bassAvg = 0, lastFlashAt = -1e9, flashLevel = 0, flashDrawn = false;
+
+  /* Tuned against a kick-drum model rather than by ear: at 128bpm this fires
+     once per kick — no more, no fewer — stays dark through a quiet passage,
+     and still fires on a quiet mix, because a hit is measured against the
+     music around it rather than against a fixed number. */
+  function stepBass(now) {
+    let sum = 0;
+    for (let i = bassLo; i <= bassHi; i++) sum += bassData[i];
+    const energy = sum / (bassHi - bassLo + 1);
+
+    // The running average is "how loud is the bass right now". It climbs
+    // slowly and lets go slower still, so a sustained bassline cannot keep
+    // re-arming the trigger on its own.
+    bassAvg += (energy - bassAvg) * (energy > bassAvg ? BASS_ATTACK : BASS_RELEASE);
+
+    if (bassAvg > BASS_FLOOR && energy > bassAvg * BASS_RISE && now - lastFlashAt > COOLDOWN) {
+      lastFlashAt = now;
+      const over = Math.min((energy / bassAvg - BASS_RISE) / 2.2, 1);   // 0 = just over, 1 = way over
+      flashLevel = Math.max(flashLevel, PEAK * (0.5 + 0.5 * over));
+      puff(3, 1.5);            // the cigar gives a little puff on the hit
+    }
+  }
+
+  function stepFlash(dt) {
+    if (flashLevel <= 0.0008) {
+      if (flashDrawn) { flashEl.style.opacity = "0"; flashDrawn = false; }
+      return;
+    }
+    flashLevel *= Math.exp(-dt / 0.13);       // ≈ a third of a second back to dark
+    flashEl.style.opacity = flashLevel.toFixed(3);
+    flashDrawn = true;
+  }
+
+  /* ================================================================
+     CIGAR SMOKE
+     A soft particle plume rising from the lit end of the cigar in the
+     photograph.
+
+     The whole effect hangs off one measurement: where the cigar tip sits
+     *inside the image*, as a fraction of the image's own width and height
+     (TIP below). Each resize, the same maths the browser uses for
+     `object-fit: cover` turns that fraction into a pixel position on
+     screen, so the smoke stays welded to the cigar tip from a phone to an
+     ultrawide — the plume is never positioned against the window, only
+     against the photo.
+
+     Particle sizes and speeds are seeded in image pixels and multiplied by
+     the cover scale, so the smoke also keeps its size relative to the
+     cigar instead of ballooning on a big screen.
+     ================================================================ */
+  const IMG_W = 1671, IMG_H = 941;          // mob_hunter.png
+  const TIP_X = 0.3914, TIP_Y = 0.2678;     // lit end of the cigar, as a fraction of the image
+
+  const smokeCanvas = document.getElementById("smoke");
+  const sctx = smokeCanvas.getContext("2d");
+
+  let coverScale = 1, anchorX = 0, anchorY = 0;
+
+  // A soft round blob, drawn once and stamped for every particle — far
+  // cheaper than building a radial gradient per particle per frame.
+  const puffSprite = (() => {
+    const S = 128;
+    const c = document.createElement("canvas");
+    c.width = c.height = S;
+    const g = c.getContext("2d");
+    const grad = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+    grad.addColorStop(0,    "rgba(255, 255, 255, 0.50)");
+    grad.addColorStop(0.45, "rgba(246, 246, 246, 0.20)");
+    grad.addColorStop(1,    "rgba(240, 240, 240, 0)");
+    g.fillStyle = grad;
+    g.fillRect(0, 0, S, S);
+    return c;
+  })();
+
+  function layoutSmoke() {
+    const vw = window.innerWidth, vh = window.innerHeight;
+
+    // identical to `object-fit: cover` + `object-position: 50% 50%`
+    coverScale = Math.max(vw / IMG_W, vh / IMG_H);
+    const drawW = IMG_W * coverScale, drawH = IMG_H * coverScale;
+    anchorX = (vw - drawW) / 2 + TIP_X * drawW;
+    anchorY = (vh - drawH) / 2 + TIP_Y * drawH;
+
+    // The smoke is soft-edged, so 1.5x is plenty and saves a lot of fill
+    // rate on a 4K screen.
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    smokeCanvas.width  = Math.round(vw * dpr);
+    smokeCanvas.height = Math.round(vh * dpr);
+    sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  const particles = [];
+  const MAX_PARTICLES = 150;
+  const SPAWN_PER_SEC = 12;     // a slow, steady smoulder
+  let spawnAcc = 0;
+
+  function puff(count, boost = 1) {
+    const s = coverScale;
+    for (let i = 0; i < count; i++) {
+      if (particles.length >= MAX_PARTICLES) particles.shift();
+      particles.push({
+        x: anchorX + (Math.random() - 0.3) * 5 * s,
+        y: anchorY + (Math.random() - 0.5) * 3 * s,
+        vx: (-4 - Math.random() * 9) * s,                  // the photo's own wisp leans left
+        vy: (-26 - Math.random() * 22) * s * boost,        // rising
+        wob: Math.random() * Math.PI * 2,
+        wobSpd: 0.7 + Math.random() * 1.5,
+        wobAmp: (4 + Math.random() * 7) * s,
+        size: (5.5 + Math.random() * 7) * s,
+        grow: (12 + Math.random() * 14) * s,
+        rot: Math.random() * Math.PI,
+        spin: (Math.random() - 0.5) * 0.9,
+        life: 0,
+        maxLife: 2.6 + Math.random() * 1.8,
+        alpha: 0.17 + Math.random() * 0.19
+      });
+    }
+  }
+
+  function stepSmoke(dt) {
+    spawnAcc += dt * SPAWN_PER_SEC;
+    while (spawnAcc >= 1) { spawnAcc -= 1; puff(1); }
+
+    sctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.life += dt;
+      if (p.life >= p.maxLife) { particles.splice(i, 1); continue; }
+
+      p.wob += dt * p.wobSpd;
+      p.vy *= (1 - 0.28 * dt);                             // the plume slows as it cools
+      p.x += (p.vx + Math.sin(p.wob) * p.wobAmp) * dt;
+      p.y += p.vy * dt;
+      p.rot += p.spin * dt;
+
+      const t = p.life / p.maxLife;
+      const fadeIn = Math.min(t / 0.14, 1);                // no popping into existence
+      const r = p.size + p.grow * t;                       // and it spreads as it rises
+
+      sctx.save();
+      sctx.translate(p.x, p.y);
+      sctx.rotate(p.rot);
+      sctx.globalAlpha = p.alpha * fadeIn * Math.pow(1 - t, 1.5);
+      sctx.drawImage(puffSprite, -r, -r * 0.85, r * 2, r * 1.7);
+      sctx.restore();
+    }
+
+    sctx.globalAlpha = 1;
+  }
+
+  /* ================================================================
+     ONE LOOP FOR THE WHOLE PAGE
+     Bass detection, the flash, the visualizer and the smoke all share a
+     single requestAnimationFrame — three separate loops would triple the
+     per-frame bookkeeping for no gain.
+     ================================================================ */
+  let lastFrame = performance.now();
+
+  function frame(now) {
+    requestAnimationFrame(frame);
+
+    // capped: a background tab or a stall must not teleport the smoke
+    const dt = Math.min((now - lastFrame) / 1000, 0.1);
+    lastFrame = now;
+
+    if (analyser) {
+      analyser.getByteFrequencyData(dataArray);
+      bassAnalyser.getByteFrequencyData(bassData);
+      stepBass(now);
+    }
+    drawVisualizer();
+    stepFlash(dt);
+    stepSmoke(dt);
+  }
+
+  window.addEventListener("resize", resizeCanvas);
+  window.addEventListener("resize", layoutSmoke);
+  // the wheel's item positions are measured against its own box, and that box
+  // changes size on a narrow window — so it has to be re-laid-out on resize too
+  window.addEventListener("resize", updateWheel);
+
+  layoutSmoke();
+  resizeCanvas();
+  requestAnimationFrame(frame);
+
+  /* ================================================================
+     PLAYBACK
+     ================================================================ */
+  function formatTime(seconds) {
+    if (!isFinite(seconds) || seconds < 0) return "0:00";
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60).toString().padStart(2, "0");
+    return `${mins}:${secs}`;
+  }
+
+  function setNowPlaying(song) {
+    animateLetters(nameEl, song.name);
+    animateLetters(artistEl, song.artist);
+    nameEl.title = song.name;
+  }
+
+  function setPlayIcon(playing) {
+    playBtn.classList.toggle("playing", playing);
+    playBtn.setAttribute("aria-label", playing ? "Pause" : "Play");
+  }
+
+  function loadSong(index, autoplay) {
+    currentIndex = (index + songs.length) % songs.length;
+    const song = songs[currentIndex];
+
+    audio.src = songURL(song);
+    audio.load();
+    setNowPlaying(song);
+
+    currentTimeEl.textContent = "0:00";
+    totalTimeEl.textContent = "0:00";
+    progressFill.style.width = "0%";
+
+    setPlayIcon(false);
+
+    // whatever moved the track — Next, Previous, the end of a song, a click
+    // in the wheel — the wheel rotates to put it in the slot. tweenTo has no
+    // onArrive here, so this can never call back into selectSong and loop.
+    tweenTo(currentIndex);
+
+    if (autoplay) playAudio();
+  }
+
+  async function playAudio() {
+    initAudioGraph();
+    if (audioCtx.state === "suspended") await audioCtx.resume();
+    try {
+      await audio.play();
+      setPlayIcon(true);
+    } catch (err) {
+      console.warn("Playback was blocked:", err);
+      setPlayIcon(false);
+    }
+  }
+
+  function pauseAudio() {
+    audio.pause();
+    setPlayIcon(false);
+  }
+
+  playBtn.addEventListener("click", () => {
+    if (audio.paused) playAudio();
+    else pauseAudio();
+  });
+
+  function pickNext(step) {
+    if (shuffleOn && songs.length > 1) {
+      let n;
+      do { n = Math.floor(Math.random() * songs.length); } while (n === currentIndex);
+      return n;
+    }
+    return (currentIndex + step + songs.length) % songs.length;
+  }
+
+  nextBtn.addEventListener("click", () => loadSong(pickNext(1), true));
+
+  prevBtn.addEventListener("click", () => {
+    if (audio.currentTime > 3) { audio.currentTime = 0; return; }   // Spotify rule
+    loadSong(pickNext(-1), true);
+  });
+
+  shuffleBtn.addEventListener("click", () => {
+    shuffleOn = !shuffleOn;
+    shuffleBtn.classList.toggle("active", shuffleOn);
+  });
+
+  /* Volume. The element is routed through the AudioContext, so `audio.volume`
+     is applied on the way into the graph — it turns down what you hear *and*
+     what the analyser sees, so the flash and the visualizer follow the knob
+     instead of dancing to a track nobody can hear. */
+  function applyVolume(v) {
+    audio.volume = v;
+    volumeEl.style.setProperty("--vol", (v * 100) + "%");
+  }
+
+  volumeEl.addEventListener("input", () => applyVolume(Number(volumeEl.value)));
+  applyVolume(Number(volumeEl.value));      // sync the track fill on load
+
+  loopBtn.addEventListener("click", () => {
+    loopMode = loopMode === "all" ? "one" : loopMode === "one" ? "off" : "all";
+    loopBtn.dataset.loop = loopMode;
+    loopBtn.classList.toggle("active", loopMode !== "off");
+    loopBtn.classList.toggle("one", loopMode === "one");
+    loopBtn.setAttribute("aria-label", "Repeat: " + loopMode);
+  });
+
+  audio.addEventListener("ended", () => {
+    if (loopMode === "one") { audio.currentTime = 0; playAudio(); return; }
+    if (loopMode === "off" && !shuffleOn && currentIndex === songs.length - 1) {
+      setPlayIcon(false);
+      return;
+    }
+    loadSong(pickNext(1), true);
+  });
+
+  /* ================================================================
+     PROGRESS BAR (from music.html)
+     ================================================================ */
+  const progressFill  = document.querySelector(".progress-fill");
+  const progressBar   = document.querySelector(".progress-bar");
+  const currentTimeEl = document.getElementById("current-time");
+  const totalTimeEl   = document.getElementById("total-time");
+
+  audio.addEventListener("loadedmetadata", () => {
+    totalTimeEl.textContent = formatTime(audio.duration);
+  });
+
+  audio.addEventListener("timeupdate", () => {
+    currentTimeEl.textContent = formatTime(audio.currentTime);
+    if (isFinite(audio.duration) && audio.duration > 0) {
+      progressFill.style.width = `${(audio.currentTime / audio.duration) * 100}%`;
+    }
+  });
+
+  let draggingProgress = false;
+
+  function seekToPosition(e) {
+    if (!isFinite(audio.duration) || audio.duration <= 0) return;
+    const rect = progressBar.getBoundingClientRect();
+    const x = Math.min(Math.max(e.clientX - rect.left, 0), rect.width);
+    audio.currentTime = (x / rect.width) * audio.duration;
+  }
+
+  progressBar.addEventListener("mousedown", e => {
+    draggingProgress = true;
+    seekToPosition(e);
+  });
+
+  document.addEventListener("mousemove", e => {
+    if (draggingProgress) seekToPosition(e);
+  });
+
+  document.addEventListener("mouseup", () => { draggingProgress = false; });
+
+  progressBar.addEventListener("touchstart", e => {
+    seekToPosition(e.touches[0]);
+  }, { passive: true });
+
+  /* ================================================================
+     START — "Fuck The Girls" loaded and sitting in the wheel's active
+     slot, paused. Browsers refuse to start audio before the first
+     interaction, so the page opens ready rather than already playing:
+     one press of the ring and it goes.
+     ================================================================ */
+  loadSong(0, false);
+  position = 0;
+  updateWheel();
+  </script>
+
+</body>
+</html>
