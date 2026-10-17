@@ -482,10 +482,13 @@
        and then it holds its final frame. The photograph only takes over on the
        next song change. Muted: the page's track is the sound. No autoplay — it
        stays paused until a song is played. -->
-  <video id="vid" src="model/hunter_video.mp4" muted playsinline preload="auto" aria-hidden="true"></video>
+  <video id="vid" src="model/hunter_5.mp4" muted playsinline preload="auto" aria-hidden="true"></video>
 
-  <!-- The photograph is NOT in the page at this point — it is created by the
-       script on the first song change, so the page opens on the video alone. -->
+  <!-- The photograph, hidden until the first song change. It stays in the
+       document rather than being created on demand — simpler, and it cannot
+       fail to appear when the moment comes. -->
+  <img id="still" src="model/mob_hunter.png"
+       alt="Mr. Sad Sick in a red fedora, smoking a cigar">
 
   <!-- the two cut slabs: one triangle off the top-left corner, one off the
        bottom-right, with the diagonal band between them left in black and white -->
@@ -922,7 +925,7 @@
      ================================================================ */
   const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  const BASS_RISE  = 1.2;      // must beat the running average by this much …
+  const BASS_RISE  = 1.25;      // must beat the running average by this much …
   const BASS_FLOOR = 14;       // … and clear this level, so quiet passages never flash
   const BASS_ATTACK  = 0.02;   // how fast the average climbs — slow, ≈0.8s to catch up
   const BASS_RELEASE = 0.006;  // and how fast it lets go — slower still
@@ -933,9 +936,9 @@
      stronger one — SHAKE_RISE above the running average — also shakes the
      scene. So the flash covers ordinary kicks and the shake is reserved for
      the genuinely heavy ones. */
-  const SHAKE_RISE = 1.4;      // a hit this far above the average shakes …
-  const SHAKE_PX   = 7;        // … by up to this many pixels
-  const SHAKE_ZOOM = 0.02;     // and the scene is zoomed this much while it does,
+  const SHAKE_RISE = 1.5;      // a hit this far above the average shakes …
+  const SHAKE_PX   = 2;        // … by up to this many pixels
+  const SHAKE_ZOOM = 0.01;     // and the scene is zoomed this much while it does,
                                //    so the shake can never expose an edge
 
   const sceneEl = document.getElementById("scene");
@@ -1030,12 +1033,10 @@
 
   const vid      = document.getElementById("vid");
 
-  /* The photograph is not in the document until the first song change — the
-     page opens on the video alone. It is still fetched now, off-page, so that
-     the moment it is needed it appears instantly instead of loading. */
-  let stillEl = null;
-  const stillPreload = new Image();
-  stillPreload.src = "model/mob_hunter.png";
+  /* The photograph sits in the document from the start but stays hidden (see
+     `#still { display: none }`); the video owns the stage until a song change
+     adds the `photo` class to the body. */
+  const stillEl = document.getElementById("still");
 
   const shardCanvases = [
     document.getElementById("shardCanvasA"),
@@ -1123,7 +1124,7 @@
       if (vid.readyState >= 2 && vid.videoWidth) {
         drawCover(ctx, cv, vid, vid.videoWidth, vid.videoHeight);
       }
-    } else if (stillEl && stillEl.complete && stillEl.naturalWidth) {
+    } else if (stillEl.complete && stillEl.naturalWidth) {
       drawCover(ctx, cv, stillEl, stillEl.naturalWidth, stillEl.naturalHeight);
     }
   }
@@ -1134,19 +1135,9 @@
   }
 
   /* The photograph takes the stage — used by the first song change and by the
-     fallback if the video cannot play at all. This is where the <img> is
-     created: it does not exist in the page before this call, so there is no
-     image in the reload state at all. */
+     fallback if the video cannot play at all. The image is already in the
+     document and simply hidden; this reveals it. */
   function showPhotograph() {
-    if (!stillEl) {
-      stillEl = document.createElement("img");
-      stillEl.id = "still";
-      stillEl.alt = "Mr. Sad Sick in a red fedora, smoking a cigar";
-      // the image may still be finishing its fetch; repaint when it lands
-      stillEl.addEventListener("load", () => { stageDirty = true; });
-      stillEl.src = "model/mob_hunter.png";
-      document.body.insertBefore(stillEl, document.getElementById("cutLayer"));
-    }
     videoActive = false;
     stageDirty = true;
     document.body.classList.add("photo");
@@ -1172,8 +1163,8 @@
     showPhotograph();
   });
 
-  // the off-page preload guarantees the still is ready the instant it is needed
-  stillPreload.addEventListener("load", () => { stageDirty = true; });
+  // if the image finishes decoding late, make sure the shards repaint
+  stillEl.addEventListener("load", () => { stageDirty = true; });
 
   // the plume belongs to the photograph only
   function setSmokeOn(on) {
