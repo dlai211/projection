@@ -42,9 +42,9 @@
     /* ---------- the stage: the video, or the photograph ---------- */
 
     /* Both sources are plain elements, and the browser renders whichever one is
-       on duty. That matters for the reload state: the paused video is displayed
-       by the video element itself, not blitted into a canvas, so it cannot fail
-       to show up. The cut shards are canvases that draw from whichever element
+       on duty. That matters for the reload state: the video is displayed by the
+       video element itself, not blitted into a canvas, so it cannot fail to
+       show up. The cut shards are canvases that draw from whichever element
        this class is showing. */
     #vid, #still {
       position: fixed;
@@ -465,9 +465,14 @@
 
   <!-- The video is the stage from the moment the page opens until it plays out,
        and then it holds its final frame. The photograph only takes over on the
-       next song change. Muted: the page's track is the sound. No autoplay — it
-       stays paused until a song is played. -->
-  <video id="vid" src="model/hunter_video.mp4" muted playsinline preload="auto" aria-hidden="true"></video>
+       next song change. Muted: the page's track is the sound.
+
+       It autoplays. A *paused* video could not be told apart from the photo —
+       its opening frame is the same shot — so the only way to show that the page
+       opens on the video is to let it run. The music still waits for the play
+       button; only the picture moves. -->
+  <video id="vid" src="model/hunter_video.mp4" muted playsinline preload="auto"
+         autoplay aria-hidden="true"></video>
 
   <!-- the photograph, waiting its turn: hidden until the first song change -->
   <img id="still" src="model/mob_hunter.png"
@@ -1432,8 +1437,8 @@
       await audio.play();
       setPlayIcon(true);
 
-      /* The video waits for exactly this moment: it has sat paused since the
-         page loaded, and now it runs once and hands the stage to the photo. */
+      /* The video starts by itself on load. This is the fallback for a browser
+         that refused that autoplay — a click is always allowed to start it. */
       if (videoActive && vid.paused) vid.play().catch(() => {});
 
       triggerCut();          // every start of playback cuts the stage open
