@@ -39,6 +39,15 @@
       user-select: none;
     }
 
+    /* The shake wrapper. Exactly the viewport, so every fixed child inside it
+       lands in the same place it would have; JS writes the transform only when
+       a hit is strong enough to shake. */
+    #scene {
+      position: fixed;
+      inset: 0;
+      will-change: transform;
+    }
+
     /* ---------- the stage: the video, or the photograph ---------- */
 
     /* Both sources are plain elements, and the browser renders whichever one is
@@ -463,6 +472,12 @@
 </head>
 <body>
 
+  <!-- Everything visual lives in here so a heavy bass hit can shake the whole
+       scene as one piece. A transform on this wrapper is also what makes the
+       fixed children position against it — and because it is exactly the
+       viewport, nothing moves when the transform is none. -->
+  <div id="scene">
+
   <!-- The video is the stage from the moment the page opens until it plays out,
        and then it holds its final frame. The photograph only takes over on the
        next song change. Muted: the page's track is the sound. No autoplay — it
@@ -570,6 +585,8 @@
   </div>
 
   <audio id="audio"></audio>
+
+  </div><!-- /#scene -->
 
   <script>
   /* ================================================================
@@ -912,6 +929,18 @@
   const COOLDOWN = 190;        // ms between flashes: one flash per hit, never a strobe
   const PEAK = REDUCED ? 0.05 : 0.12;   // the ceiling from --flash-peak
 
+  /* The second tier. A hit has to clear BASS_RISE to flash at all, and a
+     stronger one — SHAKE_RISE above the running average — also shakes the
+     scene. So the flash covers ordinary kicks and the shake is reserved for
+     the genuinely heavy ones. */
+  const SHAKE_RISE = 1.4;      // a hit this far above the average shakes …
+  const SHAKE_PX   = 7;        // … by up to this many pixels
+  const SHAKE_ZOOM = 0.02;     // and the scene is zoomed this much while it does,
+                               //    so the shake can never expose an edge
+
+  const sceneEl = document.getElementById("scene");
+  let shake = 0, shakeDrawn = false;
+
   let bassAvg = 0, lastFlashAt = -1e9, flashLevel = 0, flashDrawn = false;
 
   /* Tuned against a kick-drum model rather than by ear: at 128bpm this fires
@@ -928,13 +957,40 @@
     // re-arming the trigger on its own.
     bassAvg += (energy - bassAvg) * (energy > bassAvg ? BASS_ATTACK : BASS_RELEASE);
 
-    if (bassAvg > BASS_FLOOR && energy > bassAvg * BASS_RISE && now - lastFlashAt > COOLDOWN) {
+    const ratio = bassAvg > 0 ? energy / bassAvg : 0;
+
+    if (bassAvg > BASS_FLOOR && ratio > BASS_RISE && now - lastFlashAt > COOLDOWN) {
       lastFlashAt = now;
-      const over = Math.min((energy / bassAvg - BASS_RISE) / 2.2, 1);   // 0 = just over, 1 = way over
+      const over = Math.min((ratio - BASS_RISE) / 2.2, 1);   // 0 = just over, 1 = way over
       flashLevel = Math.max(flashLevel, PEAK * (0.5 + 0.5 * over));
       punch = Math.max(punch, 0.55 + 0.45 * over);   // and the strip jumps with it
+
+      // the heavy tier: same hit, but hard enough to move the whole scene
+      if (!REDUCED && ratio >= SHAKE_RISE) {
+        shake = Math.max(shake, 0.5 + 0.5 * Math.min((ratio - SHAKE_RISE) / 1.5, 1));
+      }
+
       puff(3, 1.5);            // the cigar gives a little puff on the hit
     }
+  }
+
+  function stepShake(dt) {
+    if (shake <= 0.001) {
+      if (shakeDrawn) { sceneEl.style.transform = ""; shakeDrawn = false; }
+      return;
+    }
+
+    shake *= Math.exp(-dt / 0.11);          // gone in about a third of a second
+
+    const amp = shake * SHAKE_PX;
+    const dx = (Math.random() * 2 - 1) * amp;
+    const dy = (Math.random() * 2 - 1) * amp;
+
+    // the zoom shrinks with the shake, so the scene settles back exactly to rest
+    sceneEl.style.transform =
+      `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) ` +
+      `scale(${(1 + SHAKE_ZOOM * shake).toFixed(4)})`;
+    shakeDrawn = true;
   }
 
   function stepFlash(dt) {
@@ -1371,6 +1427,7 @@
     }
     drawVisualizer();
     stepFlash(dt);
+    stepShake(dt);
     stepCut(dt);
     stepSmoke(dt);
   }
