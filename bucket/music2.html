@@ -52,7 +52,42 @@
       z-index: 0;
       pointer-events: none;
       -webkit-user-drag: none;
+      /* the cut effect drains the colour out of this layer … */
+      transition: filter 0.7s ease;
     }
+
+    /* … while these two slabs keep it. Each is a full-window copy of the same
+       photo, clipped to a triangle and slid along the light's normal, so the
+       colour corners lift off the black-and-white print underneath. */
+    /* drained, and pushed a little darker and harder than a plain greyscale —
+       the colour slabs need something to sit against */
+    body.bw #bg { filter: grayscale(1) brightness(0.86) contrast(1.14); }
+
+    /* Hidden at rest: the slabs then sit pixel-on-pixel over the photo, and
+       hiding them is what guarantees a sub-pixel difference between an <img>
+       and a background-image can never show up as a seam along the cut. */
+    #cutLayer {
+      position: fixed;
+      inset: 0;
+      z-index: 3;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+
+    #cutLayer.active { opacity: 1; }
+
+    .shard { position: fixed; inset: 0; will-change: transform; }
+
+    /* the clip lives on the inner box: a filter and a clip-path on the *same*
+       element would clip the drop shadow away with everything else */
+    .shard-fill {
+      position: absolute;
+      inset: 0;
+      background-repeat: no-repeat;
+    }
+
+    .shard { filter: drop-shadow(0 10px 26px rgba(0, 0, 0, 0.75)); }
 
     /* the cigar smoke — a transparent canvas laid over the photo, nothing else */
     #smoke {
@@ -420,6 +455,13 @@
        repeats that exact same maths, so the two can never drift apart. -->
   <img id="bg" src="model/mob_hunter.png" alt="Mr. Sad Sick in a red fedora, smoking a cigar">
 
+  <!-- the two cut slabs: one triangle off the top-left corner, one off the
+       bottom-right, with the diagonal band between them left in black and white -->
+  <div id="cutLayer">
+    <div class="shard" id="shardA"><div class="shard-fill"></div></div>
+    <div class="shard" id="shardB"><div class="shard-fill"></div></div>
+  </div>
+
   <!-- cigar smoke, drawn on top of the photo -->
   <canvas id="smoke"></canvas>
 
@@ -741,13 +783,23 @@
   const canvas = document.getElementById("visualizer");
   const ctx = canvas.getContext("2d");
 
-  const BARS     = 384;    // how many mirrored bars
-  const LINE_W   = 2;      // bar thickness (a ceiling: bars thin out if slots get tight)
-  const BAR_FILL = 0.7;    // share of a slot a bar may occupy
-  const BAR_GAIN = 0.1;    // amplitude multiplier — the dial for "how tall"
-  const MAX_BAR  = 1.0;    // hard ceiling, as a fraction of the canvas half-height
-  const CUTOFF   = 0.25;   // a bin draws only if it beats this fraction of the loudest bin
-  const GLOW     = 3;      // px of dark halo behind each bar, for legibility
+  /* Turned up for this page: a low CUTOFF lets almost everything draw, the
+     gain is nearly doubled, and MAX_BAR is over 1 so a hard hit can push a bar
+     past the top of the strip and clip — which is where the aggression lives. */
+  const BARS     = 448;    // how many mirrored bars
+  const LINE_W   = 3;      // bar thickness (a ceiling: bars thin out if slots get tight)
+  const BAR_FILL = 0.82;   // share of a slot a bar may occupy
+  const BAR_GAIN = 0.16;   // amplitude multiplier — the dial for "how tall"
+  const MAX_BAR  = 1.05;   // hard ceiling, as a fraction of the canvas half-height
+  const CUTOFF   = 0.12;   // a bin draws only if it beats this fraction of the loudest bin
+  const GLOW     = 4;      // px of dark halo behind each bar, for legibility
+
+  /* The strip's own kick: on a bass hit the baseline drops and every bar
+     stretches a little, then both spring back. Drawn into the canvas rather
+     than applied as a CSS transform, so the bars stay crisp while they move. */
+  let punch = 0;
+  const PUNCH_DROP = 7;    // px the baseline falls at full punch
+  const PUNCH_STRETCH = 0.18;
 
   let step = 0, lineW = LINE_W, cssW = 0, cssH = 0;
 
@@ -783,7 +835,7 @@
     ctx.clearRect(0, 0, cssW, cssH);
     if (!analyser) return;
 
-    const mid = cssH / 2;
+    const mid = cssH / 2 + punch * PUNCH_DROP;
 
     // the centre baseline is always there — the axis the bars grow from
     ctx.shadowBlur = 0;
@@ -810,7 +862,7 @@
       const value = dataArray[binMap[i]];
       if (value <= cutoff) continue;
 
-      let h = (value - cutoff) * BAR_GAIN;
+      let h = (value - cutoff) * BAR_GAIN * (1 + punch * PUNCH_STRETCH);
       if (h > maxH) h = maxH;
 
       const x = i * step + step / 2;
@@ -863,11 +915,14 @@
       lastFlashAt = now;
       const over = Math.min((energy / bassAvg - BASS_RISE) / 2.2, 1);   // 0 = just over, 1 = way over
       flashLevel = Math.max(flashLevel, PEAK * (0.5 + 0.5 * over));
+      punch = Math.max(punch, 0.55 + 0.45 * over);   // and the strip jumps with it
       puff(3, 1.5);            // the cigar gives a little puff on the hit
     }
   }
 
   function stepFlash(dt) {
+    punch *= Math.exp(-dt / 0.085);       // quicker than the wash: a snap, not a swell
+
     if (flashLevel <= 0.0008) {
       if (flashDrawn) { flashEl.style.opacity = "0"; flashDrawn = false; }
       return;
@@ -901,6 +956,7 @@
   const sctx = smokeCanvas.getContext("2d");
 
   let coverScale = 1, anchorX = 0, anchorY = 0;
+  let baseAnchorX = 0, baseAnchorY = 0;     // before the slab the cigar sits on lifts
 
   // A soft round blob, drawn once and stamped for every particle — far
   // cheaper than building a radial gradient per particle per frame.
@@ -918,14 +974,21 @@
     return c;
   })();
 
-  function layoutSmoke() {
+  /* Everything that has to line up with the photograph — the smoke anchor and
+     the two cut slabs — is positioned from this one function, so they can
+     never disagree about where the photo ended up. */
+  function layoutStage() {
     const vw = window.innerWidth, vh = window.innerHeight;
 
     // identical to `object-fit: cover` + `object-position: 50% 50%`
     coverScale = Math.max(vw / IMG_W, vh / IMG_H);
     const drawW = IMG_W * coverScale, drawH = IMG_H * coverScale;
-    anchorX = (vw - drawW) / 2 + TIP_X * drawW;
-    anchorY = (vh - drawH) / 2 + TIP_Y * drawH;
+    const ox = (vw - drawW) / 2, oy = (vh - drawH) / 2;
+
+    baseAnchorX = ox + TIP_X * drawW;
+    baseAnchorY = oy + TIP_Y * drawH;
+
+    layoutCut(vw, vh, drawW, drawH, ox, oy);
 
     // The smoke is soft-edged, so 1.5x is plenty and saves a lot of fill
     // rate on a 4K screen.
@@ -933,6 +996,123 @@
     smokeCanvas.width  = Math.round(vw * dpr);
     smokeCanvas.height = Math.round(vh * dpr);
     sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  /* ================================================================
+     THE CUT
+     Two parallel cuts, drawn in the photo's own light direction — the sun
+     in mob_hunter.png runs up and to the right at about 52° — take a
+     triangle off the top-left corner and another off the bottom-right.
+     The diagonal band left between them drains to black and white; the two
+     colour triangles lift off it.
+
+     The cuts are placed in screen pixels but at the photo's angle, and
+     because `cover` scales the photo uniformly that angle survives any
+     crop — so the cuts keep following the sunlight at every window size.
+     ================================================================ */
+  const CUT_ANGLE_DEG = 52;    // the sunlight's angle in the photo — nudge to taste
+  const CUT_LEG  = 0.6;        // each triangle's vertical leg, as a fraction of frame height
+  const CUT_LIFT = 0.032;      // how far a slab rises, as a fraction of frame height
+
+  const CUT_ANGLE = CUT_ANGLE_DEG * Math.PI / 180;
+  const CUT_SIN = Math.sin(CUT_ANGLE), CUT_COS = Math.cos(CUT_ANGLE);
+
+  const cutLayer = document.getElementById("cutLayer");
+  const shardEls = [document.getElementById("shardA"), document.getElementById("shardB")];
+  let cutSegs = [[], []];      // the two cut edges, for the highlight drawn on the canvas
+  let tipShard = -1;           // which slab the cigar tip sits on, if either
+
+  function layoutCut(vw, vh, drawW, drawH, ox, oy) {
+    const tan = CUT_SIN / CUT_COS;
+
+    let leg = CUT_LEG * vh;                 // down the left / right edge
+    let run = leg / tan;                    // across the top / bottom edge
+    if (run > 0.8 * vw) { run = 0.8 * vw; leg = run * tan; }   // very narrow windows
+
+    const polys = [
+      [[0, 0], [run, 0], [0, leg]],                    // top-left triangle
+      [[vw, vh], [vw - run, vh], [vw, vh - leg]]       // bottom-right triangle
+    ];
+
+    shardEls.forEach((shard, i) => {
+      const fill = shard.firstElementChild;
+      fill.style.backgroundImage = 'url("model/mob_hunter.png")';
+      fill.style.backgroundSize = `${drawW}px ${drawH}px`;
+      fill.style.backgroundPosition = `${ox}px ${oy}px`;
+      fill.style.clipPath =
+        "polygon(" + polys[i].map(p => `${p[0]}px ${p[1]}px`).join(",") + ")";
+    });
+
+    // the two cut edges, each from its top/right end to its left/bottom end
+    cutSegs = [
+      [[run, 0], [0, leg]],
+      [[vw - run, vh], [vw, vh - leg]]
+    ];
+
+    // Which slab holds the cigar tip — the smoke has to ride that slab when
+    // it lifts, or the plume would tear away from the cigar.
+    tipShard = pointInTri(baseAnchorX, baseAnchorY, polys[0]) ? 0
+             : pointInTri(baseAnchorX, baseAnchorY, polys[1]) ? 1 : -1;
+
+    // The lift is measured in pixels, so a resize changes it even while the
+    // effect is holding still — this drops applyCut's "nothing moved" guard
+    // for one frame so the new distance is actually written out.
+    lastK = -1;
+  }
+
+  function pointInTri(px, py, t) {
+    const [a, b, c] = t;
+    const d = (b[1] - c[1]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[1] - c[1]);
+    const u = ((b[1] - c[1]) * (px - c[0]) + (c[0] - b[0]) * (py - c[1])) / d;
+    const v = ((c[1] - a[1]) * (px - c[0]) + (a[0] - c[0]) * (py - c[1])) / d;
+    return u >= 0 && v >= 0 && u + v <= 1;
+  }
+
+  /* ---- the timeline: out, hold, back ---- */
+  const CUT_OUT = 0.6, CUT_HOLD = 4.4, CUT_BACK = 0.9;
+  const CUT_TOTAL = CUT_OUT + CUT_HOLD + CUT_BACK;
+
+  let cutT = -1;                        // -1 = at rest
+  let cutK = 0;                         // 0 = home, 1 = fully lifted
+  let cutLiftX = 0, cutLiftY = 0;       // how far the cigar's slab has moved
+
+  function easeInOut(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  }
+
+  function triggerCut() {
+    cutT = 0;
+    cutLayer.classList.add("active");
+  }
+
+  function stepCut(dt) {
+    if (cutT < 0) return;
+    cutT += dt;
+
+    let k;
+    if (cutT < CUT_OUT)                 k = 1 - Math.pow(1 - cutT / CUT_OUT, 3);
+    else if (cutT < CUT_OUT + CUT_HOLD) k = 1;
+    else if (cutT < CUT_TOTAL)          k = 1 - easeInOut((cutT - CUT_OUT - CUT_HOLD) / CUT_BACK);
+    else { cutT = -1; k = 0; cutLayer.classList.remove("active"); }
+
+    applyCut(k);
+  }
+
+  let lastK = -1;
+
+  function applyCut(k) {
+    if (k === lastK) return;            // no DOM writes on a frame where nothing moved
+    lastK = k;
+    cutK = k;
+    document.body.classList.toggle("bw", k > 0.001);
+
+    const lift = k * CUT_LIFT * window.innerHeight;
+    shardEls[0].style.transform = `translate(${-lift * CUT_SIN}px, ${-lift * CUT_COS}px)`;
+    shardEls[1].style.transform = `translate(${ lift * CUT_SIN}px, ${ lift * CUT_COS}px)`;
+
+    const dir = tipShard === 0 ? -1 : tipShard === 1 ? 1 : 0;
+    cutLiftX = dir * lift * CUT_SIN;
+    cutLiftY = dir * lift * CUT_COS;
   }
 
   const particles = [];
@@ -964,6 +1144,10 @@
   }
 
   function stepSmoke(dt) {
+    // the emitter rides the slab the cigar is printed on
+    anchorX = baseAnchorX + cutLiftX;
+    anchorY = baseAnchorY + cutLiftY;
+
     spawnAcc += dt * SPAWN_PER_SEC;
     while (spawnAcc >= 1) { spawnAcc -= 1; puff(1); }
 
@@ -993,6 +1177,33 @@
     }
 
     sctx.globalAlpha = 1;
+    drawCutEdges();
+  }
+
+  /* A thin line of light along each cut, riding the lifted edge — it is what
+     makes the gap read as a cut through the print rather than as a gap. */
+  function drawCutEdges() {
+    if (cutK < 0.002) return;
+
+    const lift = cutK * CUT_LIFT * window.innerHeight;
+    const signs = [-1, 1];
+
+    for (let pass = 0; pass < 2; pass++) {
+      sctx.lineWidth = pass === 0 ? 5 : 1.6;
+      sctx.strokeStyle = pass === 0
+        ? `rgba(255, 255, 255, ${0.10 * cutK})`      // soft bloom …
+        : `rgba(255, 255, 255, ${0.65 * cutK})`;     // … over a crisp line
+      sctx.lineCap = "round";
+
+      for (let i = 0; i < 2; i++) {
+        const dx = signs[i] * lift * CUT_SIN;
+        const dy = signs[i] * lift * CUT_COS;
+        sctx.beginPath();
+        sctx.moveTo(cutSegs[i][0][0] + dx, cutSegs[i][0][1] + dy);
+        sctx.lineTo(cutSegs[i][1][0] + dx, cutSegs[i][1][1] + dy);
+        sctx.stroke();
+      }
+    }
   }
 
   /* ================================================================
@@ -1006,8 +1217,11 @@
   function frame(now) {
     requestAnimationFrame(frame);
 
-    // capped: a background tab or a stall must not teleport the smoke
-    const dt = Math.min((now - lastFrame) / 1000, 0.1);
+    // Capped and clamped. Capped, so a background tab or a stall cannot
+    // teleport the smoke; clamped at zero because the first frame's timestamp
+    // can predate the performance.now() that seeded lastFrame, and a negative
+    // dt would run every timer on this page backwards.
+    const dt = Math.min(Math.max((now - lastFrame) / 1000, 0), 0.1);
     lastFrame = now;
 
     if (analyser) {
@@ -1017,16 +1231,17 @@
     }
     drawVisualizer();
     stepFlash(dt);
+    stepCut(dt);
     stepSmoke(dt);
   }
 
   window.addEventListener("resize", resizeCanvas);
-  window.addEventListener("resize", layoutSmoke);
+  window.addEventListener("resize", layoutStage);
   // the wheel's item positions are measured against its own box, and that box
   // changes size on a narrow window — so it has to be re-laid-out on resize too
   window.addEventListener("resize", updateWheel);
 
-  layoutSmoke();
+  layoutStage();
   resizeCanvas();
   requestAnimationFrame(frame);
 
@@ -1079,6 +1294,7 @@
     try {
       await audio.play();
       setPlayIcon(true);
+      triggerCut();          // every start of playback cuts the photo open
     } catch (err) {
       console.warn("Playback was blocked:", err);
       setPlayIcon(false);
