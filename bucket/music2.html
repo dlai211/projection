@@ -905,7 +905,7 @@
      ================================================================ */
   const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  const BASS_RISE  = 1.45;     // must beat the running average by this much …
+  const BASS_RISE  = 1.2;      // must beat the running average by this much …
   const BASS_FLOOR = 14;       // … and clear this level, so quiet passages never flash
   const BASS_ATTACK  = 0.02;   // how fast the average climbs — slow, ≈0.8s to catch up
   const BASS_RELEASE = 0.006;  // and how fast it lets go — slower still
