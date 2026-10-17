@@ -465,9 +465,10 @@
 </head>
 <body>
 
-  <!-- The video is the stage from the moment the page opens until it finishes;
-       after that the photograph takes over. Muted: the page's track is the
-       sound. No autoplay — it stays paused until a song is clicked. -->
+  <!-- The video is the stage from the moment the page opens until it plays out,
+       and then it holds its final frame. The photograph only takes over on the
+       next song change. Muted: the page's track is the sound. No autoplay — it
+       stays paused until a song is played. -->
   <video id="vid" src="model/hunter_video.mp4" muted playsinline preload="auto" aria-hidden="true"></video>
 
   <!-- the stage: whichever of the two sources is on screen, drawn cover-fit.
@@ -987,10 +988,12 @@
   const bgImg = new Image();
   bgImg.src = "model/mob_hunter.png";
 
-  /* Which source owns the stage. The video holds it from reload until it
-     finishes; after that the photograph does, and every later cut effect is
-     taken from the photograph — exactly the page that existed before. */
+  /* Which source owns the stage. The video holds it from reload until it plays
+     out, and then keeps it — frozen on the final frame — until a song changes.
+     From that song change on the photograph owns it, and every cut effect after
+     that is taken from the photograph, exactly the page that existed before. */
   let videoActive = true;
+  let videoEnded  = false;                  // it has played out and holds its last frame
   let stageDirty  = true;                   // the stage canvases need repainting
   let smokeOn     = false;                  // the plume is the photograph's
 
@@ -1093,12 +1096,11 @@
   vid.addEventListener("seeked",     () => { stageDirty = true; });
 
   vid.addEventListener("ended", () => {
-    /* The video is done. The photograph takes the stage from here on and the
-       plume comes back with it. Hard cut, as asked — the two shots differ, so
-       there is no pretending it is a dissolve. */
-    videoActive = false;
-    stageDirty = true;
-    setSmokeOn(true);
+    /* The video is done, and it holds its last frame — the stage does NOT cut
+       to the photograph here. The frozen shot stays until the next song change;
+       that is the moment the still (and its plume) takes back over. */
+    videoEnded = true;
+    stageDirty = true;            // one repaint, so the very last frame lands exactly
   });
 
   vid.addEventListener("error", () => {
@@ -1403,6 +1405,15 @@
   function loadSong(index, autoplay) {
     currentIndex = (index + songs.length) % songs.length;
     const song = songs[currentIndex];
+
+    /* The first song change after the video has played out is where the
+       photograph takes the stage — and with it the cigar plume. Until then the
+       video's frozen last frame is what the page shows. */
+    if (videoEnded && videoActive) {
+      videoActive = false;
+      stageDirty = true;
+      setSmokeOn(true);
+    }
 
     audio.src = songURL(song);
     audio.load();
