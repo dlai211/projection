@@ -1097,16 +1097,10 @@
     setSmokeOn(true);
   }
 
-  /* ---- the video's side of the bargain ---- */
-  let loadCutFired = false;
-
-  function firstStageFrame() {
-    if (loadCutFired) return;
-    loadCutFired = true;
-    triggerCut();            // the page opens on the cut, taken from the video
-  }
-
-  vid.addEventListener("loadeddata", () => { stageDirty = true; firstStageFrame(); });
+  /* ---- the video's side of the bargain ----
+     The page opens on the video with no cut effect: the effect belongs to
+     playback (a play press or a song change), never to the load. */
+  vid.addEventListener("loadeddata", () => { stageDirty = true; });
   vid.addEventListener("seeked",     () => { stageDirty = true; });
 
   vid.addEventListener("ended", () => {
@@ -1120,15 +1114,10 @@
   vid.addEventListener("error", () => {
     // no video? fall back to the photograph and run the page as it was
     showPhotograph();
-    firstStageFrame();
   });
 
-  // the off-page preload is what guarantees the still is ready the instant it
-  // is needed; it is also the fallback trigger if the video never plays
-  stillPreload.addEventListener("load", () => {
-    stageDirty = true;
-    if (!videoActive) firstStageFrame();
-  });
+  // the off-page preload guarantees the still is ready the instant it is needed
+  stillPreload.addEventListener("load", () => { stageDirty = true; });
 
   // the plume belongs to the photograph only
   function setSmokeOn(on) {
