@@ -39,38 +39,36 @@
       user-select: none;
     }
 
-    /* ---------- the stage: the photograph, or the video's frames ---------- */
+    /* ---------- the stage: the video, or the photograph ---------- */
 
-    /* One canvas rather than an <img>, because the page now has two possible
-       sources — the photo and the video — and the cut shards have to show
-       whichever one is on screen. A canvas can be drawn from either. */
-    #stage {
+    /* Both sources are plain elements, and the browser renders whichever one is
+       on duty. That matters for the reload state: the paused video is displayed
+       by the video element itself, not blitted into a canvas, so it cannot fail
+       to show up. The cut shards are canvases that draw from whichever element
+       this class is showing. */
+    #vid, #still {
       position: fixed;
       inset: 0;
       width: 100%;
       height: 100%;
+      object-fit: cover;
+      object-position: 50% 50%;        /* must stay centred: the smoke anchor
+                                          and the cut geometry assume it */
       z-index: 0;
       pointer-events: none;
       /* the cut effect drains the colour out of this layer … */
       transition: filter 0.7s ease;
     }
 
-    /* the video itself is never seen: its frames are drawn into #stage (and
-       into the cut shards). Muted, because the page's own track is the sound. */
-    #vid {
-      position: fixed;
-      top: 0;
-      left: -4px;
-      width: 2px;
-      height: 2px;
-      opacity: 0;
-      pointer-events: none;
-    }
+    #still { display: none; }          /* the video owns the stage first */
+    body.photo #still { display: block; }
+    body.photo #vid   { display: none; }
 
-    /* drained, and pushed a little darker and harder than a plain greyscale —
+    /* … drained, and pushed a little darker and harder than a plain greyscale —
        the colour slabs need something to sit against. The shards below are
        separate layers, so they keep their colour while this one loses it. */
-    body.bw #stage { filter: grayscale(1) brightness(0.86) contrast(1.14); }
+    body.bw #vid,
+    body.bw #still { filter: grayscale(1) brightness(0.86) contrast(1.14); }
 
     /* Hidden at rest: the slabs then sit pixel-on-pixel over the stage, and
        hiding them is what guarantees a sub-pixel difference between the two
@@ -471,10 +469,9 @@
        stays paused until a song is played. -->
   <video id="vid" src="model/hunter_video.mp4" muted playsinline preload="auto" aria-hidden="true"></video>
 
-  <!-- the stage: whichever of the two sources is on screen, drawn cover-fit.
-       One canvas, because the cut shards below draw from the same source. -->
-  <canvas id="stage" role="img"
-          aria-label="Mr. Sad Sick in a red fedora, smoking a cigar"></canvas>
+  <!-- the photograph, waiting its turn: hidden until the first song change -->
+  <img id="still" src="model/mob_hunter.png"
+       alt="Mr. Sad Sick in a red fedora, smoking a cigar">
 
   <!-- the two cut slabs: one triangle off the top-left corner, one off the
        bottom-right, with the diagonal band between them left in black and white -->
@@ -976,17 +973,13 @@
   const smokeCanvas = document.getElementById("smoke");
   const sctx = smokeCanvas.getContext("2d");
 
-  const vid         = document.getElementById("vid");
-  const stageCanvas = document.getElementById("stage");
-  const stageCtx    = stageCanvas.getContext("2d");
+  const vid      = document.getElementById("vid");
+  const stillEl  = document.getElementById("still");
   const shardCanvases = [
     document.getElementById("shardCanvasA"),
     document.getElementById("shardCanvasB")
   ];
   const shardCtxs = shardCanvases.map(c => c.getContext("2d"));
-
-  const bgImg = new Image();
-  bgImg.src = "model/mob_hunter.png";
 
   /* Which source owns the stage. The video holds it from reload until it plays
      out, and then keeps it — frozen on the final frame — until a song changes.
@@ -994,7 +987,7 @@
      that is taken from the photograph, exactly the page that existed before. */
   let videoActive = true;
   let videoEnded  = false;                  // it has played out and holds its last frame
-  let stageDirty  = true;                   // the stage canvases need repainting
+  let stageDirty  = true;                   // the cut shards need repainting
   let smokeOn     = false;                  // the plume is the photograph's
 
   let coverScale = 1, anchorX = 0, anchorY = 0;
@@ -1033,13 +1026,13 @@
     layoutCut(vw, vh);
 
     // The smoke is soft-edged, so 1.5x is plenty and saves a lot of fill
-    // rate on a 4K screen. The stage and the shards get the same treatment.
+    // rate on a 4K screen. The shards get the same treatment.
     const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     smokeCanvas.width  = Math.round(vw * dpr);
     smokeCanvas.height = Math.round(vh * dpr);
     sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    [stageCanvas, ...shardCanvases].forEach(cv => {
+    shardCanvases.forEach(cv => {
       cv.width  = Math.round(vw * dpr);
       cv.height = Math.round(vh * dpr);
       cv.getContext("2d").setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1049,12 +1042,11 @@
   }
 
   /* ================================================================
-     PAINTING THE STAGE
-     The photograph and the video are drawn with exactly the same cover-fit
-     maths, into whichever canvas asks for it — the stage itself, or either
-     of the two cut shards. That shared function is what lets the shards
-     carry the video during the intro and the photograph afterwards, with no
-     second implementation to drift out of step.
+     PAINTING THE SHARDS
+     The stage itself is an element the browser renders (the video or the
+     photograph). Only the two cut slabs are canvases, and they draw from
+     whichever element is on duty — same cover-fit maths either way, so the
+     slabs carry the video during the intro and the photograph afterwards.
      ================================================================ */
   function drawCover(ctx, cv, src, sw, sh) {
     if (!sw || !sh) return;
@@ -1069,18 +1061,23 @@
       if (vid.readyState >= 2 && vid.videoWidth) {
         drawCover(ctx, cv, vid, vid.videoWidth, vid.videoHeight);
       }
-    } else if (bgImg.complete && bgImg.naturalWidth) {
-      drawCover(ctx, cv, bgImg, bgImg.naturalWidth, bgImg.naturalHeight);
+    } else if (stillEl.complete && stillEl.naturalWidth) {
+      drawCover(ctx, cv, stillEl, stillEl.naturalWidth, stillEl.naturalHeight);
     }
   }
 
-  function paintStage() {
-    paintInto(stageCtx, stageCanvas);
-    // the shards only need content while the cut is actually showing
-    if (cutT >= 0) {
-      paintInto(shardCtxs[0], shardCanvases[0]);
-      paintInto(shardCtxs[1], shardCanvases[1]);
-    }
+  function paintShards() {
+    paintInto(shardCtxs[0], shardCanvases[0]);
+    paintInto(shardCtxs[1], shardCanvases[1]);
+  }
+
+  /* the photograph takes the stage — used by the first song change and by the
+     fallback if the video cannot play at all */
+  function showPhotograph() {
+    videoActive = false;
+    stageDirty = true;
+    document.body.classList.add("photo");
+    setSmokeOn(true);
   }
 
   /* ---- the video's side of the bargain ---- */
@@ -1105,13 +1102,11 @@
 
   vid.addEventListener("error", () => {
     // no video? fall back to the photograph and run the page as it was
-    videoActive = false;
-    stageDirty = true;
-    setSmokeOn(true);
+    showPhotograph();
     firstStageFrame();
   });
 
-  bgImg.addEventListener("load", () => {
+  stillEl.addEventListener("load", () => {
     stageDirty = true;
     if (!videoActive) firstStageFrame();
   });
@@ -1352,11 +1347,12 @@
     const dt = Math.min(Math.max((now - lastFrame) / 1000, 0), 0.1);
     lastFrame = now;
 
-    /* The stage repaints continuously only while the video is running; the
-       rest of the time it repaints once, when something has changed — a
-       resize, the video handing over to the photograph, or a cut opening. */
-    if (stageDirty || (videoActive && !vid.paused && !vid.ended)) {
-      paintStage();
+    /* The shards only exist while the cut is showing, and only need repainting
+       every frame if the video is running underneath them. At all other times
+       this is one repaint when something changed — a resize, the swap to the
+       photograph, or a cut opening. */
+    if (cutT >= 0 && (stageDirty || (videoActive && !vid.paused && !vid.ended))) {
+      paintShards();
       stageDirty = false;
     }
 
@@ -1409,11 +1405,7 @@
     /* The first song change after the video has played out is where the
        photograph takes the stage — and with it the cigar plume. Until then the
        video's frozen last frame is what the page shows. */
-    if (videoEnded && videoActive) {
-      videoActive = false;
-      stageDirty = true;
-      setSmokeOn(true);
-    }
+    if (videoEnded && videoActive) showPhotograph();
 
     audio.src = songURL(song);
     audio.load();
