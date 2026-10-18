@@ -59,8 +59,8 @@ window.App = window.App || {};
     ['sheet-area', 'sheet-canvas', 'piano-frame', 'ruler-layer', 'progress', 'song-title',
       'song-subtitle', 'song-meta', 'btn-num', 'btn-let', 'btn-compact', 'btn-keys-default',
       'btn-keys-full', 'btn-mic', 'btn-reset', 'btn-play', 'btn-stop', 'btn-panel',
-      'measure-menu', 'menu-here', 'menu-onward', 'diag', 'diag-source', 'diag-target',
-      'diag-heard', 'diag-notes', 'diag-chroma', 'btn-test', 'test-seek'
+      'measure-menu', 'menu-here', 'menu-onward', 'diag', 'diag-source', 'diag-sound',
+      'diag-target', 'diag-heard', 'diag-notes', 'diag-chroma', 'btn-test', 'test-seek'
     ].forEach(function (id) {
       dom[id] = document.getElementById(id);
     });
@@ -257,6 +257,7 @@ window.App = window.App || {};
     const context = Engine.ensure();
     const total = score.measures.length;
 
+    Sound.preloadAll(context);
     Sound.preload(context, Loader.targetMidis(layout.byNumber[from]));
 
     Playback.play({
@@ -452,6 +453,13 @@ window.App = window.App || {};
       : source === 'test' ? 'Listening to the test recording'
         : 'Not listening — press the microphone';
 
+    const sound = Sound.status();
+    dom['diag-sound'].textContent = sound.state === 'ready'
+      ? 'sound: ' + sound.loaded + ' piano recordings ready'
+      : sound.state === 'unavailable'
+        ? 'sound: the synthesised tone — the recordings need the local server'
+        : 'sound: ' + sound.loaded + ' of ' + sound.total + ' recordings loaded';
+
     const measure = layout.byNumber[state.activeMeasure];
     const wanted = Loader.targetMidis(measure).map(Pitch.letterName).join(' ');
     dom['diag-target'].textContent = 'Measure ' + measure.m + ' needs ' + wanted;
@@ -541,7 +549,11 @@ window.App = window.App || {};
   function playNote(midi) {
     if (!Pitch.isValidMidi(midi)) return;
     const context = Engine.ensure();
+    // The first press asks for every recording, so by the time the next key is touched
+    // it is a piano rather than the tone that stands in for one.
+    Sound.preloadAll(context);
     Sound.play(context, context.destination, midi, context.currentTime + 0.01, 1.1, 0.7);
+    if (state.panelOpen) updateDiagnostics({ chroma: new Float64Array(12), notes: [] }, null);
   }
 
   window.App.state = state;

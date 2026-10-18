@@ -123,7 +123,7 @@ const IDS = ['sheet-area', 'sheet-canvas', 'piano-frame', 'ruler-layer', 'progre
   'song-title', 'song-subtitle', 'song-meta', 'btn-num', 'btn-let', 'btn-compact',
   'btn-keys-default', 'btn-keys-full', 'btn-mic', 'btn-reset', 'btn-play', 'btn-stop',
   'btn-panel', 'measure-menu', 'menu-here', 'menu-onward', 'diag', 'diag-source',
-  'diag-target', 'diag-heard', 'diag-notes', 'diag-chroma', 'btn-test', 'test-seek'];
+  'diag-target', 'diag-heard', 'diag-notes', 'diag-chroma', 'btn-test', 'test-seek', 'diag-sound'];
 
 const byId = {};
 IDS.forEach((id) => { byId[id] = new Element('div'); });
@@ -134,6 +134,10 @@ const pausedIcon = new Element('svg');
 pausedIcon.className = 'icon-pause';
 byId['btn-play'].appendChild(playingIcon);
 byId['btn-play'].appendChild(pausedIcon);
+
+// index.html ships both closed; the stub starts as the page does.
+byId['diag'].hidden = true;
+byId['measure-menu'].hidden = true;
 
 const menuTitle = new Element('span');
 menuTitle.className = 'menu-title';
@@ -171,18 +175,31 @@ class FakeAudioContext {
     this.destination = { name: 'destination' };
     this.started = [];          // every start(when) the page asks for, in seconds
     this.resumed = 0;
+    this.oscillators = 0;       // notes sounded by the synthesised fallback
+    this.bufferSources = 0;     // notes sounded by a recording
+    this.gains = [];
     this.analyser = null;
   }
   resume() { this.resumed++; this.state = 'running'; }
   createAnalyser() { this.analyser = new FakeAnalyser(); return this.analyser; }
   createGain() {
+    const gain = {
+      value: 1,
+      cancelled: 0,
+      setValueAtTime(value) { this.value = value; },
+      linearRampToValueAtTime(value) { this.value = value; },
+      exponentialRampToValueAtTime(value) { this.value = value; },
+      cancelScheduledValues() { this.cancelled++; }
+    };
+    this.gains.push(gain);
     return {
-      gain: { value: 1, setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} },
+      gain: gain,
       connect() {}, disconnect() {}
     };
   }
   createOscillator() {
     const self = this;
+    this.oscillators++;
     return {
       type: '', frequency: { value: 0 }, connect() {},
       start(when) { self.started.push(when === undefined ? self.currentTime : when); },
@@ -191,6 +208,7 @@ class FakeAudioContext {
   }
   createBufferSource() {
     const self = this;
+    this.bufferSources++;
     return {
       buffer: null, connect() {},
       start(when) { self.started.push(when === undefined ? self.currentTime : when); },
@@ -220,6 +238,8 @@ class FakeAudioElement {
 
 let clock = 0;                       // milliseconds, advanced by hand
 let frameQueue = [];
+let serveSamples = false;            // is the local server answering?
+let fetchCount = 0;
 const audioContexts = [];
 
 const sandbox = {
@@ -232,7 +252,13 @@ const sandbox = {
   cancelAnimationFrame: () => { frameQueue = []; },
   setTimeout: (fn, ms) => setTimeout(fn, ms),
   clearTimeout: (id) => clearTimeout(id),
-  fetch: () => Promise.reject(new Error('no files here')),   // as if opened from disk
+  fetch: function (url) {
+    fetchCount++;
+    // Refused by default, as when the page is opened from disk; served when the test
+    // asks for them, as when it is opened from the local server.
+    if (!serveSamples) return Promise.reject(new Error('no server here'));
+    return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(new ArrayBuffer(64)) });
+  },
   navigator: {
     mediaDevices: {
       getUserMedia: () => Promise.resolve({ getTracks: () => [{ stop() {} }] })
@@ -408,6 +434,35 @@ async function main() {
   byId['btn-stop'].dispatch('click');
   report('stop leaves it', App.Playback.isPlaying() ? 'still playing' : 'stopped');
   report('menu closed again', menu.hidden ? 'yes' : 'no');
+
+  console.log('');
+  console.log('the sound behind a key press');
+  App.onKeyClick(60);
+  await settle(); await settle();
+  report('one press asks for the whole set', fetchCount + ' recordings requested');
+  report('with no server answering, sound is', App.PianoSound.status().state);
+
+  serveSamples = true;                        // now the server answers
+  sandbox.App.Config.samples.retryMs = 0;     // and the failure's cooling-off is over
+  const before = { tone: audio.oscillators, rec: audio.bufferSources };
+  App.onKeyClick(62);
+  await settle(); await settle();
+  const firstPress = { tone: audio.oscillators - before.tone, rec: audio.bufferSources - before.rec };
+  const refreshed = audio.gains.filter(function (g) { return g.cancelled > 0; }).length;
+
+  const beforeSecond = { tone: audio.oscillators, rec: audio.bufferSources };
+  App.onKeyClick(62);
+  await settle();
+  const secondPress = { tone: audio.oscillators - beforeSecond.tone, rec: audio.bufferSources - beforeSecond.rec };
+
+  report('first press of a new key', firstPress.tone + ' tone, ' + firstPress.rec + ' recording');
+  report('the tone fades out as it arrives', refreshed > 0 ? 'yes' : 'NO — they would play together');
+  report('second press of the same key', secondPress.tone + ' tone, ' + secondPress.rec + ' recording');
+  report('sound status now', App.PianoSound.status().loaded + ' loaded');
+  if (!App.state.panelOpen) byId['btn-panel'].dispatch('click');
+  App.onKeyClick(64);
+  await settle();
+  report('and the panel says', JSON.stringify(byId['diag-sound'].textContent));
 
   console.log('');
   console.log('learning mode — the microphone is on');

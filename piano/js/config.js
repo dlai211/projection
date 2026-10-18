@@ -240,7 +240,9 @@ window.App.Config = (function () {
     /** The sample set: one file per key, named with flats. */
     samples: {
       folder: 'piano-mp3/',
-      fileNames: ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B']
+      fileNames: ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'],
+      /** How long a failed fetch silences the recordings before they are tried again. */
+      retryMs: 5000
     }
   };
 })();
