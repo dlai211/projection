@@ -29,7 +29,7 @@ Files used:
 | Path | Role |
 |---|---|
 | `music.html` | The whole page — scene, styling and logic inline |
-| `model/hunter_2.glb` | 3D model (59 MB — first paint takes a moment) |
+| `model/music-model.glb` | 3D model (42 MB — first paint takes a moment) |
 | `model/signature.png` | Signature overlay, inherited from `index.html` |
 | `music/*.mp3` | The 7 SIX60 tracks, listed in `songs[]` inside `music.html` |
 
@@ -120,9 +120,9 @@ that has survived every rewrite.)*
 `model-viewer`, not hand-written Three.js, and `model-viewer` frames the model
 itself. Its knob is the **camera orbit radius** — the third value of
 `camera-orbit`. `index.html` leaves it on `auto`, which fits each model to its
-own bounding box; `hunter_2` is a head-and-shoulders scan that *fills* its box
-while `hunter.glb` is a figure inside its box, so at `auto` the same framing put
-hunter_2's head ~35% too wide next to index.html. Fix, both places:
+own bounding box; this head-and-shoulders scan *fills* its box while
+`index-model.glb` is a figure inside its box, so at `auto` the same framing put
+its head ~35% too wide next to index.html. Fix, both places:
 
 - `CAMERA_RADIUS = "7.1m"` (`music.html`, near the bottom of the script) —
   measured against `index.html` renders: head width now lands within a few px.
@@ -130,7 +130,7 @@ hunter_2's head ~35% too wide next to index.html. Fix, both places:
 - `updateRotation()` must interpolate the same radius, or the first mousemove
   resets the camera to `auto` and the sizing is lost.
 - `#my-model { transform: translate(-50%, -43%) }` (index.html uses `-33%`) —
-  hunter_2's subject sits lower in its bounding box, so it needs a bigger lift
+  the model's subject sits lower in its bounding box, so it needs a bigger lift
   to land in the same place: head near the top, jacket filling the lower third.
   This is also what lets the white UI sit on the black jacket.
 
@@ -319,10 +319,9 @@ nav links actually navigating.
   it in `music/` and add a `pic` field to `songs[]`.
 - Track order is filename order; no persistence (reload restarts at track 1,
   paused).
-- The 59 MB `hunter_2.glb` is the slowest thing on the page: **~1M vertices**
-  (972,084) plus 3 textures. It is the reason the model takes a while to appear.
-  `gltf-transform` + Draco/Meshopt would cut it dramatically if load time
-  matters.
+- The 42 MB `music-model.glb` is the slowest thing on the page — it is the
+  reason the model takes a while to appear. `gltf-transform` + Draco/Meshopt
+  would cut it dramatically if load time matters.
 - **Visualizer clearance (measured, 1024×576):** the canvas spans y 500–556 and
   the progress track sits at ~545, so with `MAX_BAR = 1.0` a bass peak that
   reaches the ceiling will cross the progress bar by ~11px. Two levers if it
