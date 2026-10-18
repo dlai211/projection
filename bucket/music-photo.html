@@ -176,7 +176,7 @@
 
     /* ============================================================
        SONG WHEEL  (left edge, vertically centred)
-       Arc math from music.html / ../music/wheel.js — radius 100,
+       Arc math from music-3d.html / ../music/wheel.js — radius 100,
        30px item pitch, the active slot sitting at 3 o'clock.
        ============================================================ */
 
@@ -253,7 +253,7 @@
       text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
     }
 
-    /* bouncy letters (from music.html, itself from ../music/script.js) */
+    /* bouncy letters (from music-3d.html, itself from ../music/script.js) */
     .bouncy-text span {
       display: inline-block;
       animation: bounce 3s ease-in-out infinite;
@@ -317,7 +317,7 @@
       background: var(--white);
     }
 
-    /* play: a hollow white ring — same mask trick as music.html, white paint */
+    /* play: a hollow white ring — same mask trick as music-3d.html, white paint */
     .play-btn {
       width: 58px;
       height: 58px;
@@ -538,14 +538,14 @@
         <path d="M9.8 20v-5.2h4.4V20"/>
       </svg>
     </a>
-    <a href="music.html" aria-label="Music" title="Music">
+    <a href="music-3d.html" aria-label="Music" title="Music">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M4.2 15v-2a7.8 7.8 0 0 1 15.6 0v2"/>
         <rect x="2.6" y="13.4" width="4.4" height="7" rx="2.2"/>
         <rect x="17" y="13.4" width="4.4" height="7" rx="2.2"/>
       </svg>
     </a>
-    <a class="current" href="music2.html" aria-label="Photo music" title="Photo music">
+    <a class="current" href="music-photo.html" aria-label="Photo music" title="Photo music">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M2.2 16.2c1.6 2.1 5.3 3.3 9.8 3.3s8.2-1.2 9.8-3.3c-1.6-1.2-5.3-1.9-9.8-1.9s-8.2.7-9.8 1.9z"/>
         <path d="M8 16c-.4-4.4.5-7.6 1.7-9 1.6 1.2 3.4 1.2 5 0 1.2 1.4 2.1 4.6 1.7 9"/>
@@ -656,7 +656,7 @@
 
   <script>
   /* ================================================================
-     SONGS — the files in bucket/music2/
+     SONGS — the files in bucket/music-photo/
      Track 1 is the default: it loads into the player and into the
      wheel's active slot the moment the page opens.
      ================================================================ */
@@ -666,7 +666,7 @@
     { name: "Vegas",              artist: "Doja Cat", file: "Doja Cat - Vegas.mp3" }
   ];
 
-  const songURL = song => "music2/" + encodeURIComponent(song.file);
+  const songURL = song => "music-photo/" + encodeURIComponent(song.file);
 
   const audio      = document.getElementById("audio");
   const playBtn    = document.getElementById("playBtn");
@@ -684,7 +684,7 @@
   let loopMode     = "all";     // all → one → off
 
   /* ================================================================
-     BOUNCY TEXT (from music.html)
+     BOUNCY TEXT (from music-3d.html)
      ================================================================ */
   function animateLetters(el, text) {
     el.innerHTML = [...text].map((char, i) => {
@@ -694,7 +694,7 @@
   }
 
   /* ================================================================
-     WHEEL (arc math from music.html)
+     WHEEL (arc math from music-3d.html)
      radius 100, 30px pitch; the "active" slot sits at angle PI/2,
      which is the horizontally-aligned position on the arc.
      ================================================================ */
@@ -831,10 +831,10 @@
   wheel.addEventListener("touchend", () => snapWheel());
 
   /* ================================================================
-     AUDIO GRAPH (from music.html)
+     AUDIO GRAPH (from music-3d.html)
      Built on the first play click so the context is never left suspended.
      8192 is plenty for both jobs below and a good deal lighter than the
-     32768 music.html ran.
+     32768 music-3d.html ran.
      ================================================================ */
   const FFT_SIZE  = 8192;    // the visualizer's spectrum
   const BASS_FFT  = 4096;    // the flash's — smaller, and deliberately unsmoothed
@@ -876,7 +876,7 @@
   }
 
   /* ================================================================
-     MIRRORED VISUALIZER (from music.html)
+     MIRRORED VISUALIZER (from music-3d.html)
      One mirrored bar per bin, drawn as a line through the centre
      baseline so it grows up and down at once.
      ================================================================ */
@@ -1624,7 +1624,7 @@
   });
 
   /* ================================================================
-     PROGRESS BAR (from music.html)
+     PROGRESS BAR (from music-3d.html)
      ================================================================ */
   const progressFill  = document.querySelector(".progress-fill");
   const progressBar   = document.querySelector(".progress-bar");

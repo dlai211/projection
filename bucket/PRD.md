@@ -1,4 +1,4 @@
-# PRD — bucket / `music.html`
+# PRD — bucket / `music-3d.html`
 
 A single-page music player built over the **Mr. Sad Sick** 3D scene. The page
 reuses the 3D stage from `index.html` and lifts *only* the song wheel, progress
@@ -18,8 +18,8 @@ Static page, no build step. It **must be served over http** — `model-viewer`
 fetches the `.glb` with `fetch()`, which browsers block on `file://`, and
 `mediaElementSource` needs a real origin:
 
-- VS Code: right-click `music.html` → **Open with Live Server**
-- or `python -m http.server` from this folder, then open `/music.html`
+- VS Code: right-click `music-3d.html` → **Open with Live Server**
+- or `python -m http.server` from this folder, then open `/music-3d.html`
 
 Needs internet for two things: the `model-viewer` script (same CDN as
 `index.html`) and the `Patrick Hand` font.
@@ -28,10 +28,10 @@ Files used:
 
 | Path | Role |
 |---|---|
-| `music.html` | The whole page — scene, styling and logic inline |
+| `music-3d.html` | The whole page — scene, styling and logic inline |
 | `model/music-model.glb` | 3D model (42 MB — first paint takes a moment) |
 | `model/signature.png` | Signature overlay, inherited from `index.html` |
-| `music/*.mp3` | The 7 SIX60 tracks, listed in `songs[]` inside `music.html` |
+| `music/*.mp3` | The 7 SIX60 tracks, listed in `songs[]` inside `music-3d.html` |
 
 ### Repo / publishing note
 
@@ -124,7 +124,7 @@ own bounding box; this head-and-shoulders scan *fills* its box while
 `index-model.glb` is a figure inside its box, so at `auto` the same framing put
 its head ~35% too wide next to index.html. Fix, both places:
 
-- `CAMERA_RADIUS = "7.1m"` (`music.html`, near the bottom of the script) —
+- `CAMERA_RADIUS = "7.1m"` (`music-3d.html`, near the bottom of the script) —
   measured against `index.html` renders: head width now lands within a few px.
   **Bigger number = camera further back = smaller model.**
 - `updateRotation()` must interpolate the same radius, or the first mousemove
@@ -151,7 +151,7 @@ constants block listed in §6.
 **Nav.** Home + music icons in the top centre of *both* pages, under the frame's
 top line: 32px circles, a 1px border and the glyph only — no fill. The current
 page's icon is at full opacity. Each page uses its own ink colour (cool
-`#3f4a45` on music.html, warm `#4a4539` on index.html).
+`#3f4a45` on music-3d.html, warm `#4a4539` on index.html).
 
 ## 6. Phase 3 — layout, density, wheel sync, live background
 
@@ -249,7 +249,7 @@ Verified by probe: `audio.volume=0.70 | slider=0.7`.
 
 ## 9. Visualizer tuning reference
 
-Everything lives in one block in `music.html`:
+Everything lives in one block in `music-3d.html`:
 
 | Line | Constant | Now | What it does |
 |---|---|---|---|
