@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Visualizer Test</title>
+
+  <style>
+    /* Black page, white bars, nothing else. */
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(28px, 6vh, 64px);
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    #visualizer {
+      display: block;
+      width: min(1200px, 92vw);
+      height: clamp(160px, 34vh, 340px);
+    }
+
+    /* the transport: one hollow white ring that toggles play / pause */
+    .play-btn {
+      position: relative;
+      width: 64px;
+      height: 64px;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: none;
+      color: #fff;
+      cursor: pointer;
+      transition: transform 0.15s ease;
+    }
+
+    .play-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      padding: 3px;                    /* ring thickness */
+      background: #fff;
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      mask-composite: exclude;
+    }
+
+    .play-btn:hover  { transform: scale(1.06); }
+    .play-btn:active { transform: scale(0.97); }
+
+    .play-btn svg {
+      width: 28px;
+      height: 28px;
+      fill: currentColor;
+      stroke: none;
+    }
+
+    .play-btn svg.pause-icon { display: none; }
+    .play-btn.playing svg.play-icon  { display: none; }
+    .play-btn.playing svg.pause-icon { display: block; }
+
+    audio { display: none; }
+  </style>
+</head>
+<body>
+
+  <canvas id="visualizer"></canvas>
+
+  <button class="play-btn" id="playBtn" aria-label="Play" title="Play / Pause">
+    <svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <polygon points="6 3 20 12 6 21 6 3"/>
+    </svg>
+    <svg class="pause-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="6" y="4" width="4" height="16" rx="1"/>
+      <rect x="14" y="4" width="4" height="16" rx="1"/>
+    </svg>
+  </button>
+
+  <audio id="audio" loop preload="auto"></audio>
+
+  <script>
+  /* ================================================================
+     Track
+     ================================================================ */
+  const audio = document.getElementById("audio");
+  audio.src = "music/" + encodeURIComponent("SIX60 - Don't Forget Your Roots.mp3");
+
+  const playBtn = document.getElementById("playBtn");
+
+  /* ================================================================
+     AUDIO GRAPH
+     Two analysers, exactly as on music-photo.html: one smoothed for the
+     bars, one raw for the punch. Built on the first click so the context
+     is never left suspended.
+     ================================================================ */
+  const FFT_SIZE = 8192;      // the visualizer's spectrum
+  const BASS_FFT = 4096;      // the punch's — smaller, and unsmoothed
+
+  let audioCtx = null, analyser = null, dataArray = null;
+  let bassAnalyser = null, bassData = null;
+  let bassLo = 3, bassHi = 20;
+
+  function initAudioGraph() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioCtx.createMediaElementSource(audio);
+
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = FFT_SIZE;
+    analyser.smoothingTimeConstant = 0.8;
+    source.connect(analyser);
+    analyser.connect(audioCtx.destination);
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+    buildBinMap(dataArray.length);
+
+    // smoothing is what eats a kick drum, so the punch listens raw
+    bassAnalyser = audioCtx.createAnalyser();
+    bassAnalyser.fftSize = BASS_FFT;
+    bassAnalyser.smoothingTimeConstant = 0;
+    source.connect(bassAnalyser);
+    bassData = new Uint8Array(bassAnalyser.frequencyBinCount);
+
+    const hzPerBin = audioCtx.sampleRate / BASS_FFT;
+    bassLo = Math.max(1, Math.round(28 / hzPerBin));
+    bassHi = Math.max(bassLo + 2, Math.round(120 / hzPerBin));
+  }
+
+  /* ================================================================
+     MIRRORED VISUALIZER
+     Lifted from music-photo.html with the same tuning, so what you see
+     here is what that page draws.
+     ================================================================ */
+  const canvas = document.getElementById("visualizer");
+  const ctx = canvas.getContext("2d");
+
+  const BARS     = 448;
+  const LINE_W   = 3;
+  const BAR_FILL = 0.82;
+  const BAR_GAIN = 0.16;
+  const MAX_BAR  = 1.05;
+  const CUTOFF   = 0.12;
+  const GLOW     = 6;          // white here, not dark: the page is black
+
+  let punch = 0;
+  const PUNCH_DROP = 7;
+  const PUNCH_STRETCH = 0.18;
+
+  let step = 0, lineW = LINE_W, cssW = 0, cssH = 0;
+
+  let binMap = null;
+  function buildBinMap(binCount) {
+    binMap = new Uint16Array(BARS);
+    for (let i = 0; i < BARS; i++) {
+      binMap[i] = Math.min(binCount - 1, Math.round(Math.pow(binCount / 2, i / (BARS - 1))));
+    }
+  }
+
+  function resizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    cssW = canvas.clientWidth;
+    cssH = canvas.clientHeight;
+    if (!cssW || !cssH) return;
+    canvas.width  = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    step = cssW / BARS;
+    lineW = Math.min(LINE_W, step * BAR_FILL);
+  }
+
+  function drawVisualizer() {
+    if (!cssW) resizeCanvas();
+    ctx.clearRect(0, 0, cssW, cssH);
+    if (!analyser) return;
+
+    const mid = cssH / 2 + punch * PUNCH_DROP;
+
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(0, mid);
+    ctx.lineTo(cssW, mid);
+    ctx.stroke();
+
+    const loudest = Math.max(...dataArray);
+    if (loudest <= 0) return;
+
+    const cutoff = CUTOFF * loudest;
+    const maxH = mid * MAX_BAR;
+
+    ctx.lineWidth = lineW;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#ffffff";
+    ctx.shadowColor = "rgba(255, 255, 255, 0.35)";
+    ctx.shadowBlur = GLOW;
+
+    for (let i = 0; i < BARS; i++) {
+      const value = dataArray[binMap[i]];
+      if (value <= cutoff) continue;
+
+      let h = (value - cutoff) * BAR_GAIN * (1 + punch * PUNCH_STRETCH);
+      if (h > maxH) h = maxH;
+
+      const x = i * step + step / 2;
+      ctx.beginPath();
+      ctx.moveTo(x, mid - h);
+      ctx.lineTo(x, mid + h);
+      ctx.stroke();
+    }
+
+    ctx.shadowBlur = 0;
+  }
+
+  /* ================================================================
+     THE PUNCH
+     Same trigger as the real page's flash, but here it only drives the
+     strip: on a bass hit the baseline drops and the bars stretch.
+     ================================================================ */
+  const BASS_RISE  = 1.2;
+  const BASS_FLOOR = 14;
+  const BASS_ATTACK  = 0.02;
+  const BASS_RELEASE = 0.006;
+  const COOLDOWN = 190;
+
+  let bassAvg = 0, lastHitAt = -1e9;
+
+  function stepBass(now) {
+    let sum = 0;
+    for (let i = bassLo; i <= bassHi; i++) sum += bassData[i];
+    const energy = sum / (bassHi - bassLo + 1);
+
+    bassAvg += (energy - bassAvg) * (energy > bassAvg ? BASS_ATTACK : BASS_RELEASE);
+
+    const ratio = bassAvg > 0 ? energy / bassAvg : 0;
+    if (bassAvg > BASS_FLOOR && ratio > BASS_RISE && now - lastHitAt > COOLDOWN) {
+      lastHitAt = now;
+      const over = Math.min((ratio - BASS_RISE) / 2.2, 1);
+      punch = Math.max(punch, 0.55 + 0.45 * over);
+    }
+  }
+
+  /* ================================================================
+     ONE LOOP
+     ================================================================ */
+  let lastFrame = performance.now();
+
+  function frame(now) {
+    requestAnimationFrame(frame);
+
+    const dt = Math.min(Math.max((now - lastFrame) / 1000, 0), 0.1);
+    lastFrame = now;
+
+    if (analyser) {
+      analyser.getByteFrequencyData(dataArray);
+      bassAnalyser.getByteFrequencyData(bassData);
+      stepBass(now);
+    }
+
+    punch *= Math.exp(-dt / 0.085);
+    drawVisualizer();
+  }
+
+  window.addEventListener("resize", resizeCanvas);
+  resizeCanvas();
+  requestAnimationFrame(frame);
+
+  /* ================================================================
+     PLAY / PAUSE
+     ================================================================ */
+  function setPlaying(playing) {
+    playBtn.classList.toggle("playing", playing);
+    playBtn.setAttribute("aria-label", playing ? "Pause" : "Play");
+  }
+
+  playBtn.addEventListener("click", async () => {
+    if (!audio.paused) {
+      audio.pause();
+      setPlaying(false);
+      return;
+    }
+
+    initAudioGraph();
+    if (audioCtx.state === "suspended") await audioCtx.resume();
+    try {
+      await audio.play();
+      setPlaying(true);
+    } catch (err) {
+      console.warn("Playback was blocked:", err);
+      setPlaying(false);
+    }
+  });
+  </script>
+
+</body>
+</html>
