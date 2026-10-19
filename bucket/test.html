@@ -26,7 +26,7 @@
 
     #visualizer {
       display: block;
-      width: min(1200px, 92vw);
+      width: min(2000px, 100vw);
       height: clamp(160px, 34vh, 340px);
     }
 
@@ -101,12 +101,9 @@
 
   /* ================================================================
      AUDIO GRAPH
-     Two analysers, exactly as on music-photo.html: one smoothed for the
-     bars, one raw for the punch. Built on the first click so the context
-     is never left suspended.
      ================================================================ */
-  const FFT_SIZE = 8192;      // the visualizer's spectrum
-  const BASS_FFT = 4096;      // the punch's — smaller, and unsmoothed
+  const FFT_SIZE = 4096*8;      // standard FFT size for balanced responsive frequency bands
+  const BASS_FFT = 1024;
 
   let audioCtx = null, analyser = null, dataArray = null;
   let bassAnalyser = null, bassData = null;
@@ -123,9 +120,8 @@
     source.connect(analyser);
     analyser.connect(audioCtx.destination);
     dataArray = new Uint8Array(analyser.frequencyBinCount);
-    buildBinMap(dataArray.length);
+    buildFrequencyBands(analyser.frequencyBinCount, audioCtx.sampleRate);
 
-    // smoothing is what eats a kick drum, so the punch listens raw
     bassAnalyser = audioCtx.createAnalyser();
     bassAnalyser.fftSize = BASS_FFT;
     bassAnalyser.smoothingTimeConstant = 0;
@@ -139,19 +135,13 @@
 
   /* ================================================================
      MIRRORED VISUALIZER
-     Lifted from music-photo.html with the same tuning, so what you see
-     here is what that page draws.
      ================================================================ */
-  const canvas = document.getElementById("visualizer");
-  const ctx = canvas.getContext("2d");
-
-  const BARS     = 448;
-  const LINE_W   = 3;
-  const BAR_FILL = 0.82;
-  const BAR_GAIN = 0.16;
-  const MAX_BAR  = 1.05;
-  const CUTOFF   = 0.12;
-  const GLOW     = 6;          // white here, not dark: the page is black
+  const BARS     = 550;
+  const LINE_W   = 2;
+  const BAR_FILL = 0.5;
+  const MAX_BAR  = 0.65;
+  const NOISE_FLOOR = 40;       // absolute threshold to cut low-level noise without eating highs
+  const GLOW     = 6;
 
   let punch = 0;
   const PUNCH_DROP = 7;
@@ -159,13 +149,37 @@
 
   let step = 0, lineW = LINE_W, cssW = 0, cssH = 0;
 
-  let binMap = null;
-  function buildBinMap(binCount) {
-    binMap = new Uint16Array(BARS);
-    for (let i = 0; i < BARS; i++) {
-      binMap[i] = Math.min(binCount - 1, Math.round(Math.pow(binCount / 2, i / (BARS - 1))));
-    }
+  // Stores [startBin, endBin] pairs across the audible range (20 Hz - 16 kHz)
+  let barBands = null;
+
+function buildFrequencyBands(binCount, sampleRate) {
+  barBands = [];
+  const minFreq = 30;     // Skip sub-audible rumble (<30Hz)
+  const maxFreq = 14000;  // Cap high end where typical audio rolls off
+  const hzPerBin = (sampleRate / 2) / binCount;
+  
+  // Exponent: 2.0 to 2.8 gives a very clean, distinct spread
+  const EXPONENT = 2.3;
+
+  for (let i = 0; i < BARS; i++) {
+    const tStart = Math.pow(i / BARS, EXPONENT);
+    const tEnd   = Math.pow((i + 1) / BARS, EXPONENT);
+
+    const fStart = minFreq + (maxFreq - minFreq) * tStart;
+    const fEnd   = minFreq + (maxFreq - minFreq) * tEnd;
+
+    let bStart = Math.floor(fStart / hzPerBin);
+    let bEnd   = Math.ceil(fEnd / hzPerBin);
+
+    bStart = Math.min(bStart, binCount - 1);
+    bEnd   = Math.min(Math.max(bEnd, bStart + 1), binCount);
+
+    barBands.push([bStart, bEnd]);
   }
+}
+
+  const canvas = document.getElementById("visualizer");
+  const ctx = canvas.getContext("2d");
 
   function resizeCanvas() {
     const dpr = window.devicePixelRatio || 1;
@@ -182,7 +196,7 @@
   function drawVisualizer() {
     if (!cssW) resizeCanvas();
     ctx.clearRect(0, 0, cssW, cssH);
-    if (!analyser) return;
+    if (!analyser || !barBands) return;
 
     const mid = cssH / 2 + punch * PUNCH_DROP;
 
@@ -194,11 +208,7 @@
     ctx.lineTo(cssW, mid);
     ctx.stroke();
 
-    const loudest = Math.max(...dataArray);
-    if (loudest <= 0) return;
-
-    const cutoff = CUTOFF * loudest;
-    const maxH = mid * MAX_BAR;
+    const maxH = (cssH / 2) * MAX_BAR;
 
     ctx.lineWidth = lineW;
     ctx.lineCap = "round";
@@ -207,10 +217,22 @@
     ctx.shadowBlur = GLOW;
 
     for (let i = 0; i < BARS; i++) {
-      const value = dataArray[binMap[i]];
-      if (value <= cutoff) continue;
+      const [bStart, bEnd] = barBands[i];
 
-      let h = (value - cutoff) * BAR_GAIN * (1 + punch * PUNCH_STRETCH);
+      // Average the frequency bin energy in this band
+      let sum = 0;
+      for (let b = bStart; b < bEnd; b++) {
+        sum += dataArray[b];
+      }
+      const rawVal = sum / (bEnd - bStart);
+
+      if (rawVal <= NOISE_FLOOR) continue;
+
+      // Compensate natural high-frequency roll-off (equal loudness tilt)
+      const tilt = 1.0 + (i / BARS) * 1.8;
+      const normalized = (rawVal - NOISE_FLOOR) / (255 - NOISE_FLOOR);
+
+      let h = normalized * maxH * tilt * 0.7 * (1 + punch * PUNCH_STRETCH);
       if (h > maxH) h = maxH;
 
       const x = i * step + step / 2;
@@ -225,8 +247,6 @@
 
   /* ================================================================
      THE PUNCH
-     Same trigger as the real page's flash, but here it only drives the
-     strip: on a bass hit the baseline drops and the bars stretch.
      ================================================================ */
   const BASS_RISE  = 1.2;
   const BASS_FLOOR = 14;
